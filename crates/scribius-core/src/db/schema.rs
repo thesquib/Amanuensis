@@ -88,6 +88,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             character_id INTEGER NOT NULL,
             file_path TEXT NOT NULL UNIQUE,
+            content_hash TEXT NOT NULL DEFAULT '',
             date_read TEXT NOT NULL,
             FOREIGN KEY (character_id) REFERENCES characters(id)
         );

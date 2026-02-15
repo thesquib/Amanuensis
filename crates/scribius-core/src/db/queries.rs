@@ -327,7 +327,7 @@ impl Database {
 
     // === Log files ===
 
-    /// Check if a log file has already been scanned.
+    /// Check if a log file has already been scanned (by path or content hash).
     pub fn is_log_scanned(&self, file_path: &str) -> Result<bool> {
         let count: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM log_files WHERE file_path = ?1",
@@ -337,12 +337,28 @@ impl Database {
         Ok(count > 0)
     }
 
-    /// Mark a log file as scanned.
-    pub fn mark_log_scanned(&self, char_id: i64, file_path: &str, date_read: &str) -> Result<()> {
+    /// Check if a content hash has already been scanned (catches duplicate files at different paths).
+    pub fn is_hash_scanned(&self, content_hash: &str) -> Result<bool> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM log_files WHERE content_hash = ?1",
+            params![content_hash],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    /// Mark a log file as scanned with its content hash.
+    pub fn mark_log_scanned(
+        &self,
+        char_id: i64,
+        file_path: &str,
+        content_hash: &str,
+        date_read: &str,
+    ) -> Result<()> {
         self.conn.execute(
-            "INSERT OR IGNORE INTO log_files (character_id, file_path, date_read)
-             VALUES (?1, ?2, ?3)",
-            params![char_id, file_path, date_read],
+            "INSERT OR IGNORE INTO log_files (character_id, file_path, content_hash, date_read)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![char_id, file_path, content_hash, date_read],
         )?;
         Ok(())
     }
@@ -468,10 +484,24 @@ mod tests {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Ruuk").unwrap();
         assert!(!db.is_log_scanned("/logs/test.txt").unwrap());
-        db.mark_log_scanned(id, "/logs/test.txt", "2024-01-01")
+        db.mark_log_scanned(id, "/logs/test.txt", "abc123hash", "2024-01-01")
             .unwrap();
         assert!(db.is_log_scanned("/logs/test.txt").unwrap());
         assert_eq!(db.scanned_log_count().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_hash_dedup() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Ruuk").unwrap();
+        let hash = "deadbeef12345678";
+        assert!(!db.is_hash_scanned(hash).unwrap());
+        db.mark_log_scanned(id, "/logs/a.txt", hash, "2024-01-01")
+            .unwrap();
+        assert!(db.is_hash_scanned(hash).unwrap());
+        // Same hash at different path should be detected as duplicate
+        assert!(!db.is_log_scanned("/logs/b.txt").unwrap());
+        assert!(db.is_hash_scanned(hash).unwrap());
     }
 
     #[test]
