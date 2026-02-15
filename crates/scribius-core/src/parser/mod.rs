@@ -3,6 +3,8 @@ pub mod line_classifier;
 pub mod patterns;
 pub mod timestamp;
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
@@ -76,19 +78,39 @@ impl LogParser {
             for log_path in &log_files {
                 let path_str = log_path.to_string_lossy().to_string();
 
+                // Skip by path (fast check for exact same file)
                 if !force && self.db.is_log_scanned(&path_str)? {
                     result.skipped += 1;
                     continue;
                 }
 
-                match self.scan_file(log_path, char_id) {
+                // Read file bytes for hashing and parsing
+                let bytes = match std::fs::read(log_path) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        log::warn!("Error reading {}: {}", path_str, e);
+                        result.errors += 1;
+                        continue;
+                    }
+                };
+
+                // Content hash dedup: skip if identical file was already scanned at another path
+                let content_hash = hash_bytes(&bytes);
+                if !force && self.db.is_hash_scanned(&content_hash)? {
+                    log::debug!("Skipping duplicate content: {}", path_str);
+                    result.skipped += 1;
+                    continue;
+                }
+
+                match self.scan_bytes(&bytes, char_id) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
                         result.events_found += file_result.events_found;
 
                         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-                        self.db.mark_log_scanned(char_id, &path_str, &now)?;
+                        self.db
+                            .mark_log_scanned(char_id, &path_str, &content_hash, &now)?;
                     }
                     Err(e) => {
                         log::warn!("Error scanning {}: {}", path_str, e);
@@ -102,10 +124,9 @@ impl LogParser {
         Ok(result)
     }
 
-    /// Scan a single log file and process events into the database.
-    fn scan_file(&self, path: &Path, char_id: i64) -> Result<FileResult> {
-        let bytes = std::fs::read(path)?;
-        let content = decode_log_bytes(&bytes);
+    /// Scan log file bytes and process events into the database.
+    fn scan_bytes(&self, bytes: &[u8], char_id: i64) -> Result<FileResult> {
+        let content = decode_log_bytes(bytes);
 
         let mut file_result = FileResult::default();
 
@@ -246,6 +267,13 @@ impl LogParser {
 
         Ok(file_result)
     }
+}
+
+/// Compute a hex-encoded hash of file bytes for content-based dedup.
+fn hash_bytes(bytes: &[u8]) -> String {
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
 }
 
 fn kill_verb_to_field(verb: &KillVerb, assisted: bool) -> &'static str {
