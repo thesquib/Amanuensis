@@ -30,7 +30,8 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             shieldstones_broken INTEGER NOT NULL DEFAULT 0,
             ethereal_portals INTEGER NOT NULL DEFAULT 0,
             darkstone INTEGER NOT NULL DEFAULT 0,
-            purgatory_pendant INTEGER NOT NULL DEFAULT 0
+            purgatory_pendant INTEGER NOT NULL DEFAULT 0,
+            coin_level INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS kills (

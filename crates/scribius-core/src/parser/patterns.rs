@@ -83,6 +83,20 @@ pub static DISCONNECT: Lazy<Regex> =
 pub static EXPERIENCE_GAIN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\* You (grow more mindful|gain experience|gain morale)").unwrap());
 
+// === Lasty patterns (¥-prefixed) ===
+// "You learn to befriend the {creature}." → Befriend lasty + pet
+pub static LASTY_BEFRIEND: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You learn to befriend the (.+)\.$").unwrap());
+// "You learn to assume the form of the {creature}." → Morph lasty
+pub static LASTY_MORPH: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You learn to assume the form of the (.+)\.$").unwrap());
+// "You learn to fight the {creature} more effectively." → Movements lasty
+pub static LASTY_MOVEMENTS: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You learn to fight the (.+) more effectively\.$").unwrap());
+// "You have completed your training with {trainer}." → Lasty completed
+pub static LASTY_COMPLETED: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You have completed your training with (.+)\.$").unwrap());
+
 // === ¥-prefixed lines to skip (not trainer ranks) ===
 pub static YEN_HEALING_SENSE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You sense healing energy from .+\.$").unwrap());
@@ -202,5 +216,29 @@ mod tests {
     fn test_study_charge() {
         let caps = STUDY_CHARGE.captures(" You have been charged 100 coins for advanced studies.").unwrap();
         assert_eq!(&caps[1], "100");
+    }
+
+    #[test]
+    fn test_lasty_befriend() {
+        let caps = LASTY_BEFRIEND.captures("You learn to befriend the Maha Ruknee.").unwrap();
+        assert_eq!(&caps[1], "Maha Ruknee");
+    }
+
+    #[test]
+    fn test_lasty_morph() {
+        let caps = LASTY_MORPH.captures("You learn to assume the form of the Orga Anger.").unwrap();
+        assert_eq!(&caps[1], "Orga Anger");
+    }
+
+    #[test]
+    fn test_lasty_movements() {
+        let caps = LASTY_MOVEMENTS.captures("You learn to fight the Large Vermine more effectively.").unwrap();
+        assert_eq!(&caps[1], "Large Vermine");
+    }
+
+    #[test]
+    fn test_lasty_completed() {
+        let caps = LASTY_COMPLETED.captures("You have completed your training with Sespus.").unwrap();
+        assert_eq!(&caps[1], "Sespus");
     }
 }

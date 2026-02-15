@@ -76,6 +76,10 @@ pub enum LogEvent {
     Disconnect,
     /// Study charge: coins for advanced studies
     StudyCharge { amount: i64 },
+    /// Lasty progress: learning to befriend/morph/fight a creature
+    LastyProgress { creature: String, lasty_type: String },
+    /// Lasty completed: finished training with a trainer
+    LastyCompleted { trainer: String },
     /// Line was not classified (speech, emote, or unrecognized)
     Ignored,
 }

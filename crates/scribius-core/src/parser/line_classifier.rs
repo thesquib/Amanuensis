@@ -183,6 +183,31 @@ fn classify_yen_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
+    // Lasty patterns (before trainer lookup, since these are also ¥-prefixed)
+    if let Some(caps) = patterns::LASTY_BEFRIEND.captures(body) {
+        return LogEvent::LastyProgress {
+            creature: caps[1].to_string(),
+            lasty_type: "Befriend".to_string(),
+        };
+    }
+    if let Some(caps) = patterns::LASTY_MORPH.captures(body) {
+        return LogEvent::LastyProgress {
+            creature: caps[1].to_string(),
+            lasty_type: "Morph".to_string(),
+        };
+    }
+    if let Some(caps) = patterns::LASTY_MOVEMENTS.captures(body) {
+        return LogEvent::LastyProgress {
+            creature: caps[1].to_string(),
+            lasty_type: "Movements".to_string(),
+        };
+    }
+    if let Some(caps) = patterns::LASTY_COMPLETED.captures(body) {
+        return LogEvent::LastyCompleted {
+            trainer: caps[1].to_string(),
+        };
+    }
+
     // Skip known non-trainer ¥ messages
     if patterns::YEN_HEALING_SENSE.is_match(body)
         || patterns::YEN_SUN_EVENT.is_match(body)
@@ -490,6 +515,55 @@ mod tests {
         assert!(matches!(
             classify_line("Your Shieldstone goes inert.", &db),
             LogEvent::ShieldstoneBroken
+        ));
+    }
+
+    #[test]
+    fn test_lasty_befriend() {
+        let db = test_db();
+        let event = classify_line("¥You learn to befriend the Maha Ruknee.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyProgress {
+                ref creature,
+                ref lasty_type
+            } if creature == "Maha Ruknee" && lasty_type == "Befriend"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_morph() {
+        let db = test_db();
+        let event = classify_line("¥You learn to assume the form of the Orga Anger.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyProgress {
+                ref creature,
+                ref lasty_type
+            } if creature == "Orga Anger" && lasty_type == "Morph"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_movements() {
+        let db = test_db();
+        let event = classify_line("¥You learn to fight the Large Vermine more effectively.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyProgress {
+                ref creature,
+                ref lasty_type
+            } if creature == "Large Vermine" && lasty_type == "Movements"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_completed() {
+        let db = test_db();
+        let event = classify_line("¥You have completed your training with Sespus.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyCompleted { ref trainer } if trainer == "Sespus"
         ));
     }
 }
