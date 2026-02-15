@@ -1,0 +1,5 @@
+/target/
+*.db
+.DS_Store
+Scribius.app/
+Bestiary_2026_Feb_Dump.xlsx
