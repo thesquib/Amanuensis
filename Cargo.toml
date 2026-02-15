@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/scribius-core", "crates/scribius-cli"]
+resolver = "2"
