@@ -6,6 +6,8 @@ pub enum Profession {
     Healer,
     Mystic,
     Ranger,
+    Bloodmage,
+    Champion,
     Unknown,
 }
 
@@ -16,7 +18,21 @@ impl Profession {
             Profession::Healer => "Healer",
             Profession::Mystic => "Mystic",
             Profession::Ranger => "Ranger",
+            Profession::Bloodmage => "Bloodmage",
+            Profession::Champion => "Champion",
             Profession::Unknown => "Unknown",
+        }
+    }
+
+    pub fn parse(s: &str) -> Self {
+        match s {
+            "Fighter" => Profession::Fighter,
+            "Healer" => Profession::Healer,
+            "Mystic" => Profession::Mystic,
+            "Ranger" => Profession::Ranger,
+            "Bloodmage" => Profession::Bloodmage,
+            "Champion" => Profession::Champion,
+            _ => Profession::Unknown,
         }
     }
 }
@@ -56,6 +72,7 @@ pub struct Character {
     pub ethereal_portals: i64,
     pub darkstone: i64,
     pub purgatory_pendant: i64,
+    pub coin_level: i64,
 }
 
 impl Character {
@@ -86,6 +103,7 @@ impl Character {
             ethereal_portals: 0,
             darkstone: 0,
             purgatory_pendant: 0,
+            coin_level: 0,
         }
     }
 }

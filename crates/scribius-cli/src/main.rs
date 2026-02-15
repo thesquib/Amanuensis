@@ -54,6 +54,11 @@ enum Commands {
         /// Character name
         name: String,
     },
+    /// Show lasty (creature training) progress
+    Lastys {
+        /// Character name
+        name: String,
+    },
 }
 
 fn main() {
@@ -74,6 +79,7 @@ fn run(cli: Cli) -> scribius_core::Result<()> {
         Commands::Kills { name, sort, limit } => cmd_kills(&cli.db, &name, &sort, limit),
         Commands::Trainers { name } => cmd_trainers(&cli.db, &name),
         Commands::Pets { name } => cmd_pets(&cli.db, &name),
+        Commands::Lastys { name } => cmd_lastys(&cli.db, &name),
     }
 }
 
@@ -83,6 +89,9 @@ fn cmd_scan(db_path: &str, folder: &Path, force: bool) -> scribius_core::Result<
     let db = Database::open(db_path)?;
     let parser = LogParser::new(db)?;
     let result = parser.scan_folder(folder, force)?;
+
+    // Determine professions and coin levels after scanning
+    parser.finalize_characters()?;
 
     println!();
     println!("Scan complete:");
@@ -137,6 +146,8 @@ fn cmd_summary(db_path: &str, name: &str) -> scribius_core::Result<()> {
     let char_id = char.id.unwrap();
     let kills = db.get_kills(char_id)?;
     let trainers = db.get_trainers(char_id)?;
+    let lastys = db.get_lastys(char_id)?;
+    let pets = db.get_pets(char_id)?;
 
     let total_solo: i64 = kills.iter().map(|k| k.total_solo()).sum();
     let total_assisted: i64 = kills.iter().map(|k| k.total_assisted()).sum();
@@ -151,6 +162,9 @@ fn cmd_summary(db_path: &str, name: &str) -> scribius_core::Result<()> {
 
     println!("=== {} ===", char.name);
     println!("Profession:     {}", char.profession);
+    if char.coin_level > 0 {
+        println!("Coin Level:     {}", char.coin_level);
+    }
     println!("Logins:         {}", char.logins);
     println!("Deaths:         {}", char.deaths);
     println!("Departs:        {}", char.departs);
@@ -177,6 +191,18 @@ fn cmd_summary(db_path: &str, name: &str) -> scribius_core::Result<()> {
     println!("Fur shares:     {}", char.fur_coins);
     println!("Blood shares:   {}", char.blood_coins);
     println!("Mandible shares: {}", char.mandible_coins);
+    if !lastys.is_empty() || !pets.is_empty() {
+        println!();
+        println!("--- Lastys & Pets ---");
+        if !lastys.is_empty() {
+            let finished = lastys.iter().filter(|l| l.finished).count();
+            let active = lastys.len() - finished;
+            println!("Lastys:         {} total ({} active, {} completed)", lastys.len(), active, finished);
+        }
+        if !pets.is_empty() {
+            println!("Pets:           {}", pets.len());
+        }
+    }
     if char.bells_broken > 0 || char.chains_broken > 0 || char.shieldstones_used > 0 {
         println!();
         println!("--- Equipment ---");
@@ -290,6 +316,42 @@ fn cmd_trainers(db_path: &str, name: &str) -> scribius_core::Result<()> {
 
     let total_ranks: i64 = trainers.iter().map(|t| t.ranks).sum();
     println!("Trainers for {} ({} total ranks):", name, total_ranks);
+    println!("{table}");
+    Ok(())
+}
+
+fn cmd_lastys(db_path: &str, name: &str) -> scribius_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let char = db
+        .get_character(name)?
+        .ok_or_else(|| scribius_core::ScribiusError::Data(format!("Character '{}' not found", name)))?;
+
+    let char_id = char.id.unwrap();
+    let lastys = db.get_lastys(char_id)?;
+
+    if lastys.is_empty() {
+        println!("No lastys found for {}.", name);
+        return Ok(());
+    }
+
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec!["Creature", "Type", "Messages", "Status"]);
+
+    for l in &lastys {
+        table.add_row(vec![
+            l.creature_name.clone(),
+            l.lasty_type.clone(),
+            l.message_count.to_string(),
+            if l.finished { "Completed" } else { "Active" }.to_string(),
+        ]);
+    }
+
+    let finished = lastys.iter().filter(|l| l.finished).count();
+    println!("Lastys for {} ({} total, {} completed):", name, lastys.len(), finished);
     println!("{table}");
     Ok(())
 }

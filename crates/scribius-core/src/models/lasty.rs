@@ -4,16 +4,31 @@ use serde::{Deserialize, Serialize};
 pub enum LastyType {
     Befriend,
     Morph,
-    Ability,
+    Movements,
+}
+
+impl LastyType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            LastyType::Befriend => "Befriend",
+            LastyType::Morph => "Morph",
+            LastyType::Movements => "Movements",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "Befriend" => Some(LastyType::Befriend),
+            "Morph" => Some(LastyType::Morph),
+            "Movements" => Some(LastyType::Movements),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for LastyType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LastyType::Befriend => write!(f, "Befriend"),
-            LastyType::Morph => write!(f, "Morph"),
-            LastyType::Ability => write!(f, "Ability"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 
