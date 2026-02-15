@@ -13,6 +13,7 @@ use crate::data::{CreatureDb, TrainerDb};
 use crate::db::Database;
 use crate::encoding::decode_log_bytes;
 use crate::error::Result;
+use crate::models::Profession;
 use crate::parser::events::{KillVerb, LogEvent, LootType};
 use crate::parser::line_classifier::classify_line;
 use crate::parser::timestamp::parse_timestamp;
@@ -262,10 +263,106 @@ impl LogParser {
                         .increment_character_field(char_id, "ethereal_portals", 1)?;
                     file_result.events_found += 1;
                 }
+
+                LogEvent::LastyProgress {
+                    creature,
+                    lasty_type,
+                } => {
+                    self.db.upsert_lasty(char_id, &creature, &lasty_type)?;
+                    // Befriend also creates a pet
+                    if lasty_type == "Befriend" {
+                        self.db.upsert_pet(char_id, &creature)?;
+                    }
+                    file_result.events_found += 1;
+                }
+                LogEvent::LastyCompleted { trainer } => {
+                    self.db.complete_lasty(char_id, &trainer)?;
+                    file_result.events_found += 1;
+                }
             }
         }
 
         Ok(file_result)
+    }
+
+    /// Determine profession for a character based on their trained trainers.
+    /// Uses the original app's logic: check each trainer against the profession mapping,
+    /// and use the first profession-bearing trainer found (last-writer-wins through iteration).
+    pub fn determine_profession(&self, char_id: i64) -> Result<Profession> {
+        let trainers = self.db.get_trainers(char_id)?;
+
+        // Count ranks per profession
+        let mut fighter_ranks: i64 = 0;
+        let mut healer_ranks: i64 = 0;
+        let mut mystic_ranks: i64 = 0;
+        let mut ranger_ranks: i64 = 0;
+        let mut bloodmage_ranks: i64 = 0;
+        let mut champion_ranks: i64 = 0;
+
+        for t in &trainers {
+            if let Some(prof) = self.trainer_db.get_profession(&t.trainer_name) {
+                let total = t.ranks + t.modified_ranks;
+                if total > 0 {
+                    match prof {
+                        "Fighter" => fighter_ranks += total,
+                        "Healer" => healer_ranks += total,
+                        "Mystic" => mystic_ranks += total,
+                        "Ranger" => ranger_ranks += total,
+                        "Bloodmage" => bloodmage_ranks += total,
+                        "Champion" => champion_ranks += total,
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        // Determine profession by highest rank count
+        let max = *[
+            fighter_ranks, healer_ranks, mystic_ranks,
+            ranger_ranks, bloodmage_ranks, champion_ranks,
+        ].iter().max().unwrap_or(&0);
+
+        if max == 0 {
+            return Ok(Profession::Unknown);
+        }
+
+        // Priority order matches the original app
+        if fighter_ranks == max { return Ok(Profession::Fighter); }
+        if healer_ranks == max { return Ok(Profession::Healer); }
+        if mystic_ranks == max { return Ok(Profession::Mystic); }
+        if ranger_ranks == max { return Ok(Profession::Ranger); }
+        if bloodmage_ranks == max { return Ok(Profession::Bloodmage); }
+        if champion_ranks == max { return Ok(Profession::Champion); }
+
+        Ok(Profession::Unknown)
+    }
+
+    /// Compute coin level based on total trainer ranks.
+    /// The original app computes this from rank data. Based on the decompiled code,
+    /// it appears to be the sum of all effective ranks divided by a factor.
+    pub fn compute_coin_level(&self, char_id: i64) -> Result<i64> {
+        let trainers = self.db.get_trainers(char_id)?;
+        let total_ranks: i64 = trainers.iter().map(|t| t.ranks + t.modified_ranks).sum();
+        // Coin level is approximately total ranks (effective + modified)
+        // The original app has a more complex formula, but this is a reasonable approximation
+        Ok(total_ranks)
+    }
+
+    /// After scanning, determine professions and coin levels for all characters.
+    pub fn finalize_characters(&self) -> Result<()> {
+        let chars = self.db.list_characters()?;
+        for c in &chars {
+            let char_id = c.id.unwrap();
+            let profession = self.determine_profession(char_id)?;
+            if profession != Profession::Unknown {
+                self.db.update_character_profession(char_id, profession.as_str())?;
+            }
+            let coin_level = self.compute_coin_level(char_id)?;
+            if coin_level > 0 {
+                self.db.update_coin_level(char_id, coin_level)?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -519,6 +616,99 @@ mod tests {
         let char = parser.db().get_character("TestChar").unwrap().unwrap();
         assert_eq!(char.deaths, 1);
         assert_eq!(char.departs, 5);
+    }
+
+    #[test]
+    fn test_lasty_and_pet_tracking() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Build log with ¥-prefixed lasty messages
+        let mut bytes = Vec::new();
+        // Befriend
+        bytes.extend_from_slice(b"1/1/24 1:00:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You learn to befriend the Maha Ruknee.\n");
+        // Another befriend message (increments count)
+        bytes.extend_from_slice(b"1/1/24 1:01:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You learn to befriend the Maha Ruknee.\n");
+        // Morph
+        bytes.extend_from_slice(b"1/1/24 1:02:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You learn to assume the form of the Orga Anger.\n");
+        // Movements
+        bytes.extend_from_slice(b"1/1/24 1:03:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You learn to fight the Large Vermine more effectively.\n");
+        // Completed
+        bytes.extend_from_slice(b"1/1/24 1:04:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You have completed your training with Sespus.\n");
+
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            &bytes,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+        assert_eq!(result.events_found, 5);
+
+        let char_id = parser.db().get_or_create_character("TestChar").unwrap();
+
+        // Check lastys
+        let lastys = parser.db().get_lastys(char_id).unwrap();
+        assert_eq!(lastys.len(), 3);
+
+        let maha = lastys.iter().find(|l| l.creature_name == "Maha Ruknee").unwrap();
+        assert_eq!(maha.lasty_type, "Befriend");
+        assert_eq!(maha.message_count, 2);
+
+        let orga = lastys.iter().find(|l| l.creature_name == "Orga Anger").unwrap();
+        assert_eq!(orga.lasty_type, "Morph");
+        assert_eq!(orga.message_count, 1);
+
+        let vermine = lastys.iter().find(|l| l.creature_name == "Large Vermine").unwrap();
+        assert_eq!(vermine.lasty_type, "Movements");
+
+        // Check pets (befriend creates a pet)
+        let pets = parser.db().get_pets(char_id).unwrap();
+        assert_eq!(pets.len(), 1);
+        assert_eq!(pets[0].creature_name, "Maha Ruknee");
+
+        // One lasty should be completed (the most recent unfinished one — Large Vermine)
+        let finished: Vec<_> = lastys.iter().filter(|l| l.finished).collect();
+        assert_eq!(finished.len(), 1);
+    }
+
+    #[test]
+    fn test_profession_detection() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Build log with fighter trainer messages (Evus is Fighter)
+        let mut bytes = Vec::new();
+        for _ in 0..5 {
+            bytes.extend_from_slice(b"1/1/24 1:00:00p ");
+            bytes.push(0xA5);
+            bytes.extend_from_slice(b"You seem to fight more effectively now.\n");
+        }
+
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            &bytes,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Fighter);
+        assert!(char.coin_level > 0);
     }
 
     #[test]

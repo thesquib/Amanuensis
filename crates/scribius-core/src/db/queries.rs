@@ -60,20 +60,15 @@ impl Database {
                     coins_picked_up, casino_won, casino_lost, chest_coins, bounty_coins,
                     fur_coins, mandible_coins, blood_coins,
                     bells_used, bells_broken, chains_used, chains_broken,
-                    shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant
+                    shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
+                    coin_level
              FROM characters WHERE name = ?1",
             params![name],
             |row| {
                 Ok(Character {
                     id: Some(row.get(0)?),
                     name: row.get(1)?,
-                    profession: match row.get::<_, String>(2)?.as_str() {
-                        "Fighter" => Profession::Fighter,
-                        "Healer" => Profession::Healer,
-                        "Mystic" => Profession::Mystic,
-                        "Ranger" => Profession::Ranger,
-                        _ => Profession::Unknown,
-                    },
+                    profession: Profession::parse(&row.get::<_, String>(2)?),
                     logins: row.get(3)?,
                     departs: row.get(4)?,
                     deaths: row.get(5)?,
@@ -96,6 +91,7 @@ impl Database {
                     ethereal_portals: row.get(22)?,
                     darkstone: row.get(23)?,
                     purgatory_pendant: row.get(24)?,
+                    coin_level: row.get(25)?,
                 })
             },
         );
@@ -114,7 +110,8 @@ impl Database {
                     coins_picked_up, casino_won, casino_lost, chest_coins, bounty_coins,
                     fur_coins, mandible_coins, blood_coins,
                     bells_used, bells_broken, chains_used, chains_broken,
-                    shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant
+                    shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
+                    coin_level
              FROM characters ORDER BY name",
         )?;
 
@@ -122,13 +119,7 @@ impl Database {
             Ok(Character {
                 id: Some(row.get(0)?),
                 name: row.get(1)?,
-                profession: match row.get::<_, String>(2)?.as_str() {
-                    "Fighter" => Profession::Fighter,
-                    "Healer" => Profession::Healer,
-                    "Mystic" => Profession::Mystic,
-                    "Ranger" => Profession::Ranger,
-                    _ => Profession::Unknown,
-                },
+                profession: Profession::parse(&row.get::<_, String>(2)?),
                 logins: row.get(3)?,
                 departs: row.get(4)?,
                 deaths: row.get(5)?,
@@ -151,6 +142,7 @@ impl Database {
                 ethereal_portals: row.get(22)?,
                 darkstone: row.get(23)?,
                 purgatory_pendant: row.get(24)?,
+                    coin_level: row.get(25)?,
             })
         })?;
 
@@ -166,7 +158,7 @@ impl Database {
             "chest_coins", "bounty_coins", "fur_coins", "mandible_coins", "blood_coins",
             "bells_used", "bells_broken", "chains_used", "chains_broken",
             "shieldstones_used", "shieldstones_broken", "ethereal_portals",
-            "darkstone", "purgatory_pendant",
+            "darkstone", "purgatory_pendant", "coin_level",
         ];
         if !allowed.contains(&field) {
             return Err(crate::error::ScribiusError::Data(format!(
@@ -393,6 +385,105 @@ impl Database {
 
         Ok(pets.filter_map(|r| r.ok()).collect())
     }
+
+    /// Upsert a pet record. Uses creature_name as both pet_name and creature_name.
+    pub fn upsert_pet(&self, char_id: i64, creature_name: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR IGNORE INTO pets (character_id, pet_name, creature_name)
+             VALUES (?1, ?2, ?2)",
+            params![char_id, creature_name],
+        )?;
+        Ok(())
+    }
+
+    // === Lastys ===
+
+    /// Upsert a lasty record. Increments message_count on subsequent encounters.
+    pub fn upsert_lasty(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+        lasty_type: &str,
+    ) -> Result<()> {
+        let existing: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM lastys WHERE character_id = ?1 AND creature_name = ?2",
+                params![char_id, creature_name],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(lasty_id) = existing {
+            self.conn.execute(
+                "UPDATE lastys SET message_count = message_count + 1 WHERE id = ?1",
+                params![lasty_id],
+            )?;
+        } else {
+            self.conn.execute(
+                "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count)
+                 VALUES (?1, ?2, ?3, 1)",
+                params![char_id, creature_name, lasty_type],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Mark a lasty as completed (by trainer name — we find the most recent unfinished lasty).
+    pub fn complete_lasty(&self, char_id: i64, _trainer: &str) -> Result<()> {
+        // Mark the most recently updated unfinished lasty as complete
+        self.conn.execute(
+            "UPDATE lastys SET finished = 1
+             WHERE id = (
+                SELECT id FROM lastys
+                WHERE character_id = ?1 AND finished = 0
+                ORDER BY id DESC LIMIT 1
+             )",
+            params![char_id],
+        )?;
+        Ok(())
+    }
+
+    /// Get lastys for a character.
+    pub fn get_lastys(&self, char_id: i64) -> Result<Vec<Lasty>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, character_id, creature_name, lasty_type, finished, message_count
+             FROM lastys WHERE character_id = ?1 ORDER BY creature_name",
+        )?;
+
+        let lastys = stmt.query_map(params![char_id], |row| {
+            Ok(Lasty {
+                id: Some(row.get(0)?),
+                character_id: row.get(1)?,
+                creature_name: row.get(2)?,
+                lasty_type: row.get(3)?,
+                finished: row.get::<_, i64>(4)? != 0,
+                message_count: row.get(5)?,
+            })
+        })?;
+
+        Ok(lastys.filter_map(|r| r.ok()).collect())
+    }
+
+    // === Profession ===
+
+    /// Update a character's profession.
+    pub fn update_character_profession(&self, char_id: i64, profession: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE characters SET profession = ?1 WHERE id = ?2",
+            params![profession, char_id],
+        )?;
+        Ok(())
+    }
+
+    /// Update a character's coin level.
+    pub fn update_coin_level(&self, char_id: i64, coin_level: i64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE characters SET coin_level = ?1 WHERE id = ?2",
+            params![coin_level, char_id],
+        )?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -524,5 +615,68 @@ mod tests {
         assert_eq!(char.coins_picked_up, 50);
         assert_eq!(char.fur_coins, 10);
         assert_eq!(char.blood_coins, 15);
+    }
+
+    #[test]
+    fn test_upsert_pet() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Ruuk").unwrap();
+        db.upsert_pet(id, "Maha Ruknee").unwrap();
+        db.upsert_pet(id, "Maha Ruknee").unwrap(); // duplicate should be ignored
+        let pets = db.get_pets(id).unwrap();
+        assert_eq!(pets.len(), 1);
+        assert_eq!(pets[0].creature_name, "Maha Ruknee");
+        assert_eq!(pets[0].pet_name, "Maha Ruknee");
+    }
+
+    #[test]
+    fn test_upsert_lasty() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Ruuk").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
+        db.upsert_lasty(id, "Orga Anger", "Morph").unwrap();
+
+        let lastys = db.get_lastys(id).unwrap();
+        assert_eq!(lastys.len(), 2);
+
+        let maha = lastys.iter().find(|l| l.creature_name == "Maha Ruknee").unwrap();
+        assert_eq!(maha.lasty_type, "Befriend");
+        assert_eq!(maha.message_count, 2);
+        assert!(!maha.finished);
+
+        let orga = lastys.iter().find(|l| l.creature_name == "Orga Anger").unwrap();
+        assert_eq!(orga.lasty_type, "Morph");
+        assert_eq!(orga.message_count, 1);
+    }
+
+    #[test]
+    fn test_complete_lasty() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Ruuk").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
+        db.complete_lasty(id, "Sespus").unwrap();
+
+        let lastys = db.get_lastys(id).unwrap();
+        assert_eq!(lastys.len(), 1);
+        assert!(lastys[0].finished);
+    }
+
+    #[test]
+    fn test_update_profession() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Ruuk").unwrap();
+        db.update_character_profession(id, "Ranger").unwrap();
+        let char = db.get_character("Ruuk").unwrap().unwrap();
+        assert_eq!(char.profession, Profession::Ranger);
+    }
+
+    #[test]
+    fn test_update_coin_level() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Ruuk").unwrap();
+        db.update_coin_level(id, 42).unwrap();
+        let char = db.get_character("Ruuk").unwrap().unwrap();
+        assert_eq!(char.coin_level, 42);
     }
 }
