@@ -66,15 +66,28 @@ impl LogParser {
                 continue;
             }
 
-            let char_name = &dir_name;
-            log::info!("Processing character: {}", char_name);
-            let char_id = self.db.get_or_create_character(char_name)?;
-
-            // Find log files in this character's directory
+            // Find log files BEFORE creating a character record
             let char_dir = entry.path();
             let mut log_files = find_log_files(&char_dir)?;
+            if log_files.is_empty() {
+                log::debug!("Skipping directory with no CL Log files: {}", dir_name);
+                continue;
+            }
             // Sort chronologically by filename (CL Log YYYY:MM:DD HH.MM.SS.txt)
             log_files.sort();
+
+            // Try to extract character name from welcome message in earliest log files
+            let char_name = log_files
+                .iter()
+                .find_map(|path| {
+                    std::fs::read(path)
+                        .ok()
+                        .and_then(|bytes| extract_character_name(&bytes))
+                })
+                .unwrap_or_else(|| dir_name.clone());
+
+            log::info!("Processing character: {}", char_name);
+            let char_id = self.db.get_or_create_character(&char_name)?;
 
             for log_path in &log_files {
                 let path_str = log_path.to_string_lossy().to_string();
@@ -366,6 +379,41 @@ impl LogParser {
     }
 }
 
+/// Normalize a character name to title case (first letter of each word capitalized).
+fn titlecase_name(name: &str) -> String {
+    name.split_whitespace()
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => {
+                    let upper: String = first.to_uppercase().collect();
+                    upper + &chars.as_str().to_lowercase()
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Scan log file bytes to find the character name from a welcome message.
+fn extract_character_name(bytes: &[u8]) -> Option<String> {
+    let content = decode_log_bytes(bytes);
+    for line in content.lines() {
+        let message = match parse_timestamp(line) {
+            Some((_dt, msg)) => msg,
+            None => line,
+        };
+        if let Some(caps) = patterns::WELCOME_LOGIN.captures(message) {
+            return Some(titlecase_name(&caps[1]));
+        }
+        if let Some(caps) = patterns::WELCOME_BACK.captures(message) {
+            return Some(titlecase_name(&caps[1]));
+        }
+    }
+    None
+}
+
 /// Compute a hex-encoded hash of file bytes for content-based dedup.
 fn hash_bytes(bytes: &[u8]) -> String {
     let mut hasher = DefaultHasher::new();
@@ -452,7 +500,7 @@ mod tests {
         assert_eq!(result.characters, 1);
         assert_eq!(result.files_scanned, 1);
 
-        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
         assert_eq!(char.logins, 1);
         assert_eq!(char.coins_picked_up, 25);
 
@@ -732,5 +780,162 @@ mod tests {
         let char = parser.db().get_character("TestChar").unwrap().unwrap();
         assert_eq!(char.fur_coins, 10);
         assert_eq!(char.blood_coins, 15);
+    }
+
+    #[test]
+    fn test_scan_skips_dirs_without_cl_logs() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Create subdirectories with no CL Log files
+        fs::create_dir(tmp.path().join("RandomFolder")).unwrap();
+        fs::create_dir(tmp.path().join("AnotherDir")).unwrap();
+        fs::write(tmp.path().join("RandomFolder").join("notes.txt"), "not a log").unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+
+        assert_eq!(result.characters, 0);
+        assert_eq!(result.files_scanned, 0);
+        assert!(parser.db().list_characters().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_scan_uses_name_from_welcome_message() {
+        let tmp = tempfile::tempdir().unwrap();
+        // Folder name differs from the character name in the log
+        let char_dir = tmp.path().join("SomeFolder");
+        fs::create_dir(&char_dir).unwrap();
+
+        let log_content = "\
+1/1/24 1:00:00p Welcome to Clan Lord, ActualName!
+1/1/24 1:01:00p You slaughtered a Rat.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+
+        assert_eq!(result.characters, 1);
+        // Character should be named from the welcome message (title-cased), not the folder
+        assert!(parser.db().get_character("Actualname").unwrap().is_some());
+        assert!(parser.db().get_character("SomeFolder").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_scan_falls_back_to_folder_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let char_dir = tmp.path().join("FolderName");
+        fs::create_dir(&char_dir).unwrap();
+
+        // Log with events but no welcome message
+        let log_content = "\
+1/1/24 1:00:00p You slaughtered a Rat.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+
+        assert_eq!(result.characters, 1);
+        // Falls back to folder name when no welcome message found
+        assert!(parser.db().get_character("FolderName").unwrap().is_some());
+    }
+
+    #[test]
+    fn test_extract_character_name_login() {
+        let bytes = b"1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!\n";
+        assert_eq!(extract_character_name(bytes), Some("Ruuk".to_string()));
+    }
+
+    #[test]
+    fn test_extract_character_name_welcome_back() {
+        let bytes = b"1/1/24 1:00:00p Welcome back, squib!\n";
+        assert_eq!(extract_character_name(bytes), Some("Squib".to_string()));
+    }
+
+    #[test]
+    fn test_extract_character_name_none() {
+        let bytes = b"1/1/24 1:00:00p You slaughtered a Rat.\n";
+        assert_eq!(extract_character_name(bytes), None);
+    }
+
+    #[test]
+    fn test_titlecase_name_single_word() {
+        assert_eq!(titlecase_name("ruuk"), "Ruuk");
+        assert_eq!(titlecase_name("RUUK"), "Ruuk");
+        assert_eq!(titlecase_name("Ruuk"), "Ruuk");
+    }
+
+    #[test]
+    fn test_titlecase_name_multi_word() {
+        assert_eq!(titlecase_name("some player"), "Some Player");
+        assert_eq!(titlecase_name("SOME PLAYER"), "Some Player");
+    }
+
+    #[test]
+    fn test_scan_normalizes_name_from_welcome() {
+        let tmp = tempfile::tempdir().unwrap();
+        let char_dir = tmp.path().join("somechar");
+        fs::create_dir(&char_dir).unwrap();
+
+        let log_content = "\
+1/1/24 1:00:00p Welcome to Clan Lord, somechar!
+1/1/24 1:01:00p You slaughtered a Rat.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        // Name extracted from welcome message should be title-cased
+        assert!(parser.db().get_character("Somechar").unwrap().is_some());
+    }
+
+    #[test]
+    fn test_scan_finds_welcome_in_later_log_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let char_dir = tmp.path().join("wrongname");
+        fs::create_dir(&char_dir).unwrap();
+
+        // First log file has no welcome message
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            "1/1/24 1:00:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        // Second log file has the welcome message
+        let log_content = "\
+1/2/24 1:00:00p Welcome to Clan Lord, RealName!
+1/2/24 1:01:00p You slaughtered a Rat.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:02 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        // Should find the name from the second log file, not use folder name
+        assert!(parser.db().get_character("Realname").unwrap().is_some());
+        assert!(parser.db().get_character("wrongname").unwrap().is_none());
     }
 }
