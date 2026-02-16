@@ -337,6 +337,48 @@ impl Database {
         Ok(trainers.filter_map(|r| r.ok()).collect())
     }
 
+    /// Set the modified_ranks for a specific trainer record.
+    /// Creates the trainer record if it doesn't exist (for pre-log baseline ranks).
+    /// Recalculates coin_level after the update.
+    pub fn set_modified_ranks(
+        &self,
+        char_id: i64,
+        trainer_name: &str,
+        modified_ranks: i64,
+    ) -> Result<()> {
+        let existing: Option<i64> = self
+            .conn
+            .query_row(
+                "SELECT id FROM trainers WHERE character_id = ?1 AND trainer_name = ?2",
+                params![char_id, trainer_name],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(trainer_id) = existing {
+            self.conn.execute(
+                "UPDATE trainers SET modified_ranks = ?1 WHERE id = ?2",
+                params![modified_ranks, trainer_id],
+            )?;
+        } else {
+            self.conn.execute(
+                "INSERT INTO trainers (character_id, trainer_name, ranks, modified_ranks)
+                 VALUES (?1, ?2, 0, ?3)",
+                params![char_id, trainer_name, modified_ranks],
+            )?;
+        }
+
+        // Recalculate coin level from all trainer ranks
+        let coin_level: i64 = self.conn.query_row(
+            "SELECT COALESCE(SUM(ranks + modified_ranks), 0) FROM trainers WHERE character_id = ?1",
+            params![char_id],
+            |row| row.get(0),
+        )?;
+        self.update_coin_level(char_id, coin_level)?;
+
+        Ok(())
+    }
+
     // === Log files ===
 
     /// Check if a log file has already been scanned (by path or content hash).
