@@ -1,11 +1,10 @@
 Leech,5
-Venomous Leech,1
-Tesla,35
-Pink Jellyfish,10
-Giant Carnivorous Plankton,20
-Cod,15
+Tesla,70
+Pink Jellyfish,30
+Giant Carnivorous Plankton,35
+Cod,35
 Barracuda,250
-Shredder,25
+Shredder,45
 Sand Ray,40
 Tae-Su,200
 Sea Snake,55
@@ -13,9 +12,9 @@ Baltoise,295
 Megamouth,295
 Culcan,500
 Rat,2
-Frog,1
-Poison Arrow Frog,50
-Poison Dart Frog,50
+Frog,0
+Poison Arrow Frog,80
+Poison Dart Frog,90
 Smoky Bog Amedon,430
 Burning Reed Amedon,380
 Blind Amphibia,320
@@ -27,82 +26,82 @@ Utsanna Raja-Yorilla,700
 Sezuma Yorilla,720
 Jellyfish,8
 Infant Meshra,2
-Green Meshra,15
-Mottled Meshra,25
-Lair Guardian,35
-Elder Guardian,80
+Green Meshra,35
+Mottled Meshra,38
+Lair Guardian,57
+Elder Guardian,85
 Glacier Meshra,220
 Deep Meshra,175
+Ethereal Hunter,875
 Blood Meshra,190
 Vermine,5
-Large Vermine,10
-Giant Vermine,18
-Death Vermine,35
+Large Vermine,25
+Giant Vermine,45
+Death Vermine,85
 Large Death Vermine,275
-Dark Vermine,100
+Dark Vermine,70
 Cereb Vermine,325
 Large Cereb Vermine,370
-Demonic Vermine,115
-Cavern Rat,50
-Valley Rat,80
-Snow Vermine,37
+Demonic Vermine,125
+Cavern Rat,70
+Valley Rat,60
+Snow Vermine,40
 Fire Rat,20
-Lava Vermine,30
-Bat,8
-Lith Bat,25
+Bat,20
+Lith Bat,65
 Flying Foxweir,400
-Seta Lizard,190
-Herpetad,20
-Herpetid,50
-Magnum Herpetid,140
-Water Lizard,25
-Young Rockodile,12
-Adult Rockodile,40
-Great Rockodile,80
-Young Andvari,200
+Seta Lizard,150
+Herpetad,30
+Herpetid,60
+Magnum Herpetid,120
+Water Lizard,50
+Young Rockodile,29
+Adult Rockodile,65
+Great Rockodile,110
+Young Andvari,160
 Andvari,325
 Utsanna Andvari,370
 Co'Acha,2
 Ona Chigger,5
-Venomous Chigger,40
+Venomous Chigger,50
 Juliosaur,1010
 Emerald Scorp,6
-Ebon Scorp,10
+Ebon Scorp,30
 Myrm Farmer,5
 Myrm Worker,6
-Myrm Scout,8
-Male Myrm,15
-Myrm Protector,18
-Warrior Myrm,30
-Noble Myrm,40
-Royal Myrm,60
+Myrm Scout,25
+Male Myrm,55
+Myrm Protector,25
+Warrior Myrm,42
+Noble Myrm,65
+Royal Myrm,80
 Queen Myrm,240
 Dragonfly,10
 Red Dragonfly,12
-Deadly Wasp,35
+Deadly Wasp,65
 Lava Beetle,280
 Fire Beetle,260
-Scarab Beetle,200
+Scarab Beetle,100
 Stinging Beetle,295
-Forest Chamelopod,160
+Forest Chamelopod,125
 Cave Chamelopod,240
-Blymoid,50
-Blymoid Blocker,80
-Blymoid Breaker,105
+Blymoid,60
+Blymoid Blocker,70
+Blymoid Breaker,75
 Island Locust,8
 Vile Cricket,50
 Island Mantis,350
-Butterfly,1
-Baby Wendecka,20
-Wendecka,35
-Elder Wendecka,45
-Mama Wendecka,75
-Mama Night Wendecka,100
-Baby Night Wendecka,25
-Night Wendecka,90
+Butterfly,0
+Baby Wendecka,25
+Wendecka,80
+Elder Wendecka,100
+Mama Wendecka,135
+Mama Night Wendecka,160
+Baby Night Wendecka,55
+Night Wendecka,85
 Elder Night Wendecka,105
-Dawn Wendecka,150
-Day Wendecka,150
+Dawn Wendecka,130
+Day Wendecka,140
 Dusk Wendecka,210
 Midnight Wendecka,290
 Twilight Wendecka,385
@@ -112,50 +111,49 @@ Large Gloaming Wendecka,565
 Large Midnight Wendecka,385
 Young Sasquatch,325
 Angry Mother Sasquatch,470
-Snow Cougar,60
-Maha Ruknee,70
-Sky Maha,95
-Cloud Maha,95
-Savannah Maha,85
-Plains Maha Ruknee,90
+Snow Cougar,90
+Maha Ruknee,85
+Sky Maha,130
+Cloud Maha,115
+Savannah Maha,110
+Plains Maha Ruknee,120
 Albino Maha,295
 Ice Maha Ruknee,285
 Cave Maha Ruknee,210
-Island Panther,15
-Rodn Panther,15
+Island Panther,35
+Rodán Panther,35
 Utsanna Haremau,760
-Haremau,585
-Artak Cougar,30
-Summer Artak,35
-Bolok Cougar,50
-Sand Tiger,135
+Haremau,615
+Artak Cougar,48
+Summer Artak,55
+Bolok Cougar,90
+Sand Tiger,130
 Valley Cougar,290
 Valley Panther,365
-Pumace,100
+Pumace,30
 Puma,305
 Rudremau,445
 Haremau Kitten,395
-Feral,25
-Grey Feral,28
-Brown Feral,35
+Feral,40
+Grey Feral,45
+Brown Feral,60
 Snow Feral,155
 Large Feral,60
 Giant Feral,90
 Dire Feral,150
-Swamp Feral,125
+Swamp Feral,150
 Guard Dog,150
-Darshak War Hound,170
 Foxweir Pup,1
-Foxweir,25
+Foxweir,35
 Umber Foxweir,120
-Vixen,100
-Giant Foxweir,135
-Brown Bear,40
-Grizzly Bear,55
-Honey Bear,85
-Chestnut Bear,140
-Chocolate Bear,160
-Cinder Bear,230
+Vixen,95
+Giant Foxweir,130
+Brown Bear,65
+Grizzly Bear,70
+Honey Bear,90
+Chestnut Bear,105
+Chocolate Bear,140
+Cinder Bear,140
 Polar Bear,250
 Tree Giant,210
 Willow Giant,235
@@ -171,29 +169,29 @@ Mud Golem,410
 Ice Greymyr,460
 Basalt Greymyr,500
 Ancient Greymyr,600
-Fiery Bubble,60
+Fiery Bubble,45
 Lava Walker,200
-Torched Fervor,350
+Torched Fervor,555
 Carrion Arachne,5
-Deadly Arachne,10
-Small Arachne,15
-Arachne,20
-Cave Arachne,35
-Dust Arachne,50
-Web Arachne,75
-Mammoth Arachne,45
+Deadly Arachne,20
+Small Arachne,30
+Arachne,45
+Cave Arachne,70
+Dust Arachne,75
+Web Arachne,100
+Mammoth Arachne,90
 Vagrant Arachne,270
 Stone Arachne,365
 Wall Arachne,400
 Recluse Arachne,455
-Violne Arachne,495
+Violène Arachne,495
 Mammoth Stone Arachne,550
 Mammoth Recluse Arachne,545
 Black Widow,390
-Grey Arachnoid,45
-Purple Arachnoid,55
-Striped Arachnoid,75
-Blue Arachnoid,100
+Grey Arachnoid,95
+Purple Arachnoid,115
+Striped Arachnoid,140
+Blue Arachnoid,160
 Green Arachnoid,210
 Jade Arachnoid,295
 Emerald Arachnoid,535
@@ -205,35 +203,35 @@ Crimson Arachnoid,635
 Pitch Arachnoid,720
 Albino Arachnoid,740
 Slate Arachnoid,905
-Hooded Corpse,25
-Underwater Corpse,25
-Corpse Warrior,35
-Shambling Corpse,110
-Walking Corpse,180
-Death Furie,200
-Detached Spirit,20
-Faithless,75
+Hooded Corpse,45
+Underwater Corpse,45
+Corpse Warrior,65
+Shambling Corpse,70
+Walking Corpse,110
+Death Furie,150
+Detached Spirit,40
+Faithless,115
 Hooded Shadow,230
-Wraith,155
+Wraith,135
 Tortured Soul,105
 Greater Wraith,210
-Wailing Spirit,215
-Ghastly Presence,400
-Lesser Spectre,50
+Wailing Spirit,200
+Ghastly Presence,650
+Lesser Spectre,180
 Banshee,290
 Curate,355
 The Curator,310
 Guardian of the Item,440
-Skeletal,6
-Giant Skeletal,20
-Skeletal Rage,50
+Skeletal,30
+Giant Skeletal,50
+Skeletal Rage,120
 Abyssal Hunter,550
 Frozen Abyssal Hunter,595
 Revour,340
 Darshak Liche,440
-Greater Death,820
-Dal'Noth,100
-Kal'Noth,140
+Greater Death,1200
+Dal'Noth,125
+Kal'Noth,175
 Zol'Noth,220
 Vel'Noth,235
 Gar'Noth,245
@@ -241,12 +239,8 @@ Sar'Noth,270
 Xar'Noth,370
 Tuz'Noth,470
 Hel'Noth,400
-Neodew,35
-Mildew,50
-Wildew,70
-Hardew,100
-Grandew,120
-Wickedew,250
+Neodew,25
+Mildew,90
 Pallidew,310
 Landew,500
 Harvest Lyfelidae,120
@@ -255,17 +249,17 @@ Blue Lyfelidae,190
 Wyrm Lyfelidae,225
 Hunter's Lyfelidae,260
 Pink Lyfelidae,285
-Thunder Lyfelidae,315
-Flower Lyfelidae,345
-Tae-Su Lyfelidae,370
+Thunder Lyfelidae,350
+Flower Lyfelidae,445
+Tae-Su Lyfelidae,470
 Orgaberry Lyfelidae,400
-Starbuck Lyfelidae,450
-Cold Lyfelidae,470
+Starbuck Lyfelidae,550
+Cold Lyfelidae,600
 Scavenger Bird,1
-Common Vulture,50
-Uncommon Vulture,65
-Saber Owl,50
-Bloodhawk,20
+Common Vulture,80
+Uncommon Vulture,85
+Saber Owl,100
+Bloodhawk,35
 Agronox,530
 Wyvern,370
 Lesser Astral Drake,300
@@ -273,31 +267,30 @@ Astral Wyrm,500
 Forest Drake,335
 Fire Drake,650
 Frozen Drake,650
-Fenix,1
-Ethereal Slug,200
+Ethereal Slug,140
 Ethereal Walker,210
 Ethereal Stalker,300
-Ethereal Scarmis Warrior,540
-Ethereal Golem,450
+Ethereal Scarmis Warrior,625
+Ethereal Golem,400
 Ethereal Chamelopod,550
 Ethereal Skeletal,600
 Cloud of Ether,500
-Giant Slug,10
-Scavenger Wurm,25
-Cave Wurm,25
-Carnivorous Wurm,150
-Tahxis Wurm,190
+Giant Slug,30
+Scavenger Wurm,55
+Cave Wurm,35
+Carnivorous Wurm,160
+Tahxis Wurm,175
 Large Tahxis Wurm,235
-Sand Wurm,35
+Sand Wurm,65
 Large Sand Wurm,220
 Lesser Sand Wurm,380
 Possessed Amakua,925
-Dra'ryx,30
+Dra'ryx,50
 Ripper,235
-Sazaja,690
+Sazaja,735
 Ember Wyrm,335
 Serac Wyrm,465
-Grey Wyrm,200
+Grey Wyrm,180
 Blood Wyrm,290
 Sun Wyrm,440
 Earth Wyrm,740
@@ -306,24 +299,24 @@ Lesser Sarra'don,560
 Sarra'don,715
 Lesser Sarra'yrm,845
 Sarra'yrm,940
-Orc,8
-T'rool,25
-Ko'Kin,50
-Gob'Kin,95
-Hob'Kin,115
-Vol'Kin,160
-Winged Snake,10
-Boma Winder,40
-Crota Winder,45
-Venomous Crota Winder,50
-Raste Winder,50
-Venomous Raste Winder,55
-Repens Winder,70
-Venomous Repens Winder,75
-Deadly Adder,40
+Orc,25
+T'rool,40
+Ko'Kin,75
+Gob'Kin,90
+Hob'Kin,110
+Vol'Kin,130
+Winged Snake,25
+Boma Winder,55
+Crota Winder,75
+Venomous Crota Winder,80
+Raste Winder,90
+Venomous Raste Winder,95
+Repens Winder,130
+Venomous Repens Winder,135
+Deadly Adder,65
 Venomous Deadly Adder,50
-Carin Viper,100
-Venomous Carin Viper,110
+Carin Viper,90
+Venomous Carin Viper,95
 Chami Cobra,225
 Venomous Chami Cobra,235
 Forest Cobra,270
@@ -341,111 +334,101 @@ Lime Tok'Han,685
 Emerald Tok'Han,720
 Tok'Han Shaman,310
 Crawler,8
-Giant Crawler,45
-Green Crawler,55
-Deadly Crawler,200
+Giant Crawler,70
+Green Crawler,95
+Deadly Crawler,110
 Pazu-Ohwi,210
-Scarmis Larva,100
+Scarmis Larva,110
 Scarmis Harvester,210
 Scarmis Forager,270
 Scarmis Tunneler,305
 Scarmis Warrior,340
+Arboreal Fervor,666
 Scarmis Attendant,370
 Scarmis Eunuch,670
 Scarmis Queen,495
 Mantuan,1010
 Voolcon,20
-Wuss,1
 Carnivorous Tor,8
 Bloodthorn,8
 Goat,25
-Wild Boar,150
-Horse,1
-Starbuck,15
-Spriggin,55
+Wild Boar,100
+Starbuck,25
+Spriggin,50
 Swamp Gas,15
 Slime Monster,260
-Tipulid,1250
+Tipulid,1325
 Astral Guardian,360
-Castle Guard,45
-Honor Guard,90
-Guard Veteran,50
-Guard Tosser,75
+Castle Guard,50
+Honor Guard,75
+Guard Veteran,65
+Guard Tosser,165
 Guard Commander,120
 Honor Guard Veteran,110
 Dark Knight,235
-Captain of the Guard,160
 Honor Knight,265
-Honor Guard Captain,200
-Gan Vara Soldier,200
+Gan Vara Soldier,95
 Gan Vara Warrior,220
 Gan Vara Elite,265
 Sulran Soldier,215
 Sulran Warrior,340
 Sulran Elite,535
-Kudzu,1
-Sun-Zu,1
-Moon-Zu,1
-Bluli,1
-Nightli,1
-Earthzu,1
-Tangleweed,1
-Tangletree,1
-Vine Rose,1
+Kudzu,0
+Sun-zu,0
+Moon-zu,0
+Bluli,0
+Nightli,0
+Earth-zu,0
 Hellebore,315
-Star Flower,20
-Vicious Star Flower,25
-Deadly Poppy,11
+Starflower,60
+Vicious Starflower,85
+Deadly Poppy,0
 Pumpkin,1
-Jack-o-Lantern,1
-Darshak Thug,30
-Darshak Sailor,40
-Darshak Marine,45
-Darshak Scout,35
-Darshak Blade,100
+Jack-o-Lantern,10
+Darshak Thug,35
+Darshak Sailor,27
+Darshak Marine,50
+Darshak Scout,37
+Darshak Blade,120
 Darshak Sentry,225
 Darshak Veteran,290
 Darshak Defender,600
 Darshak Raider,450
-Feral Pup,10
-Darshak Marauder,635
+Feral Pup,190
+Darshak Marauder,650
 Darshak Skirmisher,375
-Darshak Brute,200
+Darshak Brute,125
 Darshak Guard,405
-Darshak Guardian,500
-Darshak Carouser,515
+Darshak Guardian,510
+Darshak Carouser,535
 Darshak Pillager,430
-Darshak Mercenary,660
-Darshak Ravager,555
-Darshak Captain,125
+Darshak Mercenary,665
+Darshak Ravager,565
 Bodyguard,420
 High Priest,325
-Darshak Tug,30
 Darshak Warship,395
 Darshak Corsair,525
 Darshak Acolyte,30
-Darshak Priest,200
-Necromancer,200
-Orga,12
-Orga Warrior,25
+Darshak Priest,85
+Necromancer,125
+Orga,22
+Orga Warrior,50
 Orga Anger,60
-Orga Spite,180
+Orga Spite,120
 Orga Envy,320
 Frost Orga,90
-Orga Shaman,55
+Orga Shaman,70
 Orga Mudang,330
-Orga Warlock,185
+Orga Warlock,160
 Orga Hemlock,240
 Orga Mallock,340
 Orga Dredlock,450
 Orga Direlock,655
 Orga Traylock,375
 Orga Callock,560
-Orga Fellock,740
-Orga Magician,120
-Orga Berserk,65
-Old Orga Berserker,70
-Orga Berserker,75
+Fellock,740
+Orga Berserk,105
+Orga Berserker,95
 Orga Rage,225
 Orga Fury,270
 Orga Wrath,335
@@ -456,20 +439,20 @@ Orga Loathing,740
 Orga Zealot,240
 Orga Razzia,300
 Orga Petulant,285
-Bartok,600
 Black Locust,615
-Wake Me Up,200
-Corsica,200
+Wake Me Up,70
+Corsica,150
 Dark Recluse,845
-Fire Dra'ryx,50
-Water Burst,200
+Fire Dra'ryx,80
+Water Burst,60
 Watery Guardian,415
 Ethereal Wurm,500
 Darshak Necromancer,600
 Darshak Rebel Roustabout,350
 Darshak Rebel Swordsman,470
 Turmoil,350
-Ethereal Spume,400
+Sparse Ethereal Spume,250
+Dense Ethereal Spume,500
 Albino Flying Foxweir,615
 Crypt Rat,510
 Spectral Haremau Kitten,590
@@ -484,7 +467,7 @@ Mange Feral,430
 Blight Feral,460
 Darshak Woodsman,330
 Darshak Petty Officer,385
-Greater Spectre,300
+Greater Spectre,290
 Darshak Harrier,355
 Darshak Tracker,335
 Elite Darshak Skirmisher,375
@@ -500,12 +483,12 @@ Myrm Tunneler,480
 Timber Feral,365
 Rabid Timber Feral,395
 Barrens Feral,465
-Darshak Swabbie,25
+Darshak Swabbie,45
 Fire Myrm,525
 Tree Giant Wight,385
 Blight Shade,640
 Darshak Bloodwrath,550
-Darshak Ancient,790
+Darshak Ancient,865
 Darshak Brawler,530
 Mushroom (Purple),5
 Mushroom (Brown),5
@@ -536,18 +519,18 @@ Unstable Stitchling,200
 Lesser Stitchling,545
 Ancient Darshak Liche,630
 Mossy Greymyr,435
-Greater Liche,910
+Greater Liche,1045
 Chosen Host,475
 Mammoth Banana Arachne,610
-Mammoth ViolíÂne Arachne,705
+Mammoth Violène Arachne,705
 Darshak Rebel Commander,700
 Darshak Seamstress,780
 Hell Boar,505
 Darshak Slaver,410
 Darshak Brava,530
-Darshak Ruffian,470
+Darshak Ruffian,450
 Vermine Arachne,520
-Darshak Overseer,795
+Darshak Overseer,895
 Cavern Wurm,530
 Lava Wurm,555
 Fellbuck,280
@@ -555,7 +538,7 @@ River Crawler,225
 Cave Maha Rukness,240
 Bog Feral,240
 River Lizard,220
-Tuder Mander,200
+Tuder Mander,140
 Mild Mander,215
 Striped Jade Arachnoid,535
 Viper Tok'Han,575
@@ -567,11 +550,11 @@ Sortoise,500
 Spicy Mander,450
 Large Eukaryid,275
 Small Eukaryid,225
-Razu-Ohwi,200
+Razu-Ohwi,150
 Elite Eukaryid,305
 Blind Meshra,500
 Ebb Meshra,510
-Infant Ebb Meshra,125
+Infant Ebb Meshra,40
 Ebb Meshra Warden,600
 Deadly Hornet,530
 Flotsam Meshra,480
@@ -580,12 +563,12 @@ Green Sea Beetle,555
 Megabite,480
 Riptide Meshra,510
 Gitoise,535
-Smoky Mander,500
+Smoky Mander,4
 Lowland Hawk,480
-Riptide Reaver,680
+Riptide Reaver,75
 Nakika,580
-Parrot,5
-Foil Vulture,135
+Parrot,50
+Foil Vulture,160
 Lord of the Undermarsh,785
 Horseshoe Crawler,360
 Reedcat Stalker,550
@@ -596,11 +579,11 @@ Royal Seahorse,390
 Striped Seasteed,360
 Mountain Krait,600
 Mountain Wasp,625
-Swarm of Bees,630
+Swarm of Bees,710
 Fleet Foxweir,650
 Fickle Foxweir,595
 Shadowcat,610
-Starstag,690
+Starstag,695
 Mountain Bear,625
 Mountain Grizzly Bear,655
 Smoky Bear,665
@@ -623,7 +606,7 @@ Glacier Bear Cub,700
 Glacier Bear,820
 Mistral Kestrel,875
 Crookbeak Kestrel,815
-Venomous Boma Winder,46
+Venomous Boma Winder,60
 Honor Guard Commander,210
 Snowcat,410
 Shadowcat Warqueen,810
@@ -640,39 +623,41 @@ Hungry Hungry Hellebore,540
 Mountain Bear Chieftain,1085
 Whipper Wyrm,265
 Hooded Guardian,50
-Skeletal Guardian,20
+Skeletal Guardian,70
+Grasper,999
 Mammoth Org,1010
 Myrm Matriarch,835
 Overgrown Greymyr,820
+Ice'kin,850
 Gruff Mountain Goat,845
 Toisicle,870
-Mountain Greymyr,1240
+Mountain Greymyr,1275
 Mountain Rat,210
 Terrabite,830
 Org,755
 Blephat,745
 Rifter,810
-Raven,1015
+Raven,1150
 Alpine Goat,910
 Electrified Fogbank,750
 Young Org,425
 Rare Vulture,100
 Hungry Mountain Bear,640
 Beehive,100
-Mauling Spirit,830
-Crushing Spirit,800
-Damaged Spirit,800
+Mauling Spirit,910
+Crushing Spirit,1000
+Damaged Spirit,930
 Haunting Shade,700
 Silverback Night Wendecka,220
-Paradise Butterfly,200
+Paradise Butterfly,100
 Greater Blymoid,140
-Greater Guardian,190
+Greater Guardian,125
 Giayl,1250
-Trainer Spirit,900
-Midsummer Maha Ruknee,140
+Trainer Spirit,1100
+Midsummer Maha Ruknee,210
 Silverback Wendecka,180
 Darshak Punk,450
-Veteran Darshak Captain,40
+Veteran Darshak Captain,410
 Ore Weaver Arachne,745
 Skeletal Hunger,1300
 Bluff Billy Goat,900
@@ -681,8 +666,8 @@ Dark Myotis,1025
 Skeletal Monk,1455
 Dar'kin,735
 Dar'kin Thrall,730
-Gho-Wei Ghoulish,900
-Flint Foxweir,750
+Gho-Wei Ghoulish,960
+Flint Foxweir,785
 Nocturne Wendecka,775
 Red Bandit,855
 Sao-La Starfawn,795
@@ -693,165 +678,238 @@ Fuu Nomad Shadow,750
 Pan Guardian Shadow,740
 Indigo Ravenhawk,855
 Fang Warrior Shadow,670
-Withering Priestess,1150
-Eolith Crawler,715
-Komodo Drakewyrm,665
+Withering Priestess,1350
+Eolith Crawler,25
+Komodo Drakewyrm,690
 Rust Blymoid,765
-Pan-Dai Bear,1215
+Pan-Dai Bear,1260
+Tanglestrike,1111
 Sao-La Starstag,995
-Mako Mouth,690
-Aurora Wendecka,885
+Mako Mouth,725
+Aurora Wendecka,905
 Elder Tae-Su,670
-Rai-Koon,690
-Indigo Crowlet,670
-Gho-Wei Inkling,1200
+Rai-Koon,710
+Indigo Crowlet,735
+Gho-Wei Inkling,1250
 Su Monk Shadow,525
 Monsoon Drake,1600
-Avalanche Meshra,1
+Avalanche Meshra,530
 Stone Wall,10
-Anguished Spirit,450
-Ice'kin,850
-Justus,900
-Blastus,900
-Veritus,900
-Industrus,900
-Histus,900
+Anguished Spirit,555
+Fire Vermine,85
+Rotting Stare,1245
 Gho-Wei Carnivant,1350
 Rotting Corpse,1170
-Rotting Stare,1245
-Fire Vermine,30
-Boggle,580
-Seagull,1
-Mountain Bear Momma,985
+Gho Shadow,1670
+Shadow Exile,0
+Whispering Horror,500
+Ebon Wraith,700
+Darshak Clipper,120
+Spooky Pumpkin,590
+Scary Skeletal,550
+Miasmic Myotis,1135
+Moonlight Messenger,1750
+Dour Dowager,1295
+High Priestess Shadow,2000
+Gorged Gull,595
 Lord Pumpkin,1790
 Darshak Pumpkomancer,1815
-Foxweir Friend,1005
-Dark Rift,1200
-Nyrm,220
-Moonlight Messenger,1750
-Gorged Gull,595
-Deathhawk,1235
-Angry Fledgling,650
-Crimsonhawk,1070
-Badger,1030
-Storm Incarnate,1170
-Otissa Snake,1270
-Tree Colossus,1265
-Grove Guardian,1200
-Thornwood Colossus,1255
-Cedar Colossus,1510
 Gilded Greymyr,1170
+Thornwood Colossus,1255
+Foxweir Friend,1005
+Nyrm,220
 Granite Greymyr,1160
+Otissa Snake,1270
 Greymyr Pusher,1130
+Deathhawk,1235
+Badger,1030
+Happy Lil' Fledgling,625
+Tree Colossus,1265
+Grove Guardian,1220
 Greisen Greymyr,1140
 Moltenmyr,1325
-Magmyr,1325
-Augite Greymyr,995
-Greymyr Shover,1130
 Igneous Greymyr,1120
-Mountain Bear Cub,365
-Longwalker,1245
-Penumbryx Shard,800
-Shadowbug,1055
-Shadow Hunter,1290
-Grasping Horror,1970
-Turbulent Manifestation,1830
-Oneiromantic Grub,1170
-Mirkmyr Mechanic,1140
-Fragile Penumbryx,1105
-Lesser Penumbryx,1245
-Penumbryx,2145
-Silverfir Scion,599
-Silverfir Colossus,1175
-Father Silversnag,2480
-Solstimander,435
-Darshak Clipper,200
-White Winter Foxrein,1205
-Burrowing Bear,1220
-Haunted Pumpkin,970
-Spooky Pumpkin,590
+Augite Greymyr,995
+Dark Rift,1200
+Storm Incarnate,1170
+Crimsonhawk,1070
+Cedar Colossus,1510
 Sundering Stone,1940
 Shambling Stone,1155
-Shambling Silver,1150
-Charged Chunk,1220
 Precarious Pebble,1135
+Magmyr,1325
+Greymyr Shover,1130
+Mountain Bear Momma,985
+Mountain Bear Cub,365
+Darshak Senior Officer,385
+Jack o' Liche,1885
+Pumpkin Bomb,150
+Haunted Pumpkin,970
 Heartwood Hierophant,2415
-Samahe Raider,2370
-Evil Noble King,2370
-Snowy Maiden,2250
-Dreamdrinker,2060
-Glacial Guardian,1325
-LIbrary Dweller,815
-Frostbite Meshra,390
-Berenstein Bear,770
-Glacial Greymyr,540
-Scarewan,1130
-Snow Rudremau,580
-Kolar Bear,1145
-Scary Skeletal,550
-Exploding Pumpkin,200
-Snowbuck,510
-Dour Dowager,1295
-Small Slime Monster,260
-Tiny Slime Monster,260
-Medium Slime Monster,260
-Large Slime Monster,260
-the Guardian of the Helmet,440
-the Guardian of the Sword,440
-the Guardian of the Boots,440
-Snow Yorilla,580
-Orion,1280
-Snowy Maiden,2250
-Evil Noble King,2370
-Ramandu,2620
-Wizard Q'vynn,3435
-Jerk Knight,1220
-Money Balloon,1200
-Dark Rift,1200
-Dwarven Miner,1060
-Mimic,1005
-Grasper,999
-Shadowguild Master Balloonist,855
-Dankyssal Hunter,835
-Thirsty Knowledge,735
-Wasted Guardian,710
-Lost Dream,505
-Cash Golem,800
-Moolah Minion,500
-Shadow Strand,444
-Minor Adumbration,444
-Shadow Steed,777
-Tracer Ray,800
-Gnasher,995
-Seasylvan,999
+Penumbryx,2145
+Grasping Horror,1970
 Shadowbug,1055
-Blind Adumbration,1060
-Visionary Adumbration,1115
+Charged Chunk,1220
+Shambling Silver,1150
+Exploding Pumpkin,100
+Shadow Hunter,1290
+Lesser Penumbryx,1250
+Fragile Penumbryx,1105
+Penumbryx Shard,800
+Frostbite Meshra,390
+Solstimander,435
+Turbulent Manifestation,1830
+Longwalker,1245
 Oneiromantic Grub,1170
+Mirkmyr Mechanic,1140
+Nutritious Pumpkin,111
+Silvercrag Greymyr,1165
+Silverfir Scion,599
+White Winter Foxrein,1205
+Clucking Cavalry,1230
+Pir-Ta Owl,1915
+Silverfir Colossus,1175
+Burrowing Bear,1220
+Glacial Guardian,1325
+Father Silversnag,2480
+Ghost Vulture,155
+Blind Adumbration,1060
+Shadow Steed,777
+Tracer Ray,888
+Minor Adumbration,444
+Visionary Adumbration,1115
+Shadow Spinner,765
+Gnasher,995
 Shadow Mantis,1180
 Ill Cub,1185
+Shadow Strand,446
 Fumehorn Colossus,1510
-Turbulent Manifestation,1830
-Ethereal Hunter,855
-Shadow Raider,1175
-Rampaging Bison,1320
-Hovering Hell Boar,810
+Vile Locust,188
+Ona Warrior,190
+Reaper Mander,1110
+Ona Berserker,320
+Shadowguild Master Balloonist,855
+Seasylvan,999
+Dreamdrinker,2060
+Blue-Brim Bonnet,950
+Mobius Scorp,1090
+Spriggin Parasol,1000
 Moss Scorp,610
 Bark Scorp,835
 Azul Scorp,945
-Blue-Brim Bonnet,950
-Spriggin Parasol,1000
-Mobius Scorp,1090
+Orion,1280
 Boss Scorp,1635
-Vile Locust,180
-Shadow Spinner,765
-Shadow Bear,999
-Mirkmyr Mechanic,1140
-Dreamdrinker,2060
-Shadowclaw Cleric,2500
-Utsanna Shadowmau,815
-Dank Presence,850
-Escaping Yorilla,835
+Kolar Bear,1145
+Snow Rudremau,580
+Snow Haremau Kitten,540
+Snow Yorilla,580
+Glacial Greymyr,540
+Ramandu,2620
+Samahee Raider,2370
+Evil Noble King,2370
+Snowy Maiden,2250
+Rampaging Bison,1320
+Jerk Knight,1220
+Zu Skyant,1175
+Shadow Raider,1175
+Scarewan,1130
+Bowie Owl,980
+Origami Deathhawk,920
 Escaping Arachnoid,870
+Garr'Noth,850
+Migrating Myrm Matriarch,840
+Escaping Yorilla,835
+Dankyssal Hunter,835
+Library Dweller,815
+Hovering Hell Boar,810
+Bespeckled Bloodblader,795
+Hek'Noth,775
+Tangleberry Colossus,770
+Berenstein Bear,770
+Utsanna Shadowmau,815
+Berenstain Bear,760
+Thirsty Knowledge,735
+Wasted Guardian,710
+Blird,705
+Prismatic Patrician Myrm,640
+Lost Dream,505
+Lost Exile,985
 Library Horus,975
-Miasmic Myotis,1135
+Mr. T,2100
+Baked Presence,900
+Dank Presence,850
+Dwarven Miner,1060
+Samahee Thornriders,1090
+Moolah Minion,666
+Mimic,1005
+Tanglebird,0
+Coin Golem,1222
+Seasteed Automaton,2666
+Zu'Noth,900
+Money Balloon,1111
+Shadowclaw Cleric,2500
+Wizard Q'vynn,3435
+Shadow Bear,1450
+Eye Agro,1450
+Conjugant Agro,1666
+Shadowstag,1333
+Turbulent Adumbration,1340
+Cirrus Maha,930
+Cumulus Maha,885
+Wind Elemental,1030
+Eagle Owl,150
+Hardened Mud Golem,1011
+Windswept Fervor,666
+Massed Ethereal Spume,350
+Thin Ethereal Spume,275
+Bawkmas Colossus,1490
+Rime Waspyx,1295
+Tamazaja,1455
+Burrowing Catbear,1385
+Animus Agro,1333
+Oniska,666
+Shadowmau Stalker,2170
+Darklight Beacon,1330
+Shimmering Seasteed,1030
+Ethereal Darshak Captain,2400
+Enchanted Peg-Leg,1305
+Ethereal Sailor,1200
+Angry Kudzu,0
+Lil' Gnashy,0
+O'Gnashy,1095
+Red Herring,999
+Feral Moon Manual,735
+Beer Golem,1815
+Malevolent Milkman,1070
+Skålcrusher,0
+Arachnoid Rider,2005
+Turbo Goat,2075
+Angry Moon-Zu,0
+Angry Earth-Zu,1020
+Uberbloodgossaxe,0
+Milk Golem,0
+Angry Kudzu Giant,2375
+Cloudlifter Agronox,0
+Crevyrn,1445
+Frostquill,1505
+Primal Frostlight,2560
+Klarik,1650
+Frost Elemental,1585
+Shattering Frost,1950
+Ravening Wind,1985
+Zesserakh,2205
+Devouring Darkness,2350
+Booty Biter,1275
+Na Nakika,1350
+Darshak Scientist,1420
+Despair Bear,2777
+Bounding Shadow Cub,1380
+Skitterling,0
+Skitterling Lightdrinker,0
+Skitterling Stabber,0
+Vermine King,2445
+Regressing Verminate,1400
+Blighted Sortoise,1675
+Krimppin,0
+Unusually Massive Vermine,1045
+Befouled Water Spirit,1800

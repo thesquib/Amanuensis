@@ -73,6 +73,17 @@ pub struct Character {
     pub darkstone: i64,
     pub purgatory_pendant: i64,
     pub coin_level: i64,
+    // Karma
+    pub good_karma: i64,
+    pub bad_karma: i64,
+    // Start date (earliest login timestamp)
+    pub start_date: Option<String>,
+    // Loot worth (total recovered value, not just share)
+    pub fur_worth: i64,
+    pub mandible_worth: i64,
+    pub blood_worth: i64,
+    // Ethereal Portal Stone broken (separate from portals opened)
+    pub eps_broken: i64,
 }
 
 impl Character {
@@ -104,6 +115,13 @@ impl Character {
             darkstone: 0,
             purgatory_pendant: 0,
             coin_level: 0,
+            good_karma: 0,
+            bad_karma: 0,
+            start_date: None,
+            fur_worth: 0,
+            mandible_worth: 0,
+            blood_worth: 0,
+            eps_broken: 0,
         }
     }
 }

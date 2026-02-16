@@ -9,6 +9,13 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         return LogEvent::Ignored;
     }
 
+    // Karma messages look like speech but aren't — check before speech filter
+    if let Some(caps) = patterns::KARMA_RECEIVED.captures(message) {
+        return LogEvent::KarmaReceived {
+            good: &caps[1] == "good",
+        };
+    }
+
     // Skip speech and emotes early (very common)
     if patterns::SPEECH.is_match(message) || patterns::EMOTE.is_match(message) {
         return LogEvent::Ignored;
@@ -97,7 +104,8 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
         return LogEvent::LootShare {
             item: caps[1].to_string(),
-            amount: caps[3].parse().unwrap_or(0),
+            worth: caps[3].parse().unwrap_or(0),
+            amount: caps[4].parse().unwrap_or(0),
             loot_type,
         };
     }
@@ -136,6 +144,11 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         return LogEvent::EtherealPortalStoneUsed;
     }
 
+    // Esteem gain (check before experience since it also starts with "* You gain")
+    if patterns::ESTEEM_GAIN.is_match(message) {
+        return LogEvent::EsteemGain;
+    }
+
     // Experience gain
     if patterns::EXPERIENCE_GAIN.is_match(message) {
         return LogEvent::ExperienceGain;
@@ -163,13 +176,24 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     LogEvent::Ignored
 }
 
+/// Map study type names to lasty display types.
+/// ways → Befriend, movements → Movements, essence → Morph
+fn study_type_to_lasty(study_type: &str) -> String {
+    match study_type {
+        "ways" => "Befriend".to_string(),
+        "movements" => "Movements".to_string(),
+        "essence" => "Morph".to_string(),
+        other => other.to_string(),
+    }
+}
+
 /// Classify ¥-prefixed messages. These can be trainer ranks, study messages,
 /// sun events, healing sense, etc.
 fn classify_yen_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
-    // Strip the ¥ prefix
-    let body = &message['\u{00a5}'.len_utf8()..];
+    // Strip the ¥ prefix and any leading whitespace (some ¥ messages have a space after ¥)
+    let body = message['\u{00a5}'.len_utf8()..].trim_start();
 
-    // Check for study charge (note: has space after ¥)
+    // Check for study charge
     if let Some(caps) = patterns::STUDY_CHARGE.captures(body) {
         let amount: i64 = caps[1].parse().unwrap_or(0);
         return LogEvent::StudyCharge { amount };
@@ -183,7 +207,21 @@ fn classify_yen_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
-    // Lasty patterns (before trainer lookup, since these are also ¥-prefixed)
+    // Lasty in-progress patterns (begin studying, progress with type)
+    if let Some(caps) = patterns::LASTY_BEGIN_STUDY.captures(body) {
+        return LogEvent::LastyProgress {
+            creature: caps[2].to_string(),
+            lasty_type: study_type_to_lasty(&caps[1]),
+        };
+    }
+    if let Some(caps) = patterns::LASTY_LEARN_PROGRESS.captures(body) {
+        return LogEvent::LastyProgress {
+            creature: caps[2].to_string(),
+            lasty_type: study_type_to_lasty(&caps[1]),
+        };
+    }
+
+    // Lasty completion patterns (before trainer lookup, since these are also ¥-prefixed)
     if let Some(caps) = patterns::LASTY_BEFRIEND.captures(body) {
         return LogEvent::LastyProgress {
             creature: caps[1].to_string(),
@@ -564,6 +602,130 @@ mod tests {
         assert!(matches!(
             event,
             LogEvent::LastyCompleted { ref trainer } if trainer == "Sespus"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_movements_with_space() {
+        // Real log format has a space after ¥
+        let db = test_db();
+        let event =
+            classify_line("¥ You learn to fight the Purple Arachnoid more effectively.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyProgress {
+                ref creature,
+                ref lasty_type
+            } if creature == "Purple Arachnoid" && lasty_type == "Movements"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_befriend_with_space() {
+        let db = test_db();
+        let event = classify_line("¥ You learn to befriend the Vermine.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyProgress {
+                ref creature,
+                ref lasty_type
+            } if creature == "Vermine" && lasty_type == "Befriend"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_begin_study_movements() {
+        let db = test_db();
+        let event =
+            classify_line("¥You begin studying the movements of the Darshak Liche.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyProgress {
+                ref creature,
+                ref lasty_type
+            } if creature == "Darshak Liche" && lasty_type == "Movements"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_begin_study_ways() {
+        let db = test_db();
+        let event =
+            classify_line("¥You begin studying the ways of the Purple Arachnoid.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyProgress {
+                ref creature,
+                ref lasty_type
+            } if creature == "Purple Arachnoid" && lasty_type == "Befriend"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_learn_progress() {
+        let db = test_db();
+        let event = classify_line(
+            "¥ You have almost nothing left to learn about the movements of the Vermine.",
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::LastyProgress {
+                ref creature,
+                ref lasty_type
+            } if creature == "Vermine" && lasty_type == "Movements"
+        ));
+    }
+
+    #[test]
+    fn test_karma_good() {
+        let db = test_db();
+        let event = classify_line("You just received good karma from Ruuk.", &db);
+        assert!(matches!(event, LogEvent::KarmaReceived { good: true }));
+    }
+
+    #[test]
+    fn test_karma_bad() {
+        let db = test_db();
+        let event = classify_line("You just received bad karma from Troll.", &db);
+        assert!(matches!(event, LogEvent::KarmaReceived { good: false }));
+    }
+
+    #[test]
+    fn test_karma_anonymous() {
+        let db = test_db();
+        let event = classify_line("You just received anonymous good karma.", &db);
+        assert!(matches!(event, LogEvent::KarmaReceived { good: true }));
+    }
+
+    #[test]
+    fn test_esteem_gain() {
+        let db = test_db();
+        assert!(matches!(
+            classify_line("* You gain esteem.", &db),
+            LogEvent::EsteemGain
+        ));
+        assert!(matches!(
+            classify_line("* You gain experience and esteem.", &db),
+            LogEvent::EsteemGain
+        ));
+    }
+
+    #[test]
+    fn test_loot_share_with_worth() {
+        let db = test_db();
+        let event = classify_line(
+            "* Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.",
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::LootShare {
+                worth: 20,
+                amount: 10,
+                loot_type: LootType::Fur,
+                ..
+            }
         ));
     }
 }
