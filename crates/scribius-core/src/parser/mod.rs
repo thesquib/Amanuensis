@@ -41,6 +41,11 @@ impl LogParser {
         &self.db
     }
 
+    /// Consume the parser and return the inner Database.
+    pub fn into_db(self) -> Database {
+        self.db
+    }
+
     /// Scan a log folder. Expects character-named subdirectories containing CL Log files.
     pub fn scan_folder(&self, folder: &Path, force: bool) -> Result<ScanResult> {
         let mut result = ScanResult::default();
@@ -169,10 +174,16 @@ impl LogParser {
 
                 LogEvent::Login { .. } => {
                     self.db.increment_character_field(char_id, "logins", 1)?;
+                    if !date_str.is_empty() {
+                        self.db.update_start_date(char_id, &date_str)?;
+                    }
                     file_result.events_found += 1;
                 }
                 LogEvent::Reconnect { .. } => {
                     self.db.increment_character_field(char_id, "logins", 1)?;
+                    if !date_str.is_empty() {
+                        self.db.update_start_date(char_id, &date_str)?;
+                    }
                     file_result.events_found += 1;
                 }
 
@@ -222,16 +233,20 @@ impl LogParser {
                     file_result.events_found += 1;
                 }
                 LogEvent::LootShare {
-                    amount, loot_type, ..
+                    worth, amount, loot_type, ..
                 } => {
-                    let field = match loot_type {
-                        LootType::Fur => "fur_coins",
-                        LootType::Blood => "blood_coins",
-                        LootType::Mandible => "mandible_coins",
-                        LootType::Other => "bounty_coins",
+                    let (share_field, worth_field) = match loot_type {
+                        LootType::Fur => ("fur_coins", "fur_worth"),
+                        LootType::Blood => ("blood_coins", "blood_worth"),
+                        LootType::Mandible => ("mandible_coins", "mandible_worth"),
+                        LootType::Other => ("bounty_coins", "bounty_coins"), // no separate worth for Other
                     };
                     self.db
-                        .increment_character_field(char_id, field, amount)?;
+                        .increment_character_field(char_id, share_field, amount)?;
+                    if worth_field != share_field {
+                        self.db
+                            .increment_character_field(char_id, worth_field, worth)?;
+                    }
                     file_result.events_found += 1;
                 }
                 LogEvent::StudyCharge { amount } => {
@@ -271,9 +286,28 @@ impl LogParser {
                         .increment_character_field(char_id, "shieldstones_broken", 1)?;
                     file_result.events_found += 1;
                 }
-                LogEvent::EtherealPortalOpened | LogEvent::EtherealPortalStoneUsed => {
+                LogEvent::EtherealPortalOpened => {
                     self.db
                         .increment_character_field(char_id, "ethereal_portals", 1)?;
+                    file_result.events_found += 1;
+                }
+                LogEvent::EtherealPortalStoneUsed => {
+                    self.db
+                        .increment_character_field(char_id, "ethereal_portals", 1)?;
+                    self.db
+                        .increment_character_field(char_id, "eps_broken", 1)?;
+                    file_result.events_found += 1;
+                }
+
+                LogEvent::KarmaReceived { good } => {
+                    let field = if good { "good_karma" } else { "bad_karma" };
+                    self.db
+                        .increment_character_field(char_id, field, 1)?;
+                    file_result.events_found += 1;
+                }
+                LogEvent::EsteemGain => {
+                    self.db
+                        .increment_character_field(char_id, "esteem", 1)?;
                     file_result.events_found += 1;
                 }
 
@@ -361,6 +395,151 @@ impl LogParser {
         Ok(total_ranks)
     }
 
+    /// Scan a log folder with a progress callback.
+    /// The callback receives (current_file_index, total_files, filename).
+    pub fn scan_folder_with_progress<F>(
+        &self,
+        folder: &Path,
+        force: bool,
+        progress: F,
+    ) -> Result<ScanResult>
+    where
+        F: Fn(usize, usize, &str),
+    {
+        let mut result = ScanResult::default();
+
+        if !folder.is_dir() {
+            return Err(crate::error::ScribiusError::Data(format!(
+                "Not a directory: {}",
+                folder.display()
+            )));
+        }
+
+        // Collect all (char_dir, char_name, log_files) first to know total count
+        let mut all_work: Vec<(PathBuf, String, Vec<PathBuf>)> = Vec::new();
+        let mut total_files: usize = 0;
+
+        let mut entries: Vec<_> = std::fs::read_dir(folder)?
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
+            .collect();
+        entries.sort_by_key(|e| e.file_name());
+
+        for entry in entries {
+            let dir_name = entry.file_name().to_string_lossy().to_string();
+            if dir_name.starts_with('.') || dir_name == "CL_Movies" {
+                continue;
+            }
+
+            let char_dir = entry.path();
+            let mut log_files = find_log_files(&char_dir)?;
+            if log_files.is_empty() {
+                continue;
+            }
+            log_files.sort();
+
+            let char_name = log_files
+                .iter()
+                .find_map(|path| {
+                    std::fs::read(path)
+                        .ok()
+                        .and_then(|bytes| extract_character_name(&bytes))
+                })
+                .unwrap_or_else(|| dir_name.clone());
+
+            total_files += log_files.len();
+            all_work.push((char_dir, char_name, log_files));
+        }
+
+        let mut current_file: usize = 0;
+
+        for (_char_dir, char_name, log_files) in &all_work {
+            log::info!("Processing character: {}", char_name);
+            let char_id = self.db.get_or_create_character(char_name)?;
+
+            for log_path in log_files {
+                current_file += 1;
+                let filename = log_path
+                    .file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                progress(current_file, total_files, &filename);
+
+                let path_str = log_path.to_string_lossy().to_string();
+
+                if !force && self.db.is_log_scanned(&path_str)? {
+                    result.skipped += 1;
+                    continue;
+                }
+
+                let bytes = match std::fs::read(log_path) {
+                    Ok(b) => b,
+                    Err(e) => {
+                        log::warn!("Error reading {}: {}", path_str, e);
+                        result.errors += 1;
+                        continue;
+                    }
+                };
+
+                let content_hash = hash_bytes(&bytes);
+                if !force && self.db.is_hash_scanned(&content_hash)? {
+                    result.skipped += 1;
+                    continue;
+                }
+
+                match self.scan_bytes(&bytes, char_id) {
+                    Ok(file_result) => {
+                        result.files_scanned += 1;
+                        result.lines_parsed += file_result.lines_parsed;
+                        result.events_found += file_result.events_found;
+
+                        let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                        self.db
+                            .mark_log_scanned(char_id, &path_str, &content_hash, &now)?;
+                    }
+                    Err(e) => {
+                        log::warn!("Error scanning {}: {}", path_str, e);
+                        result.errors += 1;
+                    }
+                }
+            }
+            result.characters += 1;
+        }
+
+        Ok(result)
+    }
+
+    /// Recursively scan for log folders under `root`, then scan each discovered folder.
+    /// The callback receives (current_file_index, total_files, filename).
+    pub fn scan_recursive_with_progress<F>(
+        &self,
+        root: &Path,
+        force: bool,
+        progress: F,
+    ) -> Result<ScanResult>
+    where
+        F: Fn(usize, usize, &str),
+    {
+        let folders = discover_log_folders(root);
+        if folders.is_empty() {
+            // Fall back to treating root as a direct log root
+            return self.scan_folder_with_progress(root, force, progress);
+        }
+
+        let mut combined = ScanResult::default();
+        for folder in &folders {
+            log::info!("Discovered log root: {}", folder.display());
+            let r = self.scan_folder_with_progress(folder, force, &progress)?;
+            combined.characters += r.characters;
+            combined.files_scanned += r.files_scanned;
+            combined.skipped += r.skipped;
+            combined.lines_parsed += r.lines_parsed;
+            combined.events_found += r.events_found;
+            combined.errors += r.errors;
+        }
+        Ok(combined)
+    }
+
     /// After scanning, determine professions and coin levels for all characters.
     pub fn finalize_characters(&self) -> Result<()> {
         let chars = self.db.list_characters()?;
@@ -434,6 +613,49 @@ fn kill_verb_to_field(verb: &KillVerb, assisted: bool) -> &'static str {
     }
 }
 
+/// Recursively discover log root folders under `root`.
+/// A "log root" is a directory that contains subdirectories with CL Log files.
+/// Skips hidden directories and `CL_Movies`.
+pub fn discover_log_folders(root: &Path) -> Vec<PathBuf> {
+    let mut results = Vec::new();
+    discover_log_folders_inner(root, &mut results);
+    results
+}
+
+fn discover_log_folders_inner(dir: &Path, results: &mut Vec<PathBuf>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+
+    let mut subdirs: Vec<PathBuf> = Vec::new();
+    for entry in entries.filter_map(|e| e.ok()) {
+        if !entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') || name == "CL_Movies" {
+            continue;
+        }
+        subdirs.push(entry.path());
+    }
+
+    // Check if this directory is a log root: any immediate subdirectory has CL Log files
+    let is_log_root = subdirs
+        .iter()
+        .any(|sub| find_log_files(sub).map(|f| !f.is_empty()).unwrap_or(false));
+
+    if is_log_root {
+        results.push(dir.to_path_buf());
+        // Don't recurse further — children are character folders
+    } else {
+        // Recurse into subdirectories
+        for sub in &subdirs {
+            discover_log_folders_inner(sub, results);
+        }
+    }
+}
+
 /// Find CL Log files in a directory.
 fn find_log_files(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
@@ -447,7 +669,7 @@ fn find_log_files(dir: &Path) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, serde::Serialize)]
 pub struct ScanResult {
     pub characters: usize,
     pub files_scanned: usize,
@@ -852,6 +1074,78 @@ mod tests {
     }
 
     #[test]
+    fn test_discover_log_folders() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+
+        // Build: root/Clan Lords/Text Logs/CharA/CL Log ...
+        let text_logs = root.join("Clan Lords").join("Text Logs");
+        let char_a = text_logs.join("CharA");
+        fs::create_dir_all(&char_a).unwrap();
+        fs::write(
+            char_a.join("CL Log 2024:01:01 13.00.00.txt"),
+            "1/1/24 1:00:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        // Build: root/Other/Logs/CharB/CL Log ...
+        let other_logs = root.join("Other").join("Logs");
+        let char_b = other_logs.join("CharB");
+        fs::create_dir_all(&char_b).unwrap();
+        fs::write(
+            char_b.join("CL Log 2024:01:02 14.00.00.txt"),
+            "1/2/24 2:00:00p You slaughtered a Vermine.\n",
+        )
+        .unwrap();
+
+        // Build: root/Empty/ (no log files — should not be found)
+        fs::create_dir_all(root.join("Empty").join("SubDir")).unwrap();
+
+        let mut found = super::discover_log_folders(root);
+        found.sort();
+
+        assert_eq!(found.len(), 2);
+        assert!(found.contains(&text_logs));
+        assert!(found.contains(&other_logs));
+    }
+
+    #[test]
+    fn test_scan_recursive_with_progress() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+
+        // Two separate log roots
+        let logs1 = root.join("App1").join("Text Logs");
+        let char1 = logs1.join("Ruuk");
+        fs::create_dir_all(&char1).unwrap();
+        fs::write(
+            char1.join("CL Log 2024:01:01 13.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let logs2 = root.join("App2").join("Logs");
+        let char2 = logs2.join("Squib");
+        fs::create_dir_all(&char2).unwrap();
+        fs::write(
+            char2.join("CL Log 2024:01:02 14.00.00.txt"),
+            "1/2/24 2:00:00p Welcome to Clan Lord, Squib!\n1/2/24 2:01:00p You slaughtered a Vermine.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let result = parser
+            .scan_recursive_with_progress(root, false, |_, _, _| {})
+            .unwrap();
+
+        assert_eq!(result.characters, 2);
+        assert_eq!(result.files_scanned, 2);
+        assert!(parser.db().get_character("Ruuk").unwrap().is_some());
+        assert!(parser.db().get_character("Squib").unwrap().is_some());
+    }
+
+    #[test]
     fn test_extract_character_name_login() {
         let bytes = b"1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!\n";
         assert_eq!(extract_character_name(bytes), Some("Ruuk".to_string()));
@@ -937,5 +1231,143 @@ mod tests {
         // Should find the name from the second log file, not use folder name
         assert!(parser.db().get_character("Realname").unwrap().is_some());
         assert!(parser.db().get_character("wrongname").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_karma_tracking() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p You just received good karma from Donk.
+1/1/24 1:01:00p You just received good karma from Squib.
+1/1/24 1:02:00p You just received bad karma from Troll.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.good_karma, 2);
+        assert_eq!(char.bad_karma, 1);
+    }
+
+    #[test]
+    fn test_esteem_tracking() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p * You gain esteem.
+1/1/24 1:01:00p * You gain experience and esteem.
+1/1/24 1:02:00p * You gain experience.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.esteem, 2);
+    }
+
+    #[test]
+    fn test_start_date_tracking() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/15/24 3:00:00p Welcome to Clan Lord, TestChar!
+1/16/24 1:00:00p Welcome back, TestChar!
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:15 15.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        // Should be the earlier date
+        assert_eq!(char.start_date, Some("2024-01-15 15:00:00".to_string()));
+    }
+
+    #[test]
+    fn test_loot_worth_tracking() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p * Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.
+1/1/24 1:01:00p * squib recovers the Orga blood, worth 30c. Your share is 15c.
+1/1/24 1:02:00p * You recover the Spider mandible, worth 50c. Your share is 25c.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.fur_coins, 10);
+        assert_eq!(char.fur_worth, 20);
+        assert_eq!(char.blood_coins, 15);
+        assert_eq!(char.blood_worth, 30);
+        assert_eq!(char.mandible_coins, 25);
+        assert_eq!(char.mandible_worth, 50);
+    }
+
+    #[test]
+    fn test_highest_kill_query() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Ruuk").unwrap();
+
+        // Rat: value 2, killed 10 times -> score 20
+        for _ in 0..10 {
+            db.upsert_kill(id, "Rat", "killed_count", 2, "2024-01-01").unwrap();
+        }
+        // Vermine: value 5, killed 3 times -> score 15
+        for _ in 0..3 {
+            db.upsert_kill(id, "Vermine", "killed_count", 5, "2024-01-01").unwrap();
+        }
+
+        let result = db.get_highest_kill(id).unwrap();
+        assert!(result.is_some());
+        let (name, score) = result.unwrap();
+        assert_eq!(name, "Rat");
+        assert_eq!(score, 20);
+    }
+
+    #[test]
+    fn test_nemesis_query() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Ruuk").unwrap();
+
+        for _ in 0..5 {
+            db.upsert_kill(id, "Orga Fury", "killed_by_count", 0, "2024-01-01").unwrap();
+        }
+        for _ in 0..3 {
+            db.upsert_kill(id, "Large Vermine", "killed_by_count", 0, "2024-01-01").unwrap();
+        }
+
+        let result = db.get_nemesis(id).unwrap();
+        assert!(result.is_some());
+        let (name, count) = result.unwrap();
+        assert_eq!(name, "Orga Fury");
+        assert_eq!(count, 5);
     }
 }

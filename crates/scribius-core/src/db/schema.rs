@@ -31,7 +31,14 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             ethereal_portals INTEGER NOT NULL DEFAULT 0,
             darkstone INTEGER NOT NULL DEFAULT 0,
             purgatory_pendant INTEGER NOT NULL DEFAULT 0,
-            coin_level INTEGER NOT NULL DEFAULT 0
+            coin_level INTEGER NOT NULL DEFAULT 0,
+            good_karma INTEGER NOT NULL DEFAULT 0,
+            bad_karma INTEGER NOT NULL DEFAULT 0,
+            start_date TEXT,
+            fur_worth INTEGER NOT NULL DEFAULT 0,
+            mandible_worth INTEGER NOT NULL DEFAULT 0,
+            blood_worth INTEGER NOT NULL DEFAULT 0,
+            eps_broken INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS kills (
@@ -98,6 +105,36 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// Migrate existing databases to add new columns.
+/// Uses ALTER TABLE ADD COLUMN which is safe if columns already exist (we catch the error).
+pub fn migrate_tables(conn: &Connection) -> Result<()> {
+    let migrations = [
+        "ALTER TABLE characters ADD COLUMN good_karma INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN bad_karma INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN start_date TEXT",
+        "ALTER TABLE characters ADD COLUMN fur_worth INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN mandible_worth INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN blood_worth INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN eps_broken INTEGER NOT NULL DEFAULT 0",
+    ];
+
+    for sql in &migrations {
+        // Ignore "duplicate column name" errors for idempotent migration
+        match conn.execute(sql, []) {
+            Ok(_) => {}
+            Err(rusqlite::Error::SqliteFailure(err, _))
+                if err.code == rusqlite::ffi::ErrorCode::Unknown
+                    || err.extended_code == 1 =>
+            {
+                // Column already exists — that's fine
+            }
+            Err(e) => return Err(e.into()),
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,5 +167,14 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         create_tables(&conn).unwrap();
         create_tables(&conn).unwrap(); // Should not error
+    }
+
+    #[test]
+    fn test_migrate_tables_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        create_tables(&conn).unwrap();
+        // Migrate twice — should not error
+        migrate_tables(&conn).unwrap();
+        migrate_tables(&conn).unwrap();
     }
 }

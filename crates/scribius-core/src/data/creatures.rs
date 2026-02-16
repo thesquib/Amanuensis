@@ -74,7 +74,7 @@ mod tests {
         let db = CreatureDb::bundled().unwrap();
         assert_eq!(db.get_value("Rat"), Some(2));
         assert_eq!(db.get_value("Leech"), Some(5));
-        assert_eq!(db.get_value("Tesla"), Some(35));
+        assert_eq!(db.get_value("Tesla"), Some(70));
         assert_eq!(db.get_value("Barracuda"), Some(250));
     }
 

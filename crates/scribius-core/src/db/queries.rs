@@ -13,6 +13,7 @@ impl Database {
     pub fn open(path: &str) -> Result<Self> {
         let conn = Connection::open(path)?;
         crate::db::schema::create_tables(&conn)?;
+        crate::db::schema::migrate_tables(&conn)?;
         Ok(Self { conn })
     }
 
@@ -20,6 +21,7 @@ impl Database {
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
         crate::db::schema::create_tables(&conn)?;
+        crate::db::schema::migrate_tables(&conn)?;
         Ok(Self { conn })
     }
 
@@ -61,7 +63,8 @@ impl Database {
                     fur_coins, mandible_coins, blood_coins,
                     bells_used, bells_broken, chains_used, chains_broken,
                     shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
-                    coin_level
+                    coin_level, good_karma, bad_karma, start_date,
+                    fur_worth, mandible_worth, blood_worth, eps_broken
              FROM characters WHERE name = ?1",
             params![name],
             |row| {
@@ -92,6 +95,13 @@ impl Database {
                     darkstone: row.get(23)?,
                     purgatory_pendant: row.get(24)?,
                     coin_level: row.get(25)?,
+                    good_karma: row.get(26)?,
+                    bad_karma: row.get(27)?,
+                    start_date: row.get(28)?,
+                    fur_worth: row.get(29)?,
+                    mandible_worth: row.get(30)?,
+                    blood_worth: row.get(31)?,
+                    eps_broken: row.get(32)?,
                 })
             },
         );
@@ -111,7 +121,8 @@ impl Database {
                     fur_coins, mandible_coins, blood_coins,
                     bells_used, bells_broken, chains_used, chains_broken,
                     shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
-                    coin_level
+                    coin_level, good_karma, bad_karma, start_date,
+                    fur_worth, mandible_worth, blood_worth, eps_broken
              FROM characters ORDER BY name",
         )?;
 
@@ -142,7 +153,14 @@ impl Database {
                 ethereal_portals: row.get(22)?,
                 darkstone: row.get(23)?,
                 purgatory_pendant: row.get(24)?,
-                    coin_level: row.get(25)?,
+                coin_level: row.get(25)?,
+                good_karma: row.get(26)?,
+                bad_karma: row.get(27)?,
+                start_date: row.get(28)?,
+                fur_worth: row.get(29)?,
+                mandible_worth: row.get(30)?,
+                blood_worth: row.get(31)?,
+                eps_broken: row.get(32)?,
             })
         })?;
 
@@ -159,6 +177,8 @@ impl Database {
             "bells_used", "bells_broken", "chains_used", "chains_broken",
             "shieldstones_used", "shieldstones_broken", "ethereal_portals",
             "darkstone", "purgatory_pendant", "coin_level",
+            "good_karma", "bad_karma",
+            "fur_worth", "mandible_worth", "blood_worth", "eps_broken",
         ];
         if !allowed.contains(&field) {
             return Err(crate::error::ScribiusError::Data(format!(
@@ -483,6 +503,51 @@ impl Database {
             params![coin_level, char_id],
         )?;
         Ok(())
+    }
+
+    /// Set a character's start_date to the earlier of the existing value and the new value.
+    pub fn update_start_date(&self, char_id: i64, date: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE characters SET start_date = ?1
+             WHERE id = ?2 AND (start_date IS NULL OR start_date > ?1)",
+            params![date, char_id],
+        )?;
+        Ok(())
+    }
+
+    /// Get the highest-value killed creature for a character.
+    /// Returns (creature_name, total_solo_kills * creature_value).
+    pub fn get_highest_kill(&self, char_id: i64) -> Result<Option<(String, i64)>> {
+        let result = self.conn.query_row(
+            "SELECT creature_name,
+                    (killed_count + slaughtered_count + vanquished_count + dispatched_count) * creature_value AS score
+             FROM kills WHERE character_id = ?1 AND creature_value > 0
+             ORDER BY score DESC LIMIT 1",
+            params![char_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+        );
+        match result {
+            Ok(r) => Ok(Some(r)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Get the nemesis (creature that killed the character the most).
+    /// Returns (creature_name, killed_by_count).
+    pub fn get_nemesis(&self, char_id: i64) -> Result<Option<(String, i64)>> {
+        let result = self.conn.query_row(
+            "SELECT creature_name, killed_by_count
+             FROM kills WHERE character_id = ?1 AND killed_by_count > 0
+             ORDER BY killed_by_count DESC LIMIT 1",
+            params![char_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
+        );
+        match result {
+            Ok(r) => Ok(Some(r)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
