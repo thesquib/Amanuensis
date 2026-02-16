@@ -75,6 +75,33 @@ export function Sidebar() {
     [selectCharacter, loadCharacterData],
   );
 
+  const loadDatabase = useCallback(
+    async (path: string) => {
+      await openDatabase(path);
+      setDbPath(path);
+      localStorage.setItem("scribius_last_db", path);
+      const chars = await listCharacters();
+      setCharacters(chars);
+      const count = await getScannedLogCount();
+      setScannedLogCount(count);
+      if (chars.length > 0 && chars[0].id !== null) {
+        await handleSelectCharacter(chars[0].id);
+      }
+    },
+    [setDbPath, setCharacters, setScannedLogCount, handleSelectCharacter],
+  );
+
+  // Auto-open last database on startup
+  useEffect(() => {
+    const lastDb = localStorage.getItem("scribius_last_db");
+    if (lastDb) {
+      loadDatabase(lastDb).catch(() => {
+        // DB file may have been deleted — clear the stale entry
+        localStorage.removeItem("scribius_last_db");
+      });
+    }
+  }, [loadDatabase]);
+
   const handleOpenDb = useCallback(async () => {
     const selected = await open({
       filters: [{ name: "SQLite Database", extensions: ["db", "sqlite"] }],
@@ -82,25 +109,12 @@ export function Sidebar() {
     if (selected) {
       const path = typeof selected === "string" ? selected : selected;
       try {
-        await openDatabase(path);
-        setDbPath(path);
-        const chars = await listCharacters();
-        setCharacters(chars);
-        const count = await getScannedLogCount();
-        setScannedLogCount(count);
-        if (chars.length > 0 && chars[0].id !== null) {
-          await handleSelectCharacter(chars[0].id);
-        }
+        await loadDatabase(path);
       } catch (e) {
         console.error("Failed to open database:", e);
       }
     }
-  }, [
-    setDbPath,
-    setCharacters,
-    setScannedLogCount,
-    handleSelectCharacter,
-  ]);
+  }, [loadDatabase]);
 
   const handleScan = useCallback(async () => {
     if (!dbPath) {
@@ -113,6 +127,7 @@ export function Sidebar() {
       if (!selected) return;
       await openDatabase(selected);
       setDbPath(selected);
+      localStorage.setItem("scribius_last_db", selected);
     }
 
     const folder = await open({ directory: true, recursive: true, title: "Select Log Folder" });
