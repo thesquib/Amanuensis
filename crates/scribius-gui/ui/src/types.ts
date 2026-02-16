@@ -109,6 +109,7 @@ export type ViewType =
   | "summary"
   | "kills"
   | "trainers"
+  | "rank-modifiers"
   | "coins"
   | "pets"
   | "lastys"

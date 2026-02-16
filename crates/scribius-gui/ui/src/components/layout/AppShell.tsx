@@ -7,12 +7,14 @@ import { CoinsView } from "../views/CoinsView";
 import { PetsView } from "../views/PetsView";
 import { LastysView } from "../views/LastysView";
 import { EquipmentView } from "../views/EquipmentView";
+import { RankModifiersView } from "../views/RankModifiersView";
 import type { ViewType } from "../../types";
 
 const TABS: { id: ViewType; label: string }[] = [
   { id: "summary", label: "Summary" },
   { id: "kills", label: "Kills" },
   { id: "trainers", label: "Trainers" },
+  { id: "rank-modifiers", label: "Rank Modifiers" },
   { id: "coins", label: "Coins" },
   { id: "pets", label: "Pets" },
   { id: "lastys", label: "Lastys" },
@@ -27,6 +29,8 @@ function ViewContent({ view }: { view: ViewType }) {
       return <KillsView />;
     case "trainers":
       return <TrainersView />;
+    case "rank-modifiers":
+      return <RankModifiersView />;
     case "coins":
       return <CoinsView />;
     case "pets":

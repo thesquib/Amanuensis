@@ -45,6 +45,14 @@ export async function getTrainerDbInfo(): Promise<TrainerInfo[]> {
   return invoke("get_trainer_db_info");
 }
 
+export async function setModifiedRanks(
+  charId: number,
+  trainerName: string,
+  modifiedRanks: number,
+): Promise<void> {
+  return invoke("set_modified_ranks", { charId, trainerName, modifiedRanks });
+}
+
 export async function scanLogs(
   folder: string,
   force: boolean,

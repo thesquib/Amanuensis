@@ -17,6 +17,7 @@ fn main() {
             commands::get_character,
             commands::get_kills,
             commands::get_trainers,
+            commands::set_modified_ranks,
             commands::get_pets,
             commands::get_lastys,
             commands::get_scanned_log_count,
