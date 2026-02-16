@@ -63,6 +63,20 @@ pub fn get_trainers(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Trai
     db.get_trainers(char_id).map_err(|e| e.to_string())
 }
 
+/// Set modified ranks for a trainer (user-specified baseline).
+#[tauri::command]
+pub fn set_modified_ranks(
+    char_id: i64,
+    trainer_name: String,
+    modified_ranks: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.set_modified_ranks(char_id, &trainer_name, modified_ranks)
+        .map_err(|e| e.to_string())
+}
+
 /// Get pets for a character.
 #[tauri::command]
 pub fn get_pets(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Pet>, String> {
