@@ -59,6 +59,21 @@ impl TrainerDb {
     pub fn is_empty(&self) -> bool {
         self.trainers.is_empty()
     }
+
+    /// Return all unique trainer names with their profession (if known).
+    /// Used for the "Show Zero Trainers" toggle in the GUI.
+    pub fn all_trainers_with_professions(&self) -> Vec<(String, Option<String>)> {
+        let mut seen = std::collections::HashSet::new();
+        let mut result = Vec::new();
+        for trainer_name in self.trainers.values() {
+            if seen.insert(trainer_name.clone()) {
+                let profession = self.professions.get(trainer_name).cloned();
+                result.push((trainer_name.clone(), profession));
+            }
+        }
+        result.sort_by(|a, b| a.0.cmp(&b.0));
+        result
+    }
 }
 
 #[cfg(test)]
@@ -125,8 +140,8 @@ mod tests {
         // Mystic trainers
         assert_eq!(db.get_profession("Sespos"), Some("Mystic"));
         assert_eq!(db.get_profession("Respos"), Some("Mystic"));
-        assert_eq!(db.get_profession("Chronos"), Some("Mystic"));
         assert_eq!(db.get_profession("Quantos"), Some("Mystic"));
+        assert_eq!(db.get_profession("Pontifen"), Some("Mystic"));
         assert_eq!(db.get_profession("Radia"), Some("Mystic"));
         assert_eq!(db.get_profession("Skryss"), Some("Mystic"));
         assert_eq!(db.get_profession("Alaenos"), Some("Mystic"));
@@ -140,9 +155,15 @@ mod tests {
         assert_eq!(db.get_profession("Farly Buff"), Some("Ranger"));
         assert_eq!(db.get_profession("Respin Verminebane"), Some("Ranger"));
         assert_eq!(db.get_profession("Ranger 2nd Slot"), Some("Ranger"));
-        assert_eq!(db.get_profession("Splash O'Sul"), Some("Ranger"));
+        assert_eq!(db.get_profession("Spleisha'Sul"), Some("Ranger"));
 
-        // Bloodmage — these trainers are not in trainers.json yet (no known rank messages)
+        // Bloodmage
+        assert_eq!(db.get_profession("Posuhm"), Some("Bloodmage"));
+        assert_eq!(db.get_profession("Disabla"), Some("Bloodmage"));
+        assert_eq!(db.get_profession("Cryptus"), Some("Bloodmage"));
+        assert_eq!(db.get_profession("Dantus"), Some("Bloodmage"));
+        assert_eq!(db.get_profession("Aktur"), Some("Bloodmage"));
+
         // Champion
         assert_eq!(db.get_profession("Channel Master"), Some("Champion"));
         assert_eq!(db.get_profession("Corsetta"), Some("Champion"));

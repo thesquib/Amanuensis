@@ -42,8 +42,8 @@ pub enum LogEvent {
     TrainerRank { trainer_name: String, message: String },
     /// Coins picked up: * You pick up {N} coins.
     CoinsPickedUp { amount: i64 },
-    /// Loot share: recovers the {item}, Your share is {N}c.
-    LootShare { item: String, amount: i64, loot_type: LootType },
+    /// Loot share: recovers the {item}, worth {W}c. Your share is {N}c.
+    LootShare { item: String, worth: i64, amount: i64, loot_type: LootType },
     /// Coin balance: You have {N} coins.
     CoinBalance { amount: i64 },
     /// Bell broken
@@ -80,6 +80,10 @@ pub enum LogEvent {
     LastyProgress { creature: String, lasty_type: String },
     /// Lasty completed: finished training with a trainer
     LastyCompleted { trainer: String },
+    /// Karma received: "You just received good/bad karma from {name}."
+    KarmaReceived { good: bool },
+    /// Esteem gain: "* You gain esteem." or "* You gain experience and esteem."
+    EsteemGain,
     /// Line was not classified (speech, emote, or unrecognized)
     Ignored,
 }

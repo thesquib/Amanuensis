@@ -1,0 +1,159 @@
+import { useStore } from "../../lib/store";
+import { StatCard } from "../shared/StatCard";
+import { ProfessionBadge } from "../shared/ProfessionBadge";
+
+export function SummaryView() {
+  const { characters, selectedCharacterId, kills, trainers } = useStore();
+  const char = characters.find((c) => c.id === selectedCharacterId);
+  if (!char) return null;
+
+  const totalKills = kills.reduce(
+    (sum, k) =>
+      sum +
+      k.killed_count +
+      k.slaughtered_count +
+      k.vanquished_count +
+      k.dispatched_count,
+    0,
+  );
+  const totalAssisted = kills.reduce(
+    (sum, k) =>
+      sum +
+      k.assisted_kill_count +
+      k.assisted_slaughter_count +
+      k.assisted_vanquish_count +
+      k.assisted_dispatch_count,
+    0,
+  );
+  const uniqueCreatures = kills.length;
+
+  // Find nemesis (most killed-by)
+  const nemesis = kills.reduce(
+    (best, k) => (k.killed_by_count > (best?.killed_by_count ?? 0) ? k : best),
+    null as (typeof kills)[0] | null,
+  );
+
+  // Find highest kill (highest total solo kills * creature_value)
+  const highestKill = kills.reduce(
+    (best, k) => {
+      const score =
+        (k.killed_count +
+          k.slaughtered_count +
+          k.vanquished_count +
+          k.dispatched_count) *
+        k.creature_value;
+      const bestScore = best
+        ? (best.killed_count +
+            best.slaughtered_count +
+            best.vanquished_count +
+            best.dispatched_count) *
+          best.creature_value
+        : 0;
+      return score > bestScore ? k : best;
+    },
+    null as (typeof kills)[0] | null,
+  );
+
+  const totalRanks = trainers.reduce(
+    (sum, t) => sum + t.ranks + t.modified_ranks,
+    0,
+  );
+
+  // Computed percentages
+  const chanceOfDepart =
+    char.deaths + char.departs > 0
+      ? ((char.departs / (char.deaths + char.departs)) * 100).toFixed(1)
+      : null;
+
+  const chanceOfChainBreak =
+    char.chains_used + char.chains_broken > 0
+      ? (
+          (char.chains_broken / (char.chains_used + char.chains_broken)) *
+          100
+        ).toFixed(1)
+      : null;
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-3">
+        <h2 className="text-xl font-bold">{char.name}</h2>
+        <ProfessionBadge profession={char.profession} />
+      </div>
+
+      {char.start_date && (
+        <p className="text-muted-foreground mb-4 text-sm">
+          Playing since {char.start_date.split(" ")[0]}
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <StatCard label="Coin Level" value={char.coin_level.toLocaleString()} />
+        <StatCard label="Logins" value={char.logins.toLocaleString()} />
+        <StatCard label="Deaths" value={char.deaths.toLocaleString()} />
+        <StatCard label="Departs" value={char.departs.toLocaleString()} />
+        <StatCard
+          label="Solo Kills"
+          value={totalKills.toLocaleString()}
+          sub={`${uniqueCreatures} unique creatures`}
+        />
+        <StatCard
+          label="Assisted Kills"
+          value={totalAssisted.toLocaleString()}
+        />
+        <StatCard
+          label="Highest Kill"
+          value={highestKill?.creature_name ?? "None"}
+          sub={
+            highestKill
+              ? `Value: ${highestKill.creature_value}`
+              : undefined
+          }
+        />
+        <StatCard
+          label="Nemesis"
+          value={nemesis?.creature_name ?? "None"}
+          sub={
+            nemesis ? `Killed you ${nemesis.killed_by_count} times` : undefined
+          }
+        />
+        <StatCard
+          label="Total Ranks"
+          value={totalRanks.toLocaleString()}
+          sub={`${trainers.length} trainers`}
+        />
+        <StatCard
+          label="Good Karma"
+          value={char.good_karma.toLocaleString()}
+        />
+        <StatCard
+          label="Bad Karma"
+          value={char.bad_karma.toLocaleString()}
+        />
+        <StatCard
+          label="Esteem"
+          value={char.esteem.toLocaleString()}
+        />
+        {chanceOfDepart && (
+          <StatCard
+            label="Chance of Depart"
+            value={`${chanceOfDepart}%`}
+            sub={`${char.departs} / ${char.deaths + char.departs}`}
+          />
+        )}
+        {chanceOfChainBreak && (
+          <StatCard
+            label="Chain Break Rate"
+            value={`${chanceOfChainBreak}%`}
+            sub={`${char.chains_broken} / ${char.chains_used + char.chains_broken}`}
+          />
+        )}
+        {char.eps_broken > 0 && (
+          <StatCard
+            label="EPS Broken"
+            value={char.eps_broken.toLocaleString()}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
