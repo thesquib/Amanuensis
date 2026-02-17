@@ -316,10 +316,6 @@ impl LogParser {
                     lasty_type,
                 } => {
                     self.db.upsert_lasty(char_id, &creature, &lasty_type)?;
-                    // Befriend also creates a pet
-                    if lasty_type == "Befriend" {
-                        self.db.upsert_pet(char_id, &creature)?;
-                    }
                     file_result.events_found += 1;
                 }
                 LogEvent::LastyCompleted { trainer } => {
@@ -1022,10 +1018,9 @@ mod tests {
         let vermine = lastys.iter().find(|l| l.creature_name == "Large Vermine").unwrap();
         assert_eq!(vermine.lasty_type, "Movements");
 
-        // Check pets (befriend creates a pet)
+        // Befriend does NOT create pets (only healers get pets via adoption)
         let pets = parser.db().get_pets(char_id).unwrap();
-        assert_eq!(pets.len(), 1);
-        assert_eq!(pets[0].creature_name, "Maha Ruknee");
+        assert_eq!(pets.len(), 0);
 
         // One lasty should be completed (the most recent unfinished one — Large Vermine)
         let finished: Vec<_> = lastys.iter().filter(|l| l.finished).collect();

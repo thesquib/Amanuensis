@@ -103,6 +103,9 @@ export interface ScanProgress {
 export interface TrainerInfo {
   name: string;
   profession: string | null;
+  multiplier: number;
+  is_combo: boolean;
+  combo_components: string[];
 }
 
 export type ViewType =

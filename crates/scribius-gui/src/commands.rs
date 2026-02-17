@@ -20,6 +20,9 @@ pub struct ScanProgress {
 pub struct TrainerInfo {
     pub name: String,
     pub profession: Option<String>,
+    pub multiplier: f64,
+    pub is_combo: bool,
+    pub combo_components: Vec<String>,
 }
 
 /// Open (or create) a database at the given path.
@@ -106,9 +109,15 @@ pub fn get_scanned_log_count(state: State<'_, AppState>) -> Result<i64, String> 
 pub fn get_trainer_db_info() -> Result<Vec<TrainerInfo>, String> {
     let trainer_db = TrainerDb::bundled().map_err(|e| e.to_string())?;
     Ok(trainer_db
-        .all_trainers_with_professions()
+        .all_trainer_metadata()
         .into_iter()
-        .map(|(name, profession)| TrainerInfo { name, profession })
+        .map(|m| TrainerInfo {
+            name: m.name,
+            profession: m.profession,
+            multiplier: m.multiplier,
+            is_combo: m.is_combo,
+            combo_components: m.combo_components,
+        })
         .collect())
 }
 
