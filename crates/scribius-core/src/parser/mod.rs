@@ -359,23 +359,33 @@ impl LogParser {
             }
         }
 
-        // Determine profession by highest rank count
-        let max = *[
-            fighter_ranks, healer_ranks, mystic_ranks,
-            ranger_ranks, bloodmage_ranks, champion_ranks,
-        ].iter().max().unwrap_or(&0);
+        // Specialization-wins logic: if any Fighter specialization has ranks,
+        // pick the specialization with the most ranks (specialists also train
+        // base Fighter trainers, so Fighter would always outnumber them in a
+        // simple majority vote).
+        if ranger_ranks > 0 || bloodmage_ranks > 0 || champion_ranks > 0 {
+            // Pick highest specialization; tie-break: Ranger > Bloodmage > Champion
+            if ranger_ranks >= bloodmage_ranks && ranger_ranks >= champion_ranks {
+                return Ok(Profession::Ranger);
+            }
+            if bloodmage_ranks >= champion_ranks {
+                return Ok(Profession::Bloodmage);
+            }
+            return Ok(Profession::Champion);
+        }
+
+        // No specialization — use base class majority vote
+        let max = *[fighter_ranks, healer_ranks, mystic_ranks]
+            .iter().max().unwrap_or(&0);
 
         if max == 0 {
             return Ok(Profession::Unknown);
         }
 
-        // Priority order matches the original app
+        // Priority: Fighter > Healer > Mystic
         if fighter_ranks == max { return Ok(Profession::Fighter); }
         if healer_ranks == max { return Ok(Profession::Healer); }
         if mystic_ranks == max { return Ok(Profession::Mystic); }
-        if ranger_ranks == max { return Ok(Profession::Ranger); }
-        if bloodmage_ranks == max { return Ok(Profession::Bloodmage); }
-        if champion_ranks == max { return Ok(Profession::Champion); }
 
         Ok(Profession::Unknown)
     }
@@ -1027,23 +1037,26 @@ mod tests {
         assert_eq!(finished.len(), 1);
     }
 
+    /// Helper: build a log file with the given ¥-prefixed rank messages (as raw bytes).
+    fn build_rank_log(messages: &[&[u8]], count_each: usize) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for msg in messages {
+            for _ in 0..count_each {
+                bytes.extend_from_slice(b"1/1/24 1:00:00p ");
+                bytes.push(0xA5);
+                bytes.extend_from_slice(msg);
+                bytes.push(b'\n');
+            }
+        }
+        bytes
+    }
+
     #[test]
-    fn test_profession_detection() {
+    fn test_profession_detection_fighter() {
         let (tmp, char_dir) = create_test_log_dir();
 
-        // Build log with fighter trainer messages (Evus is Fighter)
-        let mut bytes = Vec::new();
-        for _ in 0..5 {
-            bytes.extend_from_slice(b"1/1/24 1:00:00p ");
-            bytes.push(0xA5);
-            bytes.extend_from_slice(b"You seem to fight more effectively now.\n");
-        }
-
-        fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
-            &bytes,
-        )
-        .unwrap();
+        let bytes = build_rank_log(&[b"You seem to fight more effectively now."], 5);
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
@@ -1053,6 +1066,108 @@ mod tests {
         let char = parser.db().get_character("TestChar").unwrap().unwrap();
         assert_eq!(char.profession, crate::models::Profession::Fighter);
         assert!(char.coin_level > 0);
+    }
+
+    #[test]
+    fn test_profession_detection_healer() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let bytes = build_rank_log(&[b"You seem to heal more effectively."], 5);
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Healer);
+    }
+
+    #[test]
+    fn test_profession_detection_ranger_over_fighter() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Ranger has many Fighter ranks + some Ranger ranks → should detect Ranger
+        let bytes = build_rank_log(
+            &[
+                b"You seem to fight more effectively now.",  // Fighter (Evus)
+                b"Your combat ability improves.",            // Ranger (Bangus Anmash)
+            ],
+            10, // 10 of each
+        );
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Ranger);
+    }
+
+    #[test]
+    fn test_profession_detection_champion_over_fighter() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Champion has Fighter ranks + Champion ranks → should detect Champion
+        let bytes = build_rank_log(
+            &[
+                b"You seem to fight more effectively now.",  // Fighter (Evus)
+                b"Your Earthpower improves.",                // Champion (Toomeria)
+            ],
+            5,
+        );
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Champion);
+    }
+
+    #[test]
+    fn test_profession_detection_bloodmage_over_fighter() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Bloodmage has Fighter ranks + Bloodmage ranks → should detect Bloodmage
+        let bytes = build_rank_log(
+            &[
+                b"You seem to fight more effectively now.",         // Fighter (Evus)
+                b"You are better able to feign death.",             // Bloodmage (Posuhm)
+            ],
+            5,
+        );
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Bloodmage);
+    }
+
+    #[test]
+    fn test_profession_detection_unknown_no_trainers() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Log with kills only, no trainer messages
+        let log_content = "1/1/24 1:00:00p You slaughtered a Rat.\n";
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), log_content).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Unknown);
     }
 
     #[test]

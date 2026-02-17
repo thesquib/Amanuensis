@@ -26,10 +26,14 @@ pub struct TrainerInfo {
 }
 
 /// Open (or create) a database at the given path.
+/// Re-finalizes characters so profession detection uses the latest algorithm.
 #[tauri::command]
 pub fn open_database(path: String, state: State<'_, AppState>) -> Result<(), String> {
     let db = Database::open(&path).map_err(|e| e.to_string())?;
-    *state.db.lock().unwrap() = Some(db);
+    // Re-run profession detection so existing DBs pick up algorithm fixes
+    let parser = LogParser::new(db).map_err(|e| e.to_string())?;
+    parser.finalize_characters().map_err(|e| e.to_string())?;
+    *state.db.lock().unwrap() = Some(parser.into_db());
     *state.db_path.lock().unwrap() = Some(path);
     Ok(())
 }
