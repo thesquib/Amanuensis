@@ -23,6 +23,7 @@ fn main() {
             commands::get_scanned_log_count,
             commands::get_trainer_db_info,
             commands::scan_logs,
+            commands::scan_files,
             commands::check_db_exists,
             commands::reset_database,
         ])

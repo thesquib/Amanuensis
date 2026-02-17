@@ -509,6 +509,85 @@ impl LogParser {
         Ok(result)
     }
 
+    /// Scan individual log files with a progress callback.
+    /// Character name is extracted from each file's welcome message, falling back to
+    /// the parent directory name.
+    pub fn scan_files_with_progress<F>(
+        &self,
+        files: &[PathBuf],
+        force: bool,
+        progress: F,
+    ) -> Result<ScanResult>
+    where
+        F: Fn(usize, usize, &str),
+    {
+        let mut result = ScanResult::default();
+        let total_files = files.len();
+        let mut seen_characters = std::collections::HashSet::new();
+
+        for (i, log_path) in files.iter().enumerate() {
+            let filename = log_path
+                .file_name()
+                .map(|f| f.to_string_lossy().to_string())
+                .unwrap_or_default();
+            progress(i + 1, total_files, &filename);
+
+            let path_str = log_path.to_string_lossy().to_string();
+
+            if !force && self.db.is_log_scanned(&path_str)? {
+                result.skipped += 1;
+                continue;
+            }
+
+            let bytes = match std::fs::read(log_path) {
+                Ok(b) => b,
+                Err(e) => {
+                    log::warn!("Error reading {}: {}", path_str, e);
+                    result.errors += 1;
+                    continue;
+                }
+            };
+
+            let content_hash = hash_bytes(&bytes);
+            if !force && self.db.is_hash_scanned(&content_hash)? {
+                result.skipped += 1;
+                continue;
+            }
+
+            // Determine character name from file content or parent directory
+            let char_name = extract_character_name(&bytes).unwrap_or_else(|| {
+                log_path
+                    .parent()
+                    .and_then(|p| p.file_name())
+                    .map(|n| titlecase_name(&n.to_string_lossy()))
+                    .unwrap_or_else(|| "Unknown".to_string())
+            });
+
+            let char_id = self.db.get_or_create_character(&char_name)?;
+            if seen_characters.insert(char_name) {
+                result.characters += 1;
+            }
+
+            match self.scan_bytes(&bytes, char_id) {
+                Ok(file_result) => {
+                    result.files_scanned += 1;
+                    result.lines_parsed += file_result.lines_parsed;
+                    result.events_found += file_result.events_found;
+
+                    let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                    self.db
+                        .mark_log_scanned(char_id, &path_str, &content_hash, &now)?;
+                }
+                Err(e) => {
+                    log::warn!("Error scanning {}: {}", path_str, e);
+                    result.errors += 1;
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
     /// Recursively scan for log folders under `root`, then scan each discovered folder.
     /// The callback receives (current_file_index, total_files, filename).
     pub fn scan_recursive_with_progress<F>(

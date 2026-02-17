@@ -61,6 +61,13 @@ export async function scanLogs(
   return invoke("scan_logs", { folder, force, recursive });
 }
 
+export async function scanFiles(
+  files: string[],
+  force: boolean = false,
+): Promise<ScanResult> {
+  return invoke("scan_files", { files, force });
+}
+
 export async function checkDbExists(path: string): Promise<boolean> {
   return invoke("check_db_exists", { path });
 }
