@@ -173,6 +173,55 @@ pub async fn scan_logs(
     result
 }
 
+/// Scan individual log files, emitting progress events.
+/// Runs on a background thread so the UI stays responsive.
+#[tauri::command]
+pub async fn scan_files(
+    files: Vec<String>,
+    force: bool,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<ScanResult, String> {
+    let db = state
+        .db
+        .lock()
+        .unwrap()
+        .take()
+        .ok_or("No database open")?;
+
+    let state_db = state.db.clone();
+
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let parser = LogParser::new(db).map_err(|e| e.to_string())?;
+
+        let app_handle = app.clone();
+        let progress_cb = |current: usize, total: usize, filename: &str| {
+            let _ = app_handle.emit(
+                "scan-progress",
+                ScanProgress {
+                    current_file: current,
+                    total_files: total,
+                    filename: filename.to_string(),
+                },
+            );
+        };
+
+        let paths: Vec<std::path::PathBuf> = files.iter().map(std::path::PathBuf::from).collect();
+        let result = parser
+            .scan_files_with_progress(&paths, force, progress_cb)
+            .map_err(|e| e.to_string())?;
+
+        parser.finalize_characters().map_err(|e| e.to_string())?;
+        *state_db.lock().unwrap() = Some(parser.into_db());
+
+        Ok(result)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    result
+}
+
 /// Check if a database file exists at a path (for auto-detection).
 #[tauri::command]
 pub fn check_db_exists(path: String) -> bool {
