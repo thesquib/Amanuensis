@@ -7,6 +7,7 @@ import {
   listCharacters,
   getScannedLogCount,
   scanLogs,
+  scanFiles,
   getKills,
   getTrainers,
   getPets,
@@ -116,19 +117,32 @@ export function Sidebar() {
     }
   }, [loadDatabase]);
 
-  const handleScan = useCallback(async () => {
-    if (!dbPath) {
-      // Create a new DB via save dialog
-      const selected = await save({
-        title: "Create New Database",
-        filters: [{ name: "SQLite Database", extensions: ["db"] }],
-        defaultPath: "scribius.db",
-      });
-      if (!selected) return;
-      await openDatabase(selected);
-      setDbPath(selected);
-      localStorage.setItem("scribius_last_db", selected);
+  const ensureDb = useCallback(async (): Promise<boolean> => {
+    if (dbPath) return true;
+    const selected = await save({
+      title: "Create New Database",
+      filters: [{ name: "SQLite Database", extensions: ["db"] }],
+      defaultPath: "scribius.db",
+    });
+    if (!selected) return false;
+    await openDatabase(selected);
+    setDbPath(selected);
+    localStorage.setItem("scribius_last_db", selected);
+    return true;
+  }, [dbPath, setDbPath]);
+
+  const finishScan = useCallback(async () => {
+    const chars = await listCharacters();
+    setCharacters(chars);
+    const count = await getScannedLogCount();
+    setScannedLogCount(count);
+    if (chars.length > 0 && chars[0].id !== null) {
+      await handleSelectCharacter(chars[0].id);
     }
+  }, [setCharacters, setScannedLogCount, handleSelectCharacter]);
+
+  const handleScanFolder = useCallback(async () => {
+    if (!(await ensureDb())) return;
 
     const folder = await open({ directory: true, recursive: true, title: "Select Log Folder" });
     if (!folder) return;
@@ -140,30 +154,39 @@ export function Sidebar() {
 
     try {
       await scanLogs(folderPath, false, recursiveScan);
-      const chars = await listCharacters();
-      setCharacters(chars);
-      const count = await getScannedLogCount();
-      setScannedLogCount(count);
-      if (chars.length > 0 && chars[0].id !== null) {
-        await handleSelectCharacter(chars[0].id);
-      }
+      await finishScan();
     } catch (e) {
       console.error("Scan failed:", e);
     } finally {
       setIsScanning(false);
       setScanProgress(null);
     }
-  }, [
-    dbPath,
-    setDbPath,
-    setLogFolder,
-    setIsScanning,
-    setScanProgress,
-    setCharacters,
-    setScannedLogCount,
-    handleSelectCharacter,
-    recursiveScan,
-  ]);
+  }, [ensureDb, setLogFolder, setIsScanning, setScanProgress, finishScan, recursiveScan]);
+
+  const handleScanFiles = useCallback(async () => {
+    if (!(await ensureDb())) return;
+
+    const selected = await open({
+      multiple: true,
+      filters: [{ name: "Log Files", extensions: ["txt"] }],
+      title: "Select Log Files",
+    });
+    if (!selected) return;
+    const files = Array.isArray(selected) ? selected : [selected];
+
+    setIsScanning(true);
+    setScanProgress(null);
+
+    try {
+      await scanFiles(files);
+      await finishScan();
+    } catch (e) {
+      console.error("Scan failed:", e);
+    } finally {
+      setIsScanning(false);
+      setScanProgress(null);
+    }
+  }, [ensureDb, setIsScanning, setScanProgress, finishScan]);
 
   const handleReset = useCallback(async () => {
     if (!dbPath) return;
@@ -206,11 +229,18 @@ export function Sidebar() {
           Open Database
         </button>
         <button
-          onClick={handleScan}
+          onClick={handleScanFolder}
           disabled={isScanning}
           className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/80 disabled:opacity-50"
         >
-          {isScanning ? "Scanning..." : "Scan Logs"}
+          {isScanning ? "Scanning..." : "Scan Folder"}
+        </button>
+        <button
+          onClick={handleScanFiles}
+          disabled={isScanning}
+          className="rounded bg-[var(--color-accent)]/80 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/60 disabled:opacity-50"
+        >
+          Scan Files
         </button>
         <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
           <input
