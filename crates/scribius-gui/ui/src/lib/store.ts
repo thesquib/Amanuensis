@@ -9,6 +9,8 @@ import type {
   ViewType,
 } from "../types";
 
+export type Theme = "dark" | "light" | "midnight";
+
 interface AppStore {
   // Database
   dbPath: string | null;
@@ -52,6 +54,16 @@ interface AppStore {
   recursiveScan: boolean;
   setRecursiveScan: (recursive: boolean) => void;
 
+  // Character list filters
+  excludeLowCL: boolean;
+  setExcludeLowCL: (exclude: boolean) => void;
+  excludeUnknown: boolean;
+  setExcludeUnknown: (exclude: boolean) => void;
+
+  // Theme
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
+
   // Loading
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
@@ -91,6 +103,22 @@ export const useStore = create<AppStore>((set) => ({
 
   recursiveScan: false,
   setRecursiveScan: (recursive) => set({ recursiveScan: recursive }),
+
+  excludeLowCL: true,
+  setExcludeLowCL: (exclude) => set({ excludeLowCL: exclude }),
+  excludeUnknown: true,
+  setExcludeUnknown: (exclude) => set({ excludeUnknown: exclude }),
+
+  theme: (localStorage.getItem("scribius_theme") as Theme) || "dark",
+  setTheme: (theme) => {
+    if (theme === "dark") {
+      delete document.documentElement.dataset.theme;
+    } else {
+      document.documentElement.dataset.theme = theme;
+    }
+    localStorage.setItem("scribius_theme", theme);
+    set({ theme });
+  },
 
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),

@@ -17,6 +17,7 @@ import {
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { ProgressBar } from "../shared/ProgressBar";
 import type { ScanProgress } from "../../types";
+import type { Theme } from "../../lib/store";
 
 export function Sidebar() {
   const {
@@ -40,6 +41,12 @@ export function Sidebar() {
     setLastys,
     recursiveScan,
     setRecursiveScan,
+    excludeLowCL,
+    setExcludeLowCL,
+    excludeUnknown,
+    setExcludeUnknown,
+    theme,
+    setTheme,
   } = useStore();
 
   // Listen for scan progress events
@@ -213,7 +220,18 @@ export function Sidebar() {
     <div className="flex h-full w-60 flex-col border-r border-[var(--color-border)] bg-[var(--color-sidebar)]">
       {/* Header */}
       <div className="border-b border-[var(--color-border)] p-3">
-        <h1 className="text-lg font-bold tracking-wide">Scribius</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold tracking-wide">Scribius</h1>
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as Theme)}
+            className="rounded border border-[var(--color-border)] bg-[var(--color-card)] px-1.5 py-0.5 text-xs text-[var(--color-text)] outline-none"
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="midnight">Midnight</option>
+          </select>
+        </div>
         <div className="mt-1 text-xs text-[var(--color-text-muted)]">
           Clan Lord Log Analyzer
         </div>
@@ -287,9 +305,39 @@ export function Sidebar() {
         </div>
       )}
 
+      {/* Character list filters */}
+      {characters.length > 0 && (
+        <div className="flex flex-col gap-1 border-b border-[var(--color-border)] px-3 py-2">
+          <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+            <input
+              type="checkbox"
+              checked={excludeLowCL}
+              onChange={(e) => setExcludeLowCL(e.target.checked)}
+              className="accent-[var(--color-accent)]"
+            />
+            Exclude CL &lt; 1
+          </label>
+          <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+            <input
+              type="checkbox"
+              checked={excludeUnknown}
+              onChange={(e) => setExcludeUnknown(e.target.checked)}
+              className="accent-[var(--color-accent)]"
+            />
+            Exclude Unknown
+          </label>
+        </div>
+      )}
+
       {/* Character list */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {characters.map((char) => (
+        {characters
+          .filter((char) => {
+            if (excludeLowCL && char.coin_level < 1) return false;
+            if (excludeUnknown && char.profession === "Unknown") return false;
+            return true;
+          })
+          .map((char) => (
           <button
             key={char.id}
             onClick={() => char.id !== null && handleSelectCharacter(char.id)}

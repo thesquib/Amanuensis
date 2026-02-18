@@ -116,4 +116,5 @@ export type ViewType =
   | "coins"
   | "pets"
   | "lastys"
-  | "equipment";
+  | "equipment"
+  | "fighter-stats";
