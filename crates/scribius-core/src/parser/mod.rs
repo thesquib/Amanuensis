@@ -908,8 +908,8 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         let log_content = r#"1/1/24 1:00:00p Donk thinks, "south"
-1/1/24 1:01:00p Ruuk says, "hello everyone"
-1/1/24 1:02:00p (Ruuk waves)
+1/1/24 1:01:00p Fen says, "hello everyone"
+1/1/24 1:02:00p (Fen waves)
 1/1/24 1:03:00p You slaughtered a Rat.
 "#;
         fs::write(
@@ -1175,8 +1175,8 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         let log_content = "\
-1/1/24 1:00:00p * Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.
-1/1/24 1:01:00p * squib recovers the Orga blood, worth 30c. Your share is 15c.
+1/1/24 1:00:00p * Fen recovers the Dark Vermine fur, worth 20c. Your share is 10c.
+1/1/24 1:01:00p * pip recovers the Orga blood, worth 30c. Your share is 15c.
 ";
         fs::write(
             char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
@@ -1305,20 +1305,20 @@ mod tests {
 
         // Two separate log roots
         let logs1 = root.join("App1").join("Text Logs");
-        let char1 = logs1.join("Ruuk");
+        let char1 = logs1.join("Fen");
         fs::create_dir_all(&char1).unwrap();
         fs::write(
             char1.join("CL Log 2024:01:01 13.00.00.txt"),
-            "1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+            "1/1/24 1:00:00p Welcome to Clan Lord, Fen!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
         )
         .unwrap();
 
         let logs2 = root.join("App2").join("Logs");
-        let char2 = logs2.join("Squib");
+        let char2 = logs2.join("Pip");
         fs::create_dir_all(&char2).unwrap();
         fs::write(
             char2.join("CL Log 2024:01:02 14.00.00.txt"),
-            "1/2/24 2:00:00p Welcome to Clan Lord, Squib!\n1/2/24 2:01:00p You slaughtered a Vermine.\n",
+            "1/2/24 2:00:00p Welcome to Clan Lord, Pip!\n1/2/24 2:01:00p You slaughtered a Vermine.\n",
         )
         .unwrap();
 
@@ -1330,20 +1330,20 @@ mod tests {
 
         assert_eq!(result.characters, 2);
         assert_eq!(result.files_scanned, 2);
-        assert!(parser.db().get_character("Ruuk").unwrap().is_some());
-        assert!(parser.db().get_character("Squib").unwrap().is_some());
+        assert!(parser.db().get_character("Fen").unwrap().is_some());
+        assert!(parser.db().get_character("Pip").unwrap().is_some());
     }
 
     #[test]
     fn test_extract_character_name_login() {
-        let bytes = b"1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!\n";
-        assert_eq!(extract_character_name(bytes), Some("Ruuk".to_string()));
+        let bytes = b"1/1/24 1:00:00p Welcome to Clan Lord, Fen!\n";
+        assert_eq!(extract_character_name(bytes), Some("Fen".to_string()));
     }
 
     #[test]
     fn test_extract_character_name_welcome_back() {
-        let bytes = b"1/1/24 1:00:00p Welcome back, squib!\n";
-        assert_eq!(extract_character_name(bytes), Some("Squib".to_string()));
+        let bytes = b"1/1/24 1:00:00p Welcome back, pip!\n";
+        assert_eq!(extract_character_name(bytes), Some("Pip".to_string()));
     }
 
     #[test]
@@ -1354,9 +1354,9 @@ mod tests {
 
     #[test]
     fn test_titlecase_name_single_word() {
-        assert_eq!(titlecase_name("ruuk"), "Ruuk");
-        assert_eq!(titlecase_name("RUUK"), "Ruuk");
-        assert_eq!(titlecase_name("Ruuk"), "Ruuk");
+        assert_eq!(titlecase_name("fen"), "Fen");
+        assert_eq!(titlecase_name("FEN"), "Fen");
+        assert_eq!(titlecase_name("Fen"), "Fen");
     }
 
     #[test]
@@ -1428,7 +1428,7 @@ mod tests {
 
         let log_content = "\
 1/1/24 1:00:00p You just received good karma from Donk.
-1/1/24 1:01:00p You just received good karma from Squib.
+1/1/24 1:01:00p You just received good karma from Pip.
 1/1/24 1:02:00p You just received bad karma from Troll.
 ";
         fs::write(
@@ -1497,8 +1497,8 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         let log_content = "\
-1/1/24 1:00:00p * Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.
-1/1/24 1:01:00p * squib recovers the Orga blood, worth 30c. Your share is 15c.
+1/1/24 1:00:00p * Fen recovers the Dark Vermine fur, worth 20c. Your share is 10c.
+1/1/24 1:01:00p * pip recovers the Orga blood, worth 30c. Your share is 15c.
 1/1/24 1:02:00p * You recover the Spider mandible, worth 50c. Your share is 25c.
 ";
         fs::write(
@@ -1523,7 +1523,7 @@ mod tests {
     #[test]
     fn test_highest_kill_query() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
 
         // Rat: value 2, killed 10 times -> score 20
         for _ in 0..10 {
@@ -1544,7 +1544,7 @@ mod tests {
     #[test]
     fn test_nemesis_query() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
 
         for _ in 0..5 {
             db.upsert_kill(id, "Orga Fury", "killed_by_count", 0, "2024-01-01").unwrap();

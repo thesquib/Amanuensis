@@ -119,12 +119,12 @@ mod tests {
 
     #[test]
     fn test_double_digit_month_day() {
-        let (dt, msg) = parse_timestamp("12/26/21 10:33:22p Welcome back, Ruuk!").unwrap();
+        let (dt, msg) = parse_timestamp("12/26/21 10:33:22p Welcome back, Fen!").unwrap();
         assert_eq!(dt.month(), 12);
         assert_eq!(dt.day(), 26);
         assert_eq!(dt.year(), 2021);
         assert_eq!(dt.hour(), 22); // 10p = 22
-        assert_eq!(msg, "Welcome back, Ruuk!");
+        assert_eq!(msg, "Welcome back, Fen!");
     }
 
     #[test]
