@@ -1,5 +1,5 @@
 OVERVIEW
 =======
-Scribius is an old, closed source awesome applicatoin that tracks data from logs in an old game called Clan Lord. This project aims to reverse engineer Scribius and then port it to a cross platform language and framework with the minimum amount of effort to build a modern backwards compatible scribus app that works on mac, linux, windows. 
+Amanuensis is a modern, cross-platform replacement for the original closed-source Scribius.app — an application that tracks data from logs in an old game called Clan Lord. This project reverse-engineered Scribius and ported it to Rust (core + CLI) with a Tauri + React GUI, providing a backwards-compatible app that works on Mac, Linux, and Windows.
 
-The application is Scribius.app in this folder 
+The original application is Scribius.app in this folder.

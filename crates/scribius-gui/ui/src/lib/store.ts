@@ -109,14 +109,14 @@ export const useStore = create<AppStore>((set) => ({
   excludeUnknown: true,
   setExcludeUnknown: (exclude) => set({ excludeUnknown: exclude }),
 
-  theme: (localStorage.getItem("scribius_theme") as Theme) || "dark",
+  theme: (localStorage.getItem("amanuensis_theme") as Theme) || "dark",
   setTheme: (theme) => {
     if (theme === "dark") {
       delete document.documentElement.dataset.theme;
     } else {
       document.documentElement.dataset.theme = theme;
     }
-    localStorage.setItem("scribius_theme", theme);
+    localStorage.setItem("amanuensis_theme", theme);
     set({ theme });
   },
 

@@ -94,7 +94,7 @@ export function AppShell() {
         ) : (
           <div className="flex flex-1 items-center justify-center text-[var(--color-text-muted)]">
             <div className="text-center">
-              <div className="text-4xl">Scribius</div>
+              <div className="text-4xl">Amanuensis</div>
               <div className="mt-2 text-sm">
                 Select a character or scan logs to get started
               </div>

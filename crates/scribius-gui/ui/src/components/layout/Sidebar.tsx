@@ -87,7 +87,7 @@ export function Sidebar() {
     async (path: string) => {
       await openDatabase(path);
       setDbPath(path);
-      localStorage.setItem("scribius_last_db", path);
+      localStorage.setItem("amanuensis_last_db", path);
       const chars = await listCharacters();
       setCharacters(chars);
       const count = await getScannedLogCount();
@@ -101,11 +101,11 @@ export function Sidebar() {
 
   // Auto-open last database on startup
   useEffect(() => {
-    const lastDb = localStorage.getItem("scribius_last_db");
+    const lastDb = localStorage.getItem("amanuensis_last_db");
     if (lastDb) {
       loadDatabase(lastDb).catch(() => {
         // DB file may have been deleted — clear the stale entry
-        localStorage.removeItem("scribius_last_db");
+        localStorage.removeItem("amanuensis_last_db");
       });
     }
   }, [loadDatabase]);
@@ -129,12 +129,12 @@ export function Sidebar() {
     const selected = await save({
       title: "Create New Database",
       filters: [{ name: "SQLite Database", extensions: ["db"] }],
-      defaultPath: "scribius.db",
+      defaultPath: "amanuensis.db",
     });
     if (!selected) return false;
     await openDatabase(selected);
     setDbPath(selected);
-    localStorage.setItem("scribius_last_db", selected);
+    localStorage.setItem("amanuensis_last_db", selected);
     return true;
   }, [dbPath, setDbPath]);
 
@@ -221,7 +221,7 @@ export function Sidebar() {
       {/* Header */}
       <div className="border-b border-[var(--color-border)] p-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold tracking-wide">Scribius</h1>
+          <h1 className="text-lg font-bold tracking-wide">Amanuensis</h1>
           <select
             value={theme}
             onChange={(e) => setTheme(e.target.value as Theme)}
