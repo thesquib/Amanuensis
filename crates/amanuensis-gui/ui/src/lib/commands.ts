@@ -7,6 +7,7 @@ import type {
   Lasty,
   ScanResult,
   TrainerInfo,
+  ImportResult,
 } from "../types";
 
 export async function openDatabase(path: string): Promise<void> {
@@ -74,4 +75,12 @@ export async function checkDbExists(path: string): Promise<boolean> {
 
 export async function resetDatabase(): Promise<void> {
   return invoke("reset_database");
+}
+
+export async function importScribiusDb(
+  scribiusPath: string,
+  outputPath: string,
+  force: boolean = false,
+): Promise<ImportResult> {
+  return invoke("import_scribius_db", { scribiusPath, outputPath, force });
 }
