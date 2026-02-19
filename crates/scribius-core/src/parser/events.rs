@@ -80,6 +80,10 @@ pub enum LogEvent {
     LastyProgress { creature: String, lasty_type: String },
     /// Lasty completed: finished training with a trainer
     LastyCompleted { trainer: String },
+    /// Study abandon: player abandoned creature study
+    StudyAbandon { creature: String },
+    /// Apply-learning bonus rank confirmed for a trainer
+    ApplyLearningRank { trainer_name: String },
     /// Karma received: "You just received good/bad karma from {name}."
     KarmaReceived { good: bool },
     /// Esteem gain: "* You gain esteem." or "* You gain experience and esteem."

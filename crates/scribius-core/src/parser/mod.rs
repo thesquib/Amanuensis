@@ -170,6 +170,7 @@ impl LogParser {
                 | LogEvent::ClanningChange { .. }
                 | LogEvent::Disconnect
                 | LogEvent::StudyProgress { .. }
+                | LogEvent::StudyAbandon { .. }
                 | LogEvent::Recovered { .. } => {}
 
                 LogEvent::Login { .. } => {
@@ -320,6 +321,11 @@ impl LogParser {
                 }
                 LogEvent::LastyCompleted { trainer } => {
                     self.db.complete_lasty(char_id, &trainer)?;
+                    file_result.events_found += 1;
+                }
+                LogEvent::ApplyLearningRank { trainer_name } => {
+                    self.db
+                        .upsert_trainer_rank(char_id, &trainer_name, &date_str)?;
                     file_result.events_found += 1;
                 }
             }
