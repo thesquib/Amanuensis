@@ -181,7 +181,7 @@ impl Database {
             "fur_worth", "mandible_worth", "blood_worth", "eps_broken",
         ];
         if !allowed.contains(&field) {
-            return Err(crate::error::ScribiusError::Data(format!(
+            return Err(crate::error::AmanuensisError::Data(format!(
                 "Unknown character field: {}",
                 field
             )));
@@ -212,7 +212,7 @@ impl Database {
             "assisted_dispatch_count", "killed_by_count",
         ];
         if !allowed.contains(&field) {
-            return Err(crate::error::ScribiusError::Data(format!(
+            return Err(crate::error::AmanuensisError::Data(format!(
                 "Unknown kill field: {}",
                 field
             )));

@@ -3,9 +3,9 @@ use std::path::Path;
 use serde::Serialize;
 use tauri::{Emitter, State};
 
-use scribius_core::models::{Character, Kill, Lasty, Pet, Trainer};
-use scribius_core::parser::ScanResult;
-use scribius_core::{Database, LogParser, TrainerDb};
+use amanuensis_core::models::{Character, Kill, Lasty, Pet, Trainer};
+use amanuensis_core::parser::ScanResult;
+use amanuensis_core::{Database, LogParser, TrainerDb};
 
 use crate::state::AppState;
 

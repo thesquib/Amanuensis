@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use scribius_core::Database;
+use amanuensis_core::Database;
 
 /// Application state shared across Tauri commands.
 pub struct AppState {
