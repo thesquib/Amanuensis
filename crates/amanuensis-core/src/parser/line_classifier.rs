@@ -106,13 +106,28 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         let loot_type = match &caps[2] {
             "fur" => LootType::Fur,
             "blood" => LootType::Blood,
-            "mandible" => LootType::Mandible,
+            "mandible" | "mandibles" => LootType::Mandible,
             _ => LootType::Other,
         };
         return LogEvent::LootShare {
             item: caps[1].to_string(),
             worth: caps[3].parse().unwrap_or(0),
             amount: caps[4].parse().unwrap_or(0),
+            loot_type,
+        };
+    }
+    if let Some(caps) = patterns::SELF_RECOVERY.captures(message) {
+        let loot_type = match &caps[2] {
+            "fur" => LootType::Fur,
+            "blood" => LootType::Blood,
+            "mandible" | "mandibles" => LootType::Mandible,
+            _ => LootType::Other,
+        };
+        let worth: i64 = caps[3].parse().unwrap_or(0);
+        return LogEvent::LootShare {
+            item: caps[1].to_string(),
+            worth,
+            amount: worth, // solo recovery: full value to player
             loot_type,
         };
     }
@@ -820,6 +835,60 @@ mod tests {
                 worth: 20,
                 amount: 10,
                 loot_type: LootType::Fur,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_loot_share_mandibles_plural() {
+        let db = test_db();
+        let event = classify_line(
+            "* You recover the Noble Myrm mandibles, worth 2c. Your share is 1c.",
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::LootShare {
+                worth: 2,
+                amount: 1,
+                loot_type: LootType::Mandible,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_self_recovery_fur() {
+        let db = test_db();
+        let event = classify_line(
+            "* You recover the Dark Vermine fur, worth 20c.",
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::LootShare {
+                worth: 20,
+                amount: 20,
+                loot_type: LootType::Fur,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_self_recovery_mandibles() {
+        let db = test_db();
+        let event = classify_line(
+            "* You recover the Noble Myrm mandibles, worth 2c.",
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::LootShare {
+                worth: 2,
+                amount: 2,
+                loot_type: LootType::Mandible,
                 ..
             }
         ));
