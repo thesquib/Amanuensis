@@ -111,7 +111,7 @@ export function SummaryView() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <StatCard label="Coin Level" value={char.coin_level.toLocaleString()} />
+        <StatCard label="Level" value={char.coin_level.toLocaleString()} />
         <StatCard label="Logins" value={char.logins.toLocaleString()} />
         <StatCard label="Deaths" value={char.deaths.toLocaleString()} />
         <StatCard label="Departs" value={char.departs.toLocaleString()} />

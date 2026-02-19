@@ -64,3 +64,15 @@ jobs:
           releaseBody: 'See the assets below to download for your platform.'
           releaseDraft: true
           prerelease: false
+
+      - name: Create portable Windows zip
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "target/${{ matrix.target }}/release/Amanuensis.exe" -DestinationPath "Amanuensis_portable_x64.zip"
+
+      - name: Upload portable zip to release
+        if: matrix.platform == 'windows-latest'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} Amanuensis_portable_x64.zip --clobber

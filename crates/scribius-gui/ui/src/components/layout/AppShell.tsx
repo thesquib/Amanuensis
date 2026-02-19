@@ -47,7 +47,7 @@ function ViewContent({ view }: { view: ViewType }) {
 }
 
 export function AppShell() {
-  const { activeView, setActiveView, selectedCharacterId, characters } =
+  const { activeView, setActiveView, selectedCharacterId, characters, dbPath } =
     useStore();
 
   const selectedCharacter = characters.find(
@@ -93,11 +93,25 @@ export function AppShell() {
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-[var(--color-text-muted)]">
-            <div className="text-center">
+            <div className="max-w-md text-center">
               <div className="text-4xl">Amanuensis</div>
-              <div className="mt-2 text-sm">
-                Select a character or scan logs to get started
-              </div>
+              {!dbPath ? (
+                <div className="mt-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-5 text-left">
+                  <div className="mb-2 text-sm font-semibold text-[var(--color-text)]">
+                    Getting Started
+                  </div>
+                  <p className="text-sm leading-relaxed">
+                    Click <span className="font-medium text-[var(--color-accent)]">Scan Folder</span> in
+                    the sidebar (optionally check <span className="italic">Deep scan</span> for
+                    recursive scanning), choose a database location, then select your Clan Lord
+                    folder where your logs are. The app will do the rest.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-2 text-sm">
+                  Select a character to get started
+                </div>
+              )}
             </div>
           </div>
         )}

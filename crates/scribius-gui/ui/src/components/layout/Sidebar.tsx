@@ -315,7 +315,7 @@ export function Sidebar() {
               onChange={(e) => setExcludeLowCL(e.target.checked)}
               className="accent-[var(--color-accent)]"
             />
-            Exclude CL &lt; 1
+            Exclude Lvl &lt; 1
           </label>
           <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
             <input
@@ -352,7 +352,7 @@ export function Sidebar() {
               <div className="flex items-center gap-2">
                 <ProfessionBadge profession={char.profession} />
                 <span className="text-xs text-[var(--color-text-muted)]">
-                  CL {char.coin_level}
+                  Lvl {char.coin_level}
                 </span>
               </div>
             </div>
