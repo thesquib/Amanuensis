@@ -114,11 +114,12 @@ fn import_ruuk_character_stats() {
     assert_eq!(ruuk.shieldstones_used, 0);
     assert_eq!(ruuk.shieldstones_broken, 0);
     assert_eq!(ruuk.purgatory_pendant, 0);
+    assert_eq!(ruuk.coins_picked_up, 600); // ZCASINOCOINSFIXED
 
-    // Profession: Scribius stores empty string, which maps to Unknown
+    // Profession: Scribius stores "Ranger" for Ruuk
     assert_eq!(
         ruuk.profession,
-        amanuensis_core::models::character::Profession::Unknown
+        amanuensis_core::models::character::Profession::Ranger
     );
 
     // Start date: Core Data timestamp 532809057 → 2017-11-19
@@ -139,8 +140,8 @@ fn import_ruuk_trainers() {
     let ruuk = db.get_character("Ruuk").unwrap().expect("Ruuk should exist");
     let trainers = db.get_trainers(ruuk.id.unwrap()).unwrap();
 
-    // Scribius has 10 trainers for Ruuk
-    assert_eq!(trainers.len(), 10);
+    // Scribius has 15 trainers for Ruuk (5 with 0 ranks)
+    assert_eq!(trainers.len(), 15);
 
     let expected = [
         ("Duvin Beastlore", 136),
@@ -153,6 +154,11 @@ fn import_ruuk_trainers() {
         ("Skea Brightfur", 9),
         ("Bangus Anmash", 4),
         ("Pathfinding", 2),
+        ("Aktur", 0),
+        ("Atkia", 0),
+        ("Angilsa", 0),
+        ("Darktur", 0),
+        ("Farly Buff", 0),
     ];
 
     for (name, expected_ranks) in &expected {
@@ -234,7 +240,7 @@ fn import_total_trainers() {
         .conn()
         .query_row("SELECT COUNT(*) FROM trainers", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(count, 33);
+    assert_eq!(count, 38);
 }
 
 // ===========================================================================
@@ -420,8 +426,8 @@ fn compare_trainers_same_source() {
     let import_trainers = import_db.get_trainers(import_ruuk.id.unwrap()).unwrap();
     let scan_trainers = scan_db.get_trainers(scan_ruuk.id.unwrap()).unwrap();
 
-    // Scribius: 10 trainers, Scan: 11 trainers
-    assert_eq!(import_trainers.len(), 10);
+    // Scribius: 15 trainers (5 with 0 ranks), Scan: 11 trainers
+    assert_eq!(import_trainers.len(), 15);
     assert_eq!(scan_trainers.len(), 11);
 
     // 9 trainers match exactly by name and rank count
@@ -624,13 +630,11 @@ fn compare_profession_detection() {
     let import_ruuk = import_db.get_character("Ruuk").unwrap().unwrap();
     let scan_ruuk = scan_db.get_character("Ruuk").unwrap().unwrap();
 
-    // Scribius stored no profession for Ruuk (empty string → Unknown)
+    // Both Scribius and Amanuensis detect Ranger for Ruuk
     assert_eq!(
         import_ruuk.profession,
-        amanuensis_core::models::character::Profession::Unknown
+        amanuensis_core::models::character::Profession::Ranger
     );
-
-    // Amanuensis detects Ranger via majority-vote from trainer professions
     assert_eq!(
         scan_ruuk.profession,
         amanuensis_core::models::character::Profession::Ranger

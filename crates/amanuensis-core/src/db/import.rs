@@ -143,7 +143,7 @@ fn find_characters_with_data(src: &Connection) -> Result<HashMap<i64, bool>> {
         ("ZMODELTRAINERS", "ZRELATIONSHIP"),
         ("ZMODELKILLS", "ZRELATIONSHIP"),
         ("ZMODELPETS", "ZRELATIONSHIP"),
-        ("ZMODELLASTYS", "ZRELATIONSHIP"),
+        ("ZMODELLASTYS", "ZCHARACTERRELATIONSHIP"),
     ];
 
     for (table, fk_col) in &tables {
@@ -280,7 +280,7 @@ fn import_characters(
                 shieldstones_used, shieldstones_broken,
                 darkstone, purgatory_pendant, start_date, good_karma,
                 fur_worth, mandible_worth, blood_worth,
-                ethereal_portals, eps_broken
+                ethereal_portals, eps_broken, coins_picked_up
             ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7,
                 ?8, ?9, ?10, ?11,
@@ -289,7 +289,7 @@ fn import_characters(
                 ?19, ?20,
                 ?21, ?22, ?23, ?24,
                 ?25, ?26, ?27,
-                ?28, ?29
+                ?28, ?29, ?30
             )",
             params![
                 ch.name, profession.as_str(), ch.logins, ch.departs, ch.deaths,
@@ -300,7 +300,7 @@ fn import_characters(
                 ch.shieldstones_used, ch.shieldstones_broken,
                 ch.darkstone, ch.purgatory_pendant, start_date, ch.good_karma,
                 ch.fur_worth, ch.mandible_worth, ch.blood_worth,
-                ch.ethereal_portals, ch.eps_broken,
+                ch.ethereal_portals, ch.eps_broken, ch.casino_fixed,
             ],
         )?;
 
@@ -310,13 +310,6 @@ fn import_characters(
             |row| row.get(0),
         )?;
         pk_map.insert(ch.z_pk, new_id);
-
-        if ch.casino_fixed != 0 {
-            result.warnings.push(format!(
-                "Character '{}' has ZCASINOCOINSFIXED={} (no mapping in Amanuensis, value dropped)",
-                ch.name, ch.casino_fixed
-            ));
-        }
 
         result.characters_imported += 1;
     }
@@ -515,7 +508,7 @@ fn import_lastys(
     result: &mut ImportResult,
 ) -> Result<()> {
     let mut stmt = match src.prepare(
-        "SELECT ZRELATIONSHIP, ZCREATURENAME, ZLASTYTYPE, ZFINISHED, ZMESSAGECOUNT
+        "SELECT ZCHARACTERRELATIONSHIP, ZCREATURENAME, ZLASTYTYPE, ZFINISHED, ZMESSAGECOUNT
          FROM ZMODELLASTYS",
     ) {
         Ok(s) => s,

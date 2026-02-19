@@ -1,4 +1,4 @@
-import { open, save, confirm } from "@tauri-apps/plugin-dialog";
+import { open, save, confirm, message } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useCallback } from "react";
 import { useStore } from "../../lib/store";
@@ -13,6 +13,7 @@ import {
   getPets,
   getLastys,
   resetDatabase,
+  importScribiusDb,
 } from "../../lib/commands";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { ProgressBar } from "../shared/ProgressBar";
@@ -216,6 +217,43 @@ export function Sidebar() {
     }
   }, [dbPath, setCharacters, selectCharacter, setKills, setTrainers, setPets, setLastys, setScannedLogCount]);
 
+  const handleImportScribius = useCallback(async () => {
+    // Pick the Scribius .db file
+    const scribiusFile = await open({
+      filters: [{ name: "Scribius Database", extensions: ["db", "sqlite"] }],
+      title: "Select Scribius Database",
+    });
+    if (!scribiusFile) return;
+
+    // Pick where to save the new Amanuensis database
+    const outputFile = await save({
+      title: "Save Amanuensis Database As",
+      filters: [{ name: "SQLite Database", extensions: ["db"] }],
+      defaultPath: "amanuensis.db",
+    });
+    if (!outputFile) return;
+
+    try {
+      const result = await importScribiusDb(scribiusFile, outputFile);
+      await loadDatabase(outputFile);
+
+      const parts = [`Imported ${result.characters_imported} character(s)`];
+      if (result.trainers_imported > 0) parts.push(`${result.trainers_imported} trainers`);
+      if (result.kills_imported > 0) parts.push(`${result.kills_imported} kills`);
+      if (result.pets_imported > 0) parts.push(`${result.pets_imported} pets`);
+      if (result.lastys_imported > 0) parts.push(`${result.lastys_imported} lastys`);
+      if (result.characters_skipped > 0) parts.push(`${result.characters_skipped} skipped`);
+
+      await message(parts.join(", ") + ".", { title: "Import Complete" });
+
+      if (result.warnings.length > 0) {
+        await message(result.warnings.join("\n"), { title: "Import Warnings", kind: "warning" });
+      }
+    } catch (e) {
+      await message(String(e), { title: "Import Failed", kind: "error" });
+    }
+  }, [loadDatabase]);
+
   return (
     <div className="flex h-full w-60 flex-col border-r border-[var(--color-border)] bg-[var(--color-sidebar)]">
       {/* Header */}
@@ -259,6 +297,13 @@ export function Sidebar() {
           className="rounded bg-[var(--color-accent)]/80 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/60 disabled:opacity-50"
         >
           Scan Files
+        </button>
+        <button
+          onClick={handleImportScribius}
+          disabled={isScanning}
+          className="rounded bg-[var(--color-card)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--color-card)]/80 disabled:opacity-50"
+        >
+          Import Scribius DB
         </button>
         <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
           <input

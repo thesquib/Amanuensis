@@ -108,6 +108,17 @@ export interface TrainerInfo {
   combo_components: string[];
 }
 
+/** Mirrors Rust `ImportResult` struct */
+export interface ImportResult {
+  characters_imported: number;
+  characters_skipped: number;
+  trainers_imported: number;
+  kills_imported: number;
+  pets_imported: number;
+  lastys_imported: number;
+  warnings: string[];
+}
+
 export type ViewType =
   | "summary"
   | "kills"
