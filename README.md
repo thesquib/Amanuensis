@@ -4,21 +4,21 @@ A cross-platform [Clan Lord](https://www.deltatao.com/clanlord/) log analyzer. P
 
 Built in Rust with a Tauri + React desktop GUI and a standalone CLI. Runs on macOS (Apple Silicon + Intel back to High Sierra), Linux, and Windows.
 
-> **Alpha** — works well but needs more logs thrown at it. Bug reports and log donations welcome.
+> **Alpha** - works well but needs more logs thrown at it. Bug reports and log donations welcome.
 
 ## Features
 
-- **Kill tracking** — solo/assisted counts per creature, kill verbs, creature values from the Bestiary, nemesis, highest kill
-- **Trainer ranks** — parsed from rank-up messages, grouped by profession, editable baselines for pre-log ranks
-- **Profession detection** — automatically determined from trainer history (Fighter, Healer, Mystic, Ranger, Bloodmage, Champion)
-- **Coin tracking** — picked up, fur/blood/mandible shares with loot worth, chest deposits
-- **Lastys** — befriend, morph, and movements progress with completion tracking
-- **Pets** — detected from befriend messages
-- **Equipment** — bells, chains, shieldstones, ethereal portal stones (used + broken)
-- **Karma & esteem** — good/bad karma, esteem gains
-- **Multi-character** — detects characters from welcome messages, tracks each independently
-- **Dedup** — content-hash based, safe to re-scan overlapping log folders
-- **Encoding** — handles Windows-1252/ISO-8859-1 log files (the `0xA5 = ¥` prefix)
+- **Kill tracking** - solo/assisted counts per creature, kill verbs, creature values from the Bestiary, nemesis, highest kill
+- **Trainer ranks** - parsed from rank-up messages, grouped by profession, editable baselines for pre-log ranks
+- **Profession detection** - automatically determined from trainer history (Fighter, Healer, Mystic, Ranger, Bloodmage, Champion)
+- **Coin tracking** - picked up, fur/blood/mandible shares with loot worth, chest deposits
+- **Lastys** - befriend, morph, and movements progress with completion tracking
+- **Pets** - detected from befriend messages
+- **Equipment** - bells, chains, shieldstones, ethereal portal stones (used + broken)
+- **Karma & esteem** - good/bad karma, esteem gains
+- **Multi-character** - detects characters from welcome messages, tracks each independently
+- **Dedup** - content-hash based, safe to re-scan overlapping log folders
+- **Encoding** - handles Windows-1252/ISO-8859-1 log files (the `0xA5 = ¥` prefix)
 
 ## Download
 
@@ -31,7 +31,7 @@ Grab the latest build from [GitHub Actions](https://github.com/thesquib/Amanuens
 | Linux | `.deb` or `.AppImage` |
 | Windows | `.msi`, `.exe` installer, or portable `.zip` |
 
-## Usage — GUI
+## Usage - GUI
 
 1. Launch Amanuensis
 2. Click **Open Database** (or it auto-opens the last one)
@@ -40,7 +40,7 @@ Grab the latest build from [GitHub Actions](https://github.com/thesquib/Amanuens
 
 The GUI auto-detects character subdirectories and handles recursive folder discovery.
 
-## Usage — CLI
+## Usage - CLI
 
 The CLI is a standalone binary with no GUI dependencies.
 
@@ -141,4 +141,4 @@ crates/
 
 ## License
 
-[MIT](LICENSE) — free forever, do what you want with it.
+[MIT](LICENSE) - free forever, do what you want with it.
