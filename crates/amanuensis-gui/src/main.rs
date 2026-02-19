@@ -24,6 +24,7 @@ fn main() {
             commands::get_trainer_db_info,
             commands::scan_logs,
             commands::scan_files,
+            commands::import_scribius_db,
             commands::check_db_exists,
             commands::reset_database,
         ])

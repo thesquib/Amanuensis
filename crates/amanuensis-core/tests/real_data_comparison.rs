@@ -660,3 +660,206 @@ fn compare_scan_has_kills_import_does_not() {
     let scan_kills = scan_db.get_kills(scan_ruuk.id.unwrap()).unwrap();
     assert_eq!(scan_kills.len(), 372);
 }
+
+// ===========================================================================
+// MULTI-CHARACTER SCAN TESTS
+// Verify scanner produces correct values for all characters with meaningful data.
+// ===========================================================================
+
+#[test]
+#[ignore]
+fn scan_olga_character_stats() {
+    if skip_if_missing(&text_logs_path()) {
+        return;
+    }
+
+    let (db, _tmp) = scan_logs_to_temp();
+    let olga = db.get_character("Olga").unwrap().expect("Olga should exist");
+
+    assert_eq!(olga.logins, 120);
+    assert_eq!(olga.deaths, 30);
+    assert_eq!(olga.departs, 15);
+    assert_eq!(olga.esteem, 0);
+    assert_eq!(olga.good_karma, 20);
+    assert_eq!(olga.bad_karma, 0);
+    assert_eq!(olga.fur_coins, 157);
+    assert_eq!(olga.blood_coins, 47);
+    assert_eq!(olga.mandible_coins, 12);
+    assert_eq!(olga.fur_worth, 288);
+    assert_eq!(olga.blood_worth, 108);
+    assert_eq!(olga.mandible_worth, 25);
+    assert_eq!(olga.chains_used, 0);
+    assert_eq!(olga.coins_picked_up, 0);
+    assert_eq!(olga.chest_coins, 1282);
+
+    assert_eq!(
+        olga.profession,
+        amanuensis_core::models::character::Profession::Mystic
+    );
+
+    let kills = db.get_kills(olga.id.unwrap()).unwrap();
+    assert_eq!(kills.len(), 30);
+}
+
+#[test]
+#[ignore]
+fn scan_squib_character_stats() {
+    if skip_if_missing(&text_logs_path()) {
+        return;
+    }
+
+    let (db, _tmp) = scan_logs_to_temp();
+    let squib = db.get_character("Squib").unwrap().expect("Squib should exist");
+
+    assert_eq!(squib.logins, 134);
+    assert_eq!(squib.deaths, 9);
+    assert_eq!(squib.departs, 0);
+    assert_eq!(squib.esteem, 0);
+    assert_eq!(squib.good_karma, 3);
+    assert_eq!(squib.bad_karma, 0);
+    assert_eq!(squib.fur_coins, 42);
+    assert_eq!(squib.blood_coins, 26);
+    assert_eq!(squib.mandible_coins, 0);
+    assert_eq!(squib.fur_worth, 319);
+    assert_eq!(squib.blood_worth, 149);
+    assert_eq!(squib.mandible_worth, 0);
+    assert_eq!(squib.chains_used, 0);
+    assert_eq!(squib.coins_picked_up, 1453);
+    assert_eq!(squib.chest_coins, 92);
+
+    assert_eq!(
+        squib.profession,
+        amanuensis_core::models::character::Profession::Healer
+    );
+
+    let kills = db.get_kills(squib.id.unwrap()).unwrap();
+    assert_eq!(kills.len(), 9);
+}
+
+#[test]
+#[ignore]
+fn scan_tu_whawha_character_stats() {
+    if skip_if_missing(&text_logs_path()) {
+        return;
+    }
+
+    let (db, _tmp) = scan_logs_to_temp();
+    let tu = db.get_character("Tu Whawha").unwrap().expect("Tu Whawha should exist");
+
+    assert_eq!(tu.logins, 71);
+    assert_eq!(tu.deaths, 1);
+    assert_eq!(tu.departs, 0);
+    assert_eq!(tu.esteem, 0);
+    assert_eq!(tu.good_karma, 1);
+    assert_eq!(tu.bad_karma, 0);
+    assert_eq!(tu.fur_coins, 42);
+    assert_eq!(tu.blood_coins, 0);
+    assert_eq!(tu.mandible_coins, 0);
+    assert_eq!(tu.fur_worth, 42);
+    assert_eq!(tu.blood_worth, 0);
+    assert_eq!(tu.mandible_worth, 0);
+    assert_eq!(tu.chains_used, 0);
+    assert_eq!(tu.coins_picked_up, 0);
+    assert_eq!(tu.chest_coins, 64);
+
+    assert_eq!(
+        tu.profession,
+        amanuensis_core::models::character::Profession::Fighter
+    );
+
+    let kills = db.get_kills(tu.id.unwrap()).unwrap();
+    assert_eq!(kills.len(), 21);
+}
+
+#[test]
+#[ignore]
+fn scan_tane_character_stats() {
+    if skip_if_missing(&text_logs_path()) {
+        return;
+    }
+
+    let (db, _tmp) = scan_logs_to_temp();
+    let tane = db.get_character("Tane").unwrap().expect("Tane should exist");
+
+    assert_eq!(tane.logins, 65);
+    assert_eq!(tane.deaths, 0);
+    assert_eq!(tane.departs, 1);
+    assert_eq!(tane.good_karma, 0);
+    assert_eq!(tane.fur_coins, 0);
+    assert_eq!(tane.blood_coins, 0);
+    assert_eq!(tane.mandible_coins, 0);
+
+    assert_eq!(
+        tane.profession,
+        amanuensis_core::models::character::Profession::Unknown
+    );
+
+    let kills = db.get_kills(tane.id.unwrap()).unwrap();
+    assert_eq!(kills.len(), 3);
+}
+
+/// Cross-source comparison for Olga: Scribius import vs log scan.
+#[test]
+#[ignore]
+fn compare_olga_import_vs_scan() {
+    if skip_if_missing(&scribius_db_path()) || skip_if_missing(&text_logs_path()) {
+        return;
+    }
+
+    let (import_db, _tmp1) = import_scribius_to_temp();
+    let (scan_db, _tmp2) = scan_logs_to_temp();
+
+    let import_olga = import_db.get_character("Olga").unwrap().unwrap();
+    let scan_olga = scan_db.get_character("Olga").unwrap().unwrap();
+
+    // Fields that match exactly
+    assert_eq!(import_olga.logins, scan_olga.logins, "logins");
+    assert_eq!(import_olga.deaths, scan_olga.deaths, "deaths");
+    assert_eq!(import_olga.good_karma, scan_olga.good_karma, "good_karma");
+    assert_eq!(import_olga.bad_karma, scan_olga.bad_karma, "bad_karma");
+    assert_eq!(import_olga.chains_used, scan_olga.chains_used, "chains_used");
+}
+
+/// Cross-source comparison for Squib: Scribius import vs log scan.
+#[test]
+#[ignore]
+fn compare_squib_import_vs_scan() {
+    if skip_if_missing(&scribius_db_path()) || skip_if_missing(&text_logs_path()) {
+        return;
+    }
+
+    let (import_db, _tmp1) = import_scribius_to_temp();
+    let (scan_db, _tmp2) = scan_logs_to_temp();
+
+    let import_squib = import_db.get_character("Squib").unwrap().unwrap();
+    let scan_squib = scan_db.get_character("Squib").unwrap().unwrap();
+
+    // Fields that match exactly
+    assert_eq!(import_squib.logins, scan_squib.logins, "logins");
+    assert_eq!(import_squib.deaths, scan_squib.deaths, "deaths");
+    assert_eq!(import_squib.good_karma, scan_squib.good_karma, "good_karma");
+    assert_eq!(import_squib.bad_karma, scan_squib.bad_karma, "bad_karma");
+    assert_eq!(import_squib.chains_used, scan_squib.chains_used, "chains_used");
+}
+
+/// Cross-source comparison for Tu Whawha: Scribius import vs log scan.
+#[test]
+#[ignore]
+fn compare_tu_whawha_import_vs_scan() {
+    if skip_if_missing(&scribius_db_path()) || skip_if_missing(&text_logs_path()) {
+        return;
+    }
+
+    let (import_db, _tmp1) = import_scribius_to_temp();
+    let (scan_db, _tmp2) = scan_logs_to_temp();
+
+    let import_tu = import_db.get_character("Tu Whawha").unwrap().unwrap();
+    let scan_tu = scan_db.get_character("Tu Whawha").unwrap().unwrap();
+
+    // Fields that match exactly
+    assert_eq!(import_tu.logins, scan_tu.logins, "logins");
+    assert_eq!(import_tu.deaths, scan_tu.deaths, "deaths");
+    assert_eq!(import_tu.good_karma, scan_tu.good_karma, "good_karma");
+    assert_eq!(import_tu.bad_karma, scan_tu.bad_karma, "bad_karma");
+    assert_eq!(import_tu.chains_used, scan_tu.chains_used, "chains_used");
+}

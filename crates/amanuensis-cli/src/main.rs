@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table, ContentArrangement};
 
-use amanuensis_core::{Database, LogParser};
+use amanuensis_core::{Database, LogParser, import_scribius};
 
 #[derive(Parser)]
 #[command(name = "amanuensis", version, about = "Clan Lord log parser and stat tracker")]
@@ -59,6 +59,17 @@ enum Commands {
         /// Character name
         name: String,
     },
+    /// Import data from a Scribius (Core Data) database
+    Import {
+        /// Path to the Scribius Model.sqlite file
+        source: PathBuf,
+        /// Output Amanuensis database path
+        #[arg(long, default_value = "amanuensis.db")]
+        output: String,
+        /// Overwrite existing data in the output database
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 fn main() {
@@ -80,6 +91,7 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Trainers { name } => cmd_trainers(&cli.db, &name),
         Commands::Pets { name } => cmd_pets(&cli.db, &name),
         Commands::Lastys { name } => cmd_lastys(&cli.db, &name),
+        Commands::Import { source, output, force } => cmd_import(&source, &output, force),
     }
 }
 
@@ -353,6 +365,32 @@ fn cmd_lastys(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let finished = lastys.iter().filter(|l| l.finished).count();
     println!("Lastys for {} ({} total, {} completed):", name, lastys.len(), finished);
     println!("{table}");
+    Ok(())
+}
+
+fn cmd_import(source: &Path, output: &str, force: bool) -> amanuensis_core::Result<()> {
+    println!("Importing from: {}", source.display());
+    println!("Output database: {}", output);
+
+    let result = import_scribius(source, output, force)?;
+
+    println!();
+    println!("Import complete:");
+    println!("  Characters imported: {}", result.characters_imported);
+    println!("  Characters skipped:  {}", result.characters_skipped);
+    println!("  Trainers imported:   {}", result.trainers_imported);
+    println!("  Kills imported:      {}", result.kills_imported);
+    println!("  Pets imported:       {}", result.pets_imported);
+    println!("  Lastys imported:     {}", result.lastys_imported);
+
+    if !result.warnings.is_empty() {
+        println!();
+        println!("Warnings:");
+        for w in &result.warnings {
+            println!("  - {}", w);
+        }
+    }
+
     Ok(())
 }
 

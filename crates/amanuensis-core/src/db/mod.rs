@@ -1,3 +1,4 @@
+pub mod import;
 pub mod queries;
 pub mod schema;
 
