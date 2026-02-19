@@ -6,46 +6,14 @@ import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { getTrainerDbInfo } from "../../lib/commands";
 import type { Trainer, TrainerInfo } from "../../types";
 
-const columnHelper = createColumnHelper<
-  Trainer & { profession?: string | null }
->();
+type EnrichedTrainer = Trainer & {
+  profession?: string | null;
+  multiplier: number;
+  is_combo: boolean;
+  combo_components: string[];
+};
 
-const columns = [
-  columnHelper.accessor("trainer_name", {
-    header: "Trainer",
-    cell: (info) => info.getValue(),
-  }),
-  columnHelper.accessor("profession", {
-    header: "Profession",
-    cell: (info) => {
-      const val = info.getValue();
-      return val ? <ProfessionBadge profession={val} /> : null;
-    },
-  }),
-  columnHelper.accessor("ranks", {
-    header: "Ranks",
-    cell: (info) => info.getValue(),
-  }),
-  columnHelper.accessor("modified_ranks", {
-    header: "Modified",
-    cell: (info) => info.getValue(),
-  }),
-  columnHelper.accessor(
-    (row) => row.ranks + row.modified_ranks,
-    {
-      id: "total",
-      header: "Total",
-      cell: (info) => info.getValue(),
-    },
-  ),
-  columnHelper.accessor("date_of_last_rank", {
-    header: "Last Rank",
-    cell: (info) => {
-      const val = info.getValue();
-      return val ? val.split(" ")[0] : "";
-    },
-  }),
-];
+const columnHelper = createColumnHelper<EnrichedTrainer>();
 
 const PROFESSION_ORDER = [
   "Fighter",
@@ -59,6 +27,7 @@ const PROFESSION_ORDER = [
 export function TrainersView() {
   const { trainers } = useStore();
   const [showZero, setShowZero] = useState(false);
+  const [showEffective, setShowEffective] = useState(false);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
 
   useEffect(() => {
@@ -67,28 +36,110 @@ export function TrainersView() {
       .catch(() => {});
   }, []);
 
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor("trainer_name", {
+        header: "Trainer",
+        cell: (info) => {
+          const row = info.row.original;
+          if (showEffective && row.is_combo) {
+            return (
+              <span className="flex items-center gap-1">
+                {info.getValue()}
+                <span
+                  className="cursor-help text-[var(--color-accent)]"
+                  title={`Combo trainer: includes ${row.combo_components.join(", ")}`}
+                >
+                  *
+                </span>
+              </span>
+            );
+          }
+          return info.getValue();
+        },
+      }),
+      columnHelper.accessor("profession", {
+        header: "Profession",
+        cell: (info) => {
+          const val = info.getValue();
+          return val ? <ProfessionBadge profession={val} /> : null;
+        },
+      }),
+      columnHelper.accessor("ranks", {
+        header: "Ranks",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor("modified_ranks", {
+        header: "Modified",
+        cell: (info) => info.getValue(),
+      }),
+      columnHelper.accessor((row) => row.ranks + row.modified_ranks, {
+        id: "total",
+        header: "Total",
+        cell: (info) => info.getValue(),
+      }),
+      ...(showEffective
+        ? [
+            columnHelper.accessor(
+              (row: EnrichedTrainer) =>
+                Math.round(
+                  (row.ranks + row.modified_ranks) * row.multiplier * 10,
+                ) / 10,
+              {
+                id: "effective",
+                header: "Effective",
+                cell: (info: { getValue: () => number }) => {
+                  const val = info.getValue();
+                  return val % 1 === 0 ? val : val.toFixed(1);
+                },
+              },
+            ),
+          ]
+        : []),
+      columnHelper.accessor("date_of_last_rank", {
+        header: "Last Rank",
+        cell: (info) => {
+          const val = info.getValue();
+          return val ? val.split(" ")[0] : "";
+        },
+      }),
+    ],
+    [showEffective],
+  );
+
   const enrichedTrainers = useMemo(() => {
-    // Build profession map from trainerDb
-    const profMap = new Map<string, string | null>();
+    // Build metadata maps from trainerDb
+    const metaMap = new Map<
+      string,
+      { profession: string | null; multiplier: number; is_combo: boolean; combo_components: string[] }
+    >();
     for (const t of trainerDb) {
-      profMap.set(t.name, t.profession);
+      metaMap.set(t.name, {
+        profession: t.profession,
+        multiplier: t.multiplier,
+        is_combo: t.is_combo,
+        combo_components: t.combo_components,
+      });
     }
 
-    // Map trainers with their character data, enriched with profession
     const charTrainerMap = new Map<string, Trainer>();
     for (const t of trainers) {
       charTrainerMap.set(t.trainer_name, t);
     }
 
+    const defaultMeta = { multiplier: 1.0, is_combo: false, combo_components: [] as string[] };
+
     if (showZero) {
-      // Merge all known trainers, showing zeros for untrained ones
-      const allTrainers: (Trainer & { profession?: string | null })[] = [];
+      const allTrainers: EnrichedTrainer[] = [];
       for (const dbTrainer of trainerDb) {
         const existing = charTrainerMap.get(dbTrainer.name);
         if (existing) {
           allTrainers.push({
             ...existing,
             profession: dbTrainer.profession,
+            multiplier: dbTrainer.multiplier,
+            is_combo: dbTrainer.is_combo,
+            combo_components: dbTrainer.combo_components,
           });
         } else {
           allTrainers.push({
@@ -99,16 +150,25 @@ export function TrainersView() {
             modified_ranks: 0,
             date_of_last_rank: null,
             profession: dbTrainer.profession,
+            multiplier: dbTrainer.multiplier,
+            is_combo: dbTrainer.is_combo,
+            combo_components: dbTrainer.combo_components,
           });
         }
       }
       return allTrainers;
     }
 
-    return trainers.map((t) => ({
-      ...t,
-      profession: profMap.get(t.trainer_name) ?? null,
-    }));
+    return trainers.map((t) => {
+      const meta = metaMap.get(t.trainer_name);
+      return {
+        ...t,
+        profession: meta?.profession ?? null,
+        multiplier: meta?.multiplier ?? defaultMeta.multiplier,
+        is_combo: meta?.is_combo ?? defaultMeta.is_combo,
+        combo_components: meta?.combo_components ?? defaultMeta.combo_components,
+      };
+    });
   }, [trainers, trainerDb, showZero]);
 
   // Group by profession
@@ -119,7 +179,6 @@ export function TrainersView() {
       if (!groups.has(prof)) groups.set(prof, []);
       groups.get(prof)!.push(t);
     }
-    // Sort groups by profession order
     const ordered: [string, typeof enrichedTrainers][] = [];
     for (const p of PROFESSION_ORDER) {
       if (groups.has(p)) {
@@ -127,7 +186,6 @@ export function TrainersView() {
         groups.delete(p);
       }
     }
-    // Remaining groups (Other, etc.)
     for (const [k, v] of groups) {
       ordered.push([k, v]);
     }
@@ -139,21 +197,45 @@ export function TrainersView() {
     0,
   );
 
+  const effectiveTotal = useMemo(() => {
+    return enrichedTrainers.reduce(
+      (s, t) => s + (t.ranks + t.modified_ranks) * t.multiplier,
+      0,
+    );
+  }, [enrichedTrainers]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4 flex items-center justify-between">
         <div className="text-sm text-[var(--color-text-muted)]">
           {trainers.length} trainers, {totalRanks.toLocaleString()} total ranks
+          {showEffective && (
+            <span>
+              {" "}
+              ({Math.round(effectiveTotal * 10) / 10} effective)
+            </span>
+          )}
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={showZero}
-            onChange={(e) => setShowZero(e.target.checked)}
-            className="accent-[var(--color-accent)]"
-          />
-          Show Zero Trainers
-        </label>
+        <div className="flex items-center gap-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showEffective}
+              onChange={(e) => setShowEffective(e.target.checked)}
+              className="accent-[var(--color-accent)]"
+            />
+            Show Effective Ranks
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showZero}
+              onChange={(e) => setShowZero(e.target.checked)}
+              className="accent-[var(--color-accent)]"
+            />
+            Show Zero Trainers
+          </label>
+        </div>
       </div>
 
       {grouped.length === 0 ? (

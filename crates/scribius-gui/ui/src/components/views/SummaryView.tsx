@@ -1,9 +1,19 @@
+import { useState, useEffect, useMemo } from "react";
 import { useStore } from "../../lib/store";
 import { StatCard } from "../shared/StatCard";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
+import { getTrainerDbInfo } from "../../lib/commands";
+import type { TrainerInfo } from "../../types";
 
 export function SummaryView() {
   const { characters, selectedCharacterId, kills, trainers } = useStore();
+  const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
+
+  useEffect(() => {
+    getTrainerDbInfo()
+      .then(setTrainerDb)
+      .catch(() => {});
+  }, []);
   const char = characters.find((c) => c.id === selectedCharacterId);
   if (!char) return null;
 
@@ -58,6 +68,20 @@ export function SummaryView() {
     (sum, t) => sum + t.ranks + t.modified_ranks,
     0,
   );
+
+  const effectiveRanks = useMemo(() => {
+    const multMap = new Map<string, number>();
+    for (const t of trainerDb) {
+      multMap.set(t.name, t.multiplier);
+    }
+    return trainers.reduce(
+      (sum, t) =>
+        sum + (t.ranks + t.modified_ranks) * (multMap.get(t.trainer_name) ?? 1.0),
+      0,
+    );
+  }, [trainers, trainerDb]);
+
+  const effectiveRounded = Math.round(effectiveRanks * 10) / 10;
 
   // Computed percentages
   const chanceOfDepart =
@@ -120,6 +144,15 @@ export function SummaryView() {
           label="Total Ranks"
           value={totalRanks.toLocaleString()}
           sub={`${trainers.length} trainers`}
+        />
+        <StatCard
+          label="Effective Ranks"
+          value={effectiveRounded.toLocaleString()}
+          sub={
+            totalRanks !== effectiveRounded
+              ? `vs ${totalRanks.toLocaleString()} raw`
+              : undefined
+          }
         />
         <StatCard
           label="Good Karma"

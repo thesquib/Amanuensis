@@ -23,6 +23,9 @@ interface TrainerRow {
   profession: string;
   ranks: number;
   modified_ranks: number;
+  multiplier: number;
+  is_combo: boolean;
+  combo_components: string[];
 }
 
 function ModifiedRankInput({
@@ -100,6 +103,9 @@ export function RankModifiersView() {
         profession: dbTrainer.profession ?? "Other",
         ranks: existing?.ranks ?? 0,
         modified_ranks: existing?.modified_ranks ?? 0,
+        multiplier: dbTrainer.multiplier,
+        is_combo: dbTrainer.is_combo,
+        combo_components: dbTrainer.combo_components,
       });
     }
     return rows;
@@ -148,6 +154,11 @@ export function RankModifiersView() {
   const logRanks = trainerRows.reduce((s, t) => s + t.ranks, 0);
   const modifiedRanks = trainerRows.reduce((s, t) => s + t.modified_ranks, 0);
   const totalRanks = logRanks + modifiedRanks;
+  const effectiveTotal = trainerRows.reduce(
+    (s, t) => s + (t.ranks + t.modified_ranks) * t.multiplier,
+    0,
+  );
+  const effectiveRounded = Math.round(effectiveTotal * 10) / 10;
 
   return (
     <div className="flex h-full flex-col">
@@ -155,7 +166,7 @@ export function RankModifiersView() {
         <div className="text-sm text-[var(--color-text-muted)]">
           {totalTrainers} trainers, {totalRanks.toLocaleString()} total ranks (
           {logRanks.toLocaleString()} from logs, {modifiedRanks.toLocaleString()}{" "}
-          modified)
+          modified) | {effectiveRounded} effective
         </div>
       </div>
       <div className="mb-4 text-xs text-[var(--color-text-muted)]">
@@ -192,6 +203,9 @@ export function RankModifiersView() {
                       <th className="w-24 px-3 py-2 text-right font-medium">
                         Total
                       </th>
+                      <th className="w-24 px-3 py-2 text-right font-medium">
+                        Effective
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -200,7 +214,17 @@ export function RankModifiersView() {
                         key={t.name}
                         className="border-b border-[var(--color-border)] last:border-b-0"
                       >
-                        <td className="px-3 py-1.5">{t.name}</td>
+                        <td className="px-3 py-1.5">
+                          {t.name}
+                          {t.is_combo && (
+                            <span
+                              className="ml-1 cursor-help text-[var(--color-accent)]"
+                              title={`Combo trainer: includes ${t.combo_components.join(", ")}`}
+                            >
+                              *
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
                           {t.ranks}
                         </td>
@@ -212,6 +236,17 @@ export function RankModifiersView() {
                         </td>
                         <td className="px-3 py-1.5 text-right font-medium">
                           {t.ranks + t.modified_ranks}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
+                          {(() => {
+                            const eff =
+                              Math.round(
+                                (t.ranks + t.modified_ranks) *
+                                  t.multiplier *
+                                  10,
+                              ) / 10;
+                            return eff % 1 === 0 ? eff : eff.toFixed(1);
+                          })()}
                         </td>
                       </tr>
                     ))}

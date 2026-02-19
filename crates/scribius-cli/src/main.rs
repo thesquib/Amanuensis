@@ -6,10 +6,10 @@ use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table, Cont
 use scribius_core::{Database, LogParser};
 
 #[derive(Parser)]
-#[command(name = "scribius", version, about = "Clan Lord log parser and stat tracker")]
+#[command(name = "amanuensis", version, about = "Clan Lord log parser and stat tracker")]
 struct Cli {
     /// Path to the SQLite database file
-    #[arg(long, default_value = "scribius.db")]
+    #[arg(long, default_value = "amanuensis.db")]
     db: String,
 
     #[command(subcommand)]
@@ -112,7 +112,7 @@ fn cmd_characters(db_path: &str) -> scribius_core::Result<()> {
     let chars = db.list_characters()?;
 
     if chars.is_empty() {
-        println!("No characters found. Run 'scribius scan <folder>' first.");
+        println!("No characters found. Run 'amanuensis scan <folder>' first.");
         return Ok(());
     }
 
