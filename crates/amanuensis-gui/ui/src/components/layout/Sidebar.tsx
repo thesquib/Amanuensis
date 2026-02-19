@@ -6,6 +6,7 @@ import {
   openDatabase,
   listCharacters,
   getScannedLogCount,
+  getLogLineCount,
   scanLogs,
   scanFiles,
   getKills,
@@ -46,6 +47,9 @@ export function Sidebar() {
     setExcludeLowCL,
     excludeUnknown,
     setExcludeUnknown,
+    indexLogLines,
+    setIndexLogLines,
+    setLogLineCount,
     theme,
     setTheme,
   } = useStore();
@@ -93,11 +97,13 @@ export function Sidebar() {
       setCharacters(chars);
       const count = await getScannedLogCount();
       setScannedLogCount(count);
+      const lineCount = await getLogLineCount();
+      setLogLineCount(lineCount);
       if (chars.length > 0 && chars[0].id !== null) {
         await handleSelectCharacter(chars[0].id);
       }
     },
-    [setDbPath, setCharacters, setScannedLogCount, handleSelectCharacter],
+    [setDbPath, setCharacters, setScannedLogCount, setLogLineCount, handleSelectCharacter],
   );
 
   // Auto-open last database on startup
@@ -144,10 +150,12 @@ export function Sidebar() {
     setCharacters(chars);
     const count = await getScannedLogCount();
     setScannedLogCount(count);
+    const lineCount = await getLogLineCount();
+    setLogLineCount(lineCount);
     if (chars.length > 0 && chars[0].id !== null) {
       await handleSelectCharacter(chars[0].id);
     }
-  }, [setCharacters, setScannedLogCount, handleSelectCharacter]);
+  }, [setCharacters, setScannedLogCount, setLogLineCount, handleSelectCharacter]);
 
   const handleScanFolder = useCallback(async () => {
     if (!(await ensureDb())) return;
@@ -161,7 +169,7 @@ export function Sidebar() {
     setScanProgress(null);
 
     try {
-      await scanLogs(folderPath, false, recursiveScan);
+      await scanLogs(folderPath, false, recursiveScan, indexLogLines);
       await finishScan();
     } catch (e) {
       console.error("Scan failed:", e);
@@ -169,7 +177,7 @@ export function Sidebar() {
       setIsScanning(false);
       setScanProgress(null);
     }
-  }, [ensureDb, setLogFolder, setIsScanning, setScanProgress, finishScan, recursiveScan]);
+  }, [ensureDb, setLogFolder, setIsScanning, setScanProgress, finishScan, recursiveScan, indexLogLines]);
 
   const handleScanFiles = useCallback(async () => {
     if (!(await ensureDb())) return;
@@ -186,7 +194,7 @@ export function Sidebar() {
     setScanProgress(null);
 
     try {
-      await scanFiles(files);
+      await scanFiles(files, false, indexLogLines);
       await finishScan();
     } catch (e) {
       console.error("Scan failed:", e);
@@ -194,7 +202,7 @@ export function Sidebar() {
       setIsScanning(false);
       setScanProgress(null);
     }
-  }, [ensureDb, setIsScanning, setScanProgress, finishScan]);
+  }, [ensureDb, setIsScanning, setScanProgress, finishScan, indexLogLines]);
 
   const handleReset = useCallback(async () => {
     if (!dbPath) return;
@@ -212,10 +220,11 @@ export function Sidebar() {
       setPets([]);
       setLastys([]);
       setScannedLogCount(0);
+      setLogLineCount(0);
     } catch (e) {
       console.error("Reset failed:", e);
     }
-  }, [dbPath, setCharacters, selectCharacter, setKills, setTrainers, setPets, setLastys, setScannedLogCount]);
+  }, [dbPath, setCharacters, selectCharacter, setKills, setTrainers, setPets, setLastys, setScannedLogCount, setLogLineCount]);
 
   const handleImportScribius = useCallback(async () => {
     // Pick the Scribius .db file
@@ -314,6 +323,16 @@ export function Sidebar() {
             className="accent-[var(--color-accent)]"
           />
           Deep scan (find logs recursively)
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+          <input
+            type="checkbox"
+            checked={indexLogLines}
+            onChange={(e) => setIndexLogLines(e.target.checked)}
+            disabled={isScanning}
+            className="accent-[var(--color-accent)]"
+          />
+          Index logs for search
         </label>
       </div>
 

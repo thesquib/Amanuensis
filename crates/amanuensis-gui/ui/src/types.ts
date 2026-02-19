@@ -119,6 +119,16 @@ export interface ImportResult {
   warnings: string[];
 }
 
+/** Mirrors Rust `LogSearchResult` struct */
+export interface LogSearchResult {
+  content: string;
+  character_id: number;
+  timestamp: string;
+  file_path: string;
+  snippet: string;
+  character_name: string;
+}
+
 export type ViewType =
   | "summary"
   | "kills"
@@ -128,4 +138,5 @@ export type ViewType =
   | "pets"
   | "lastys"
   | "equipment"
-  | "fighter-stats";
+  | "fighter-stats"
+  | "log-search";

@@ -6,7 +6,7 @@ pub mod models;
 pub mod parser;
 
 pub use data::{CreatureDb, TrainerDb, TrainerMeta};
-pub use db::Database;
+pub use db::{Database, LogSearchResult};
 pub use db::import::{import_scribius, ImportResult};
 pub use error::{Result, AmanuensisError};
 pub use parser::LogParser;

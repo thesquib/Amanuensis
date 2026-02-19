@@ -9,6 +9,7 @@ import { LastysView } from "../views/LastysView";
 import { EquipmentView } from "../views/EquipmentView";
 import { RankModifiersView } from "../views/RankModifiersView";
 import { FighterStatsView } from "../views/FighterStatsView";
+import { LogSearchView } from "../views/LogSearchView";
 import type { ViewType } from "../../types";
 
 const TABS: { id: ViewType; label: string; fighterOnly?: boolean }[] = [
@@ -21,6 +22,7 @@ const TABS: { id: ViewType; label: string; fighterOnly?: boolean }[] = [
   { id: "lastys", label: "Lastys" },
   { id: "equipment", label: "Equipment" },
   { id: "fighter-stats", label: "Fighter Stats", fighterOnly: true },
+  { id: "log-search", label: "Log Search" },
 ];
 
 function ViewContent({ view }: { view: ViewType }) {
@@ -43,6 +45,8 @@ function ViewContent({ view }: { view: ViewType }) {
       return <EquipmentView />;
     case "fighter-stats":
       return <FighterStatsView />;
+    case "log-search":
+      return <LogSearchView />;
   }
 }
 
