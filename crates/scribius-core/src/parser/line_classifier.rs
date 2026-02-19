@@ -21,9 +21,9 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         return LogEvent::Ignored;
     }
 
-    // Handle ¥-prefixed lines
-    if message.starts_with('¥') {
-        return classify_yen_message(message, trainer_db);
+    // Handle ¥-prefixed lines (Mac client) and •-prefixed lines (Windows client)
+    if message.starts_with('¥') || message.starts_with('•') {
+        return classify_system_message(message, trainer_db);
     }
 
     // Welcome messages
@@ -187,11 +187,16 @@ fn study_type_to_lasty(study_type: &str) -> String {
     }
 }
 
-/// Classify ¥-prefixed messages. These can be trainer ranks, study messages,
-/// sun events, healing sense, etc.
-fn classify_yen_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
-    // Strip the ¥ prefix and any leading whitespace (some ¥ messages have a space after ¥)
-    let body = message['\u{00a5}'.len_utf8()..].trim_start();
+/// Classify system-prefixed messages (¥ on Mac, • on Windows).
+/// These can be trainer ranks, study messages, sun events, healing sense, etc.
+fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
+    // Strip the prefix character (¥ or •) and any leading whitespace
+    let body = if message.starts_with('¥') {
+        &message['¥'.len_utf8()..]
+    } else {
+        &message['•'.len_utf8()..]
+    }
+    .trim_start();
 
     // Check for study charge
     if let Some(caps) = patterns::STUDY_CHARGE.captures(body) {
@@ -675,6 +680,38 @@ mod tests {
                 ref lasty_type
             } if creature == "Vermine" && lasty_type == "Movements"
         ));
+    }
+
+    #[test]
+    fn test_trainer_rank_bullet_prefix() {
+        // Windows client uses • (U+2022) instead of ¥ (U+00A5)
+        let db = test_db();
+        let event = classify_line("•You notice yourself dealing more damage.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::TrainerRank {
+                ref trainer_name, ..
+            } if trainer_name == "Darkus"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_rank_bullet_with_space() {
+        let db = test_db();
+        let event = classify_line("• Your combat ability improves.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::TrainerRank {
+                ref trainer_name, ..
+            } if trainer_name == "Bangus Anmash"
+        ));
+    }
+
+    #[test]
+    fn test_bullet_study_gain_ignored() {
+        let db = test_db();
+        let event = classify_line("• You gain experience from your recent studies.", &db);
+        assert!(matches!(event, LogEvent::Ignored));
     }
 
     #[test]
