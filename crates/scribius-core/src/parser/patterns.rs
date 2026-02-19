@@ -113,6 +113,16 @@ pub static LASTY_BEGIN_STUDY: Lazy<Regex> =
 pub static LASTY_LEARN_PROGRESS: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You have .+ (?:left )?to learn about the (movements|ways|essence) of the (.+)\.$").unwrap());
 
+// === Study abandon (¥-prefixed) ===
+pub static STUDY_ABANDON: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You abandon your study of the (.+)\.$").unwrap());
+
+// === Apply-learning bonus rank (non-¥, spoken by NPC) ===
+pub static APPLY_LEARNING_OFFER: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"[Ww]ould you like to apply some of your learning to (.+)'s lessons").unwrap());
+pub static APPLY_LEARNING_CONFIRM: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"[Yy]ou should now understand much more of (.+)'s teachings").unwrap());
+
 // === ¥-prefixed lines to skip (not trainer ranks) ===
 pub static YEN_HEALING_SENSE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You sense healing energy from .+\.$").unwrap());
@@ -289,6 +299,27 @@ mod tests {
         assert!(ESTEEM_GAIN.is_match("* You gain esteem."));
         assert!(ESTEEM_GAIN.is_match("* You gain experience and esteem."));
         assert!(!ESTEEM_GAIN.is_match("* You gain experience."));
+    }
+
+    #[test]
+    fn test_study_abandon() {
+        let caps = STUDY_ABANDON.captures("You abandon your study of the Orga Anger.").unwrap();
+        assert_eq!(&caps[1], "Orga Anger");
+    }
+
+    #[test]
+    fn test_apply_learning_offer() {
+        assert!(APPLY_LEARNING_OFFER.is_match(
+            r#"Aitnos says, "Would you like to apply some of your learning to Evus's lessons?""#
+        ));
+    }
+
+    #[test]
+    fn test_apply_learning_confirm() {
+        let caps = APPLY_LEARNING_CONFIRM.captures(
+            r#"Aitnos says, "Congratulations! You should now understand much more of Evus's teachings.""#
+        ).unwrap();
+        assert_eq!(&caps[1], "Evus");
     }
 
     #[test]

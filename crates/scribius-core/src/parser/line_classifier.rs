@@ -16,6 +16,13 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
+    // Apply-learning bonus rank (NPC speech containing the confirmation)
+    if let Some(caps) = patterns::APPLY_LEARNING_CONFIRM.captures(message) {
+        return LogEvent::ApplyLearningRank {
+            trainer_name: caps[1].to_string(),
+        };
+    }
+
     // Skip speech and emotes early (very common)
     if patterns::SPEECH.is_match(message) || patterns::EMOTE.is_match(message) {
         return LogEvent::Ignored;
@@ -209,6 +216,13 @@ fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         return LogEvent::StudyProgress {
             creature: caps[1].to_string(),
             progress: caps[2].to_string(),
+        };
+    }
+
+    // Study abandon: "You abandon your study of the {creature}."
+    if let Some(caps) = patterns::STUDY_ABANDON.captures(body) {
+        return LogEvent::StudyAbandon {
+            creature: caps[1].to_string(),
         };
     }
 
@@ -711,6 +725,51 @@ mod tests {
     fn test_bullet_study_gain_ignored() {
         let db = test_db();
         let event = classify_line("• You gain experience from your recent studies.", &db);
+        assert!(matches!(event, LogEvent::Ignored));
+    }
+
+    #[test]
+    fn test_study_abandon() {
+        let db = test_db();
+        let event = classify_line("¥You abandon your study of the Orga Anger.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::StudyAbandon { ref creature } if creature == "Orga Anger"
+        ));
+    }
+
+    #[test]
+    fn test_study_abandon_bullet() {
+        let db = test_db();
+        let event = classify_line("•You abandon your study of the Maha Ruknee.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::StudyAbandon { ref creature } if creature == "Maha Ruknee"
+        ));
+    }
+
+    #[test]
+    fn test_apply_learning_confirm() {
+        let db = test_db();
+        let event = classify_line(
+            r#"Aitnos says, "Congratulations! You should now understand much more of Evus's teachings.""#,
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::ApplyLearningRank { ref trainer_name } if trainer_name == "Evus"
+        ));
+    }
+
+    #[test]
+    fn test_apply_learning_offer_is_ignored() {
+        // The offer is just an NPC prompt — we only act on the confirmation
+        let db = test_db();
+        let event = classify_line(
+            r#"Aitnos says, "Would you like to apply some of your learning to Evus's lessons?""#,
+            &db,
+        );
+        // Should be ignored (filtered as speech since we don't act on the offer)
         assert!(matches!(event, LogEvent::Ignored));
     }
 
