@@ -66,9 +66,9 @@ jobs:
           args: --target ${{ matrix.target }}
           tagName: ${{ github.ref_name }}
           releaseName: Amanuensis ${{ github.ref_name }}
-          releaseBody: 'See the assets below to download for your platform.'
-          releaseDraft: true
-          prerelease: false
+          releaseBody: 'Initial alpha release for testing. See the assets below to download for your platform.'
+          releaseDraft: false
+          prerelease: true
 
       - name: Create portable Windows zip
         if: matrix.platform == 'windows-latest'
