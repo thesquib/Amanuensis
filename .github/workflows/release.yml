@@ -74,7 +74,8 @@ jobs:
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          Compress-Archive -Path "target/${{ matrix.target }}/release/Amanuensis.exe" -DestinationPath "Amanuensis_portable_x64.zip"
+          Copy-Item "target/${{ matrix.target }}/release/amanuensis-gui.exe" "Amanuensis.exe"
+          Compress-Archive -Path "Amanuensis.exe" -DestinationPath "Amanuensis_portable_x64.zip"
 
       - name: Upload portable zip to release
         if: matrix.platform == 'windows-latest'
