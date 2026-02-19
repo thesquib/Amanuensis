@@ -391,8 +391,8 @@ impl LogParser {
     }
 
     /// Compute coin level based on total trainer ranks.
-    /// The original app computes this from rank data. Based on the decompiled code,
-    /// it appears to be the sum of all effective ranks divided by a factor.
+    /// The original app computes this from rank data — it appears to be the sum
+    /// of all effective ranks divided by a factor.
     pub fn compute_coin_level(&self, char_id: i64) -> Result<i64> {
         let trainers = self.db.get_trainers(char_id)?;
         let total_ranks: i64 = trainers.iter().map(|t| t.ranks + t.modified_ranks).sum();
