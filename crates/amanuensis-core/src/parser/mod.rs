@@ -121,7 +121,7 @@ impl LogParser {
                     continue;
                 }
 
-                match self.scan_bytes(&bytes, char_id) {
+                match self.scan_bytes(&bytes, char_id, &char_name) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -144,10 +144,12 @@ impl LogParser {
     }
 
     /// Scan log file bytes and process events into the database.
-    fn scan_bytes(&self, bytes: &[u8], char_id: i64) -> Result<FileResult> {
+    fn scan_bytes(&self, bytes: &[u8], char_id: i64, char_name: &str) -> Result<FileResult> {
         let content = decode_log_bytes(bytes);
 
         let mut file_result = FileResult::default();
+        let mut found_login = false;
+        let mut first_date_str: Option<String> = None;
 
         for line in content.lines() {
             file_result.lines_parsed += 1;
@@ -163,6 +165,11 @@ impl LogParser {
                 .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
                 .unwrap_or_default();
 
+            // Track first timestamp in file for file-as-login fallback
+            if first_date_str.is_none() && !date_str.is_empty() {
+                first_date_str = Some(date_str.clone());
+            }
+
             match event {
                 LogEvent::Ignored
                 | LogEvent::CoinBalance { .. }
@@ -173,15 +180,8 @@ impl LogParser {
                 | LogEvent::StudyAbandon { .. }
                 | LogEvent::Recovered { .. } => {}
 
-                LogEvent::Login { .. } => {
-                    self.db.increment_character_field(char_id, "logins", 1)?;
-                    if !date_str.is_empty() {
-                        self.db.update_start_date(char_id, &date_str)?;
-                    }
-                    file_result.events_found += 1;
-                }
-                LogEvent::Reconnect { .. } => {
-                    self.db.increment_character_field(char_id, "logins", 1)?;
+                LogEvent::Login { .. } | LogEvent::Reconnect { .. } => {
+                    found_login = true;
                     if !date_str.is_empty() {
                         self.db.update_start_date(char_id, &date_str)?;
                     }
@@ -203,11 +203,13 @@ impl LogParser {
                     file_result.events_found += 1;
                 }
 
-                LogEvent::Fallen { cause, .. } => {
-                    self.db
-                        .upsert_kill(char_id, &cause, "killed_by_count", 0, &date_str)?;
-                    self.db.increment_character_field(char_id, "deaths", 1)?;
-                    file_result.events_found += 1;
+                LogEvent::Fallen { name, cause } => {
+                    if name.eq_ignore_ascii_case(char_name) {
+                        self.db
+                            .upsert_kill(char_id, &cause, "killed_by_count", 0, &date_str)?;
+                        self.db.increment_character_field(char_id, "deaths", 1)?;
+                        file_result.events_found += 1;
+                    }
                 }
                 LogEvent::FirstDepart => {
                     self.db.increment_character_field(char_id, "departs", 1)?;
@@ -328,6 +330,15 @@ impl LogParser {
                         .upsert_trainer_rank(char_id, &trainer_name, &date_str)?;
                     file_result.events_found += 1;
                 }
+            }
+        }
+
+        // Every scanned file counts as exactly 1 login (matching Scribius behavior).
+        self.db.increment_character_field(char_id, "logins", 1)?;
+        // If no Login/Reconnect had a timestamp, use the file's first timestamp for start_date
+        if !found_login {
+            if let Some(ref first_ts) = first_date_str {
+                self.db.update_start_date(char_id, first_ts)?;
             }
         }
 
@@ -499,7 +510,7 @@ impl LogParser {
                     continue;
                 }
 
-                match self.scan_bytes(&bytes, char_id) {
+                match self.scan_bytes(&bytes, char_id, char_name) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -576,11 +587,11 @@ impl LogParser {
             });
 
             let char_id = self.db.get_or_create_character(&char_name)?;
-            if seen_characters.insert(char_name) {
+            if seen_characters.insert(char_name.clone()) {
                 result.characters += 1;
             }
 
-            match self.scan_bytes(&bytes, char_id) {
+            match self.scan_bytes(&bytes, char_id, &char_name) {
                 Ok(file_result) => {
                     result.files_scanned += 1;
                     result.lines_parsed += file_result.lines_parsed;
@@ -1564,5 +1575,113 @@ mod tests {
         let (name, count) = result.unwrap();
         assert_eq!(name, "Orga Fury");
         assert_eq!(count, 5);
+    }
+
+    #[test]
+    fn test_fallen_other_character_not_counted() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p OtherPlayer has fallen to a Large Vermine.
+1/1/24 1:02:00p AnotherPlayer has fallen to an Orga Fury.
+1/1/24 1:03:00p TestChar has fallen to a Rat.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        // Only TestChar's own death should count
+        assert_eq!(char.deaths, 1);
+
+        // killed_by should only have Rat (from TestChar's death)
+        let kills = parser.db().get_kills(char.id.unwrap()).unwrap();
+        let rat_kb = kills.iter().find(|k| k.creature_name == "Rat").unwrap();
+        assert_eq!(rat_kb.killed_by_count, 1);
+        // Other creatures should not appear in killed_by
+        assert!(kills.iter().find(|k| k.creature_name == "Large Vermine").is_none());
+        assert!(kills.iter().find(|k| k.creature_name == "Orga Fury").is_none());
+    }
+
+    #[test]
+    fn test_mandible_plural_loot_share() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p * You recover the Noble Myrm mandibles, worth 2c. Your share is 1c.
+1/1/24 1:01:00p * Fen recovers the Spider mandibles, worth 4c. Your share is 2c.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.mandible_coins, 3); // 1 + 2
+        assert_eq!(char.mandible_worth, 6); // 2 + 4
+    }
+
+    #[test]
+    fn test_self_recovery_fur() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p * You recover the Dark Vermine fur, worth 20c.
+1/1/24 1:01:00p * You recover the Orga blood, worth 10c.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        // Self-recovery: amount = worth (full value to player)
+        assert_eq!(char.fur_coins, 20);
+        assert_eq!(char.fur_worth, 20);
+        assert_eq!(char.blood_coins, 10);
+        assert_eq!(char.blood_worth, 10);
+    }
+
+    #[test]
+    fn test_file_without_login_counts_as_login() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Log with kills but no welcome message
+        let log_content = "\
+1/1/24 1:00:00p You slaughtered a Rat.
+1/1/24 1:01:00p You slaughtered a Vermine.
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        // File without welcome message still counts as 1 login
+        assert_eq!(char.logins, 1);
+        // Start date should come from first timestamp in file
+        assert_eq!(char.start_date, Some("2024-01-01 13:00:00".to_string()));
     }
 }

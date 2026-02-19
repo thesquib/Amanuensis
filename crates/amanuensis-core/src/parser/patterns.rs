@@ -16,8 +16,9 @@ pub static ASSISTED_KILL: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You helped (kill|slaughter|vanquish|dispatch) an? (.+)\.$").unwrap());
 
 // === Death/fall patterns ===
+// "X has fallen to [a/an] Y." — cause may or may not have an article
 pub static FALLEN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(.+) has fallen to an? (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^(.+) has fallen to (?:an? )?(.+)\.$").unwrap());
 pub static RECOVERED: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^(.+) is no longer fallen\.$").unwrap());
 pub static FIRST_DEPART: Lazy<Regex> =
@@ -33,7 +34,10 @@ pub static COIN_BALANCE: Lazy<Regex> =
 // Loot: "* {name} recovers the {item} fur/blood, worth Nc. Your share is Nc."
 // Also: "* You recover the {item} fur/blood, worth Nc. Your share is Nc."
 pub static LOOT_SHARE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* (?:.+) recovers? the (.+) (fur|blood|mandible), worth (\d+)c\. Your share is (\d+)c\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^\* (?:.+) recovers? the (.+) (fur|blood|mandibles?), worth (\d+)c\. Your share is (\d+)c\.$").unwrap());
+// Self-recovery: "* You recover the {item} fur/blood/mandibles, worth Nc." (no "Your share" — solo)
+pub static SELF_RECOVERY: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\* You recover the (.+) (fur|blood|mandibles?), worth (\d+)c\.$").unwrap());
 
 // === Equipment patterns ===
 pub static BELL_BROKEN: Lazy<Regex> =
@@ -329,5 +333,36 @@ mod tests {
         assert_eq!(&caps[2], "fur");
         assert_eq!(&caps[3], "20");
         assert_eq!(&caps[4], "10");
+    }
+
+    #[test]
+    fn test_loot_share_mandibles_plural() {
+        let caps = LOOT_SHARE.captures("* You recover the Noble Myrm mandibles, worth 2c. Your share is 1c.").unwrap();
+        assert_eq!(&caps[1], "Noble Myrm");
+        assert_eq!(&caps[2], "mandibles");
+        assert_eq!(&caps[3], "2");
+        assert_eq!(&caps[4], "1");
+    }
+
+    #[test]
+    fn test_self_recovery_fur() {
+        let caps = SELF_RECOVERY.captures("* You recover the Dark Vermine fur, worth 20c.").unwrap();
+        assert_eq!(&caps[1], "Dark Vermine");
+        assert_eq!(&caps[2], "fur");
+        assert_eq!(&caps[3], "20");
+    }
+
+    #[test]
+    fn test_self_recovery_mandibles() {
+        let caps = SELF_RECOVERY.captures("* You recover the Noble Myrm mandibles, worth 2c.").unwrap();
+        assert_eq!(&caps[1], "Noble Myrm");
+        assert_eq!(&caps[2], "mandibles");
+        assert_eq!(&caps[3], "2");
+    }
+
+    #[test]
+    fn test_self_recovery_does_not_match_share() {
+        // Self-recovery should NOT match lines that have "Your share is" suffix
+        assert!(SELF_RECOVERY.captures("* You recover the Dark Vermine fur, worth 20c. Your share is 10c.").is_none());
     }
 }
