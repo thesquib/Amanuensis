@@ -62,8 +62,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: crates/scribius-gui
-          tauriScript: cargo tauri
-          args: --target ${{ matrix.target }} --ci
+          args: --target ${{ matrix.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

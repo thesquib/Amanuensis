@@ -58,8 +58,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: crates/scribius-gui
-          tauriScript: cargo tauri
-          args: --target ${{ matrix.target }} --ci
+          args: --target ${{ matrix.target }}
           tagName: ${{ github.ref_name }}
           releaseName: Amanuensis ${{ github.ref_name }}
           releaseBody: 'See the assets below to download for your platform.'
