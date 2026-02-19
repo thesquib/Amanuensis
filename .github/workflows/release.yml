@@ -66,7 +66,17 @@ jobs:
           args: --target ${{ matrix.target }}
           tagName: ${{ github.ref_name }}
           releaseName: Amanuensis ${{ github.ref_name }}
-          releaseBody: 'Initial alpha release for testing. See the assets below to download for your platform.'
+          releaseBody: |
+            | File | Platform |
+            |------|----------|
+            | `Amanuensis_*_aarch64.dmg` | macOS Apple Silicon |
+            | `Amanuensis_*_x64.dmg` | macOS Intel (10.13+) |
+            | `Amanuensis_*_amd64.deb` | Linux x64 (Debian/Ubuntu) |
+            | `Amanuensis_*_amd64.AppImage` | Linux x64 (portable) |
+            | `Amanuensis-*.x86_64.rpm` | Linux x64 (Fedora/RHEL) |
+            | `Amanuensis_*_x64-setup.exe` | Windows x64 (installer) |
+            | `Amanuensis_*_en-US.msi` | Windows x64 (MSI) |
+            | `Amanuensis_portable_x64.zip` | Windows x64 (portable) |
           releaseDraft: false
           prerelease: true
 
