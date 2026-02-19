@@ -235,6 +235,30 @@ pub async fn scan_files(
     result
 }
 
+/// Import data from a Scribius (Core Data) database into a new Amanuensis database.
+/// After import, the new database is opened in the app state.
+#[tauri::command]
+pub fn import_scribius_db(
+    scribius_path: String,
+    output_path: String,
+    force: bool,
+    state: State<'_, AppState>,
+) -> Result<amanuensis_core::ImportResult, String> {
+    let result = amanuensis_core::import_scribius(
+        Path::new(&scribius_path),
+        &output_path,
+        force,
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Open the newly created database in app state
+    let db = Database::open(&output_path).map_err(|e| e.to_string())?;
+    *state.db.lock().unwrap() = Some(db);
+    *state.db_path.lock().unwrap() = Some(output_path);
+
+    Ok(result)
+}
+
 /// Check if a database file exists at a path (for auto-detection).
 #[tauri::command]
 pub fn check_db_exists(path: String) -> bool {
