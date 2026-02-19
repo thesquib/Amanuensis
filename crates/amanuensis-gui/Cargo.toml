@@ -1,10 +1,10 @@
 [package]
-name = "scribius-gui"
+name = "amanuensis-gui"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-scribius-core = { path = "../scribius-core" }
+amanuensis-core = { path = "../amanuensis-core" }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"

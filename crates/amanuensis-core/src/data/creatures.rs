@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::error::{Result, ScribiusError};
+use crate::error::{Result, AmanuensisError};
 
 /// In-memory creature name → value lookup, loaded from creatures.csv.
 #[derive(Debug)]
@@ -25,7 +25,7 @@ impl CreatureDb {
             let value: i32 = record[1]
                 .trim()
                 .parse()
-                .map_err(|e| ScribiusError::Data(format!("Bad creature value for '{}': {}", name, e)))?;
+                .map_err(|e| AmanuensisError::Data(format!("Bad creature value for '{}': {}", name, e)))?;
             if !name.is_empty() {
                 creatures.insert(name, value);
             }

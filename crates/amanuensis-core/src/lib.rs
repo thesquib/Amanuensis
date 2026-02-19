@@ -7,5 +7,5 @@ pub mod parser;
 
 pub use data::{CreatureDb, TrainerDb, TrainerMeta};
 pub use db::Database;
-pub use error::{Result, ScribiusError};
+pub use error::{Result, AmanuensisError};
 pub use parser::LogParser;

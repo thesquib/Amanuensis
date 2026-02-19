@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table, ContentArrangement};
 
-use scribius_core::{Database, LogParser};
+use amanuensis_core::{Database, LogParser};
 
 #[derive(Parser)]
 #[command(name = "amanuensis", version, about = "Clan Lord log parser and stat tracker")]
@@ -71,7 +71,7 @@ fn main() {
     }
 }
 
-fn run(cli: Cli) -> scribius_core::Result<()> {
+fn run(cli: Cli) -> amanuensis_core::Result<()> {
     match cli.command {
         Commands::Scan { folder, force } => cmd_scan(&cli.db, &folder, force),
         Commands::Characters => cmd_characters(&cli.db),
@@ -83,7 +83,7 @@ fn run(cli: Cli) -> scribius_core::Result<()> {
     }
 }
 
-fn cmd_scan(db_path: &str, folder: &Path, force: bool) -> scribius_core::Result<()> {
+fn cmd_scan(db_path: &str, folder: &Path, force: bool) -> amanuensis_core::Result<()> {
     println!("Scanning logs in: {}", folder.display());
 
     let db = Database::open(db_path)?;
@@ -107,7 +107,7 @@ fn cmd_scan(db_path: &str, folder: &Path, force: bool) -> scribius_core::Result<
     Ok(())
 }
 
-fn cmd_characters(db_path: &str) -> scribius_core::Result<()> {
+fn cmd_characters(db_path: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let chars = db.list_characters()?;
 
@@ -137,11 +137,11 @@ fn cmd_characters(db_path: &str) -> scribius_core::Result<()> {
     Ok(())
 }
 
-fn cmd_summary(db_path: &str, name: &str) -> scribius_core::Result<()> {
+fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let char = db
         .get_character(name)?
-        .ok_or_else(|| scribius_core::ScribiusError::Data(format!("Character '{}' not found", name)))?;
+        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
 
     let char_id = char.id.unwrap();
     let kills = db.get_kills(char_id)?;
@@ -231,11 +231,11 @@ fn cmd_kills(
     name: &str,
     sort: &str,
     limit: Option<usize>,
-) -> scribius_core::Result<()> {
+) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let char = db
         .get_character(name)?
-        .ok_or_else(|| scribius_core::ScribiusError::Data(format!("Character '{}' not found", name)))?;
+        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
 
     let char_id = char.id.unwrap();
     let mut kills = db.get_kills(char_id)?;
@@ -285,11 +285,11 @@ fn cmd_kills(
     Ok(())
 }
 
-fn cmd_trainers(db_path: &str, name: &str) -> scribius_core::Result<()> {
+fn cmd_trainers(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let char = db
         .get_character(name)?
-        .ok_or_else(|| scribius_core::ScribiusError::Data(format!("Character '{}' not found", name)))?;
+        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
 
     let char_id = char.id.unwrap();
     let trainers = db.get_trainers(char_id)?;
@@ -320,11 +320,11 @@ fn cmd_trainers(db_path: &str, name: &str) -> scribius_core::Result<()> {
     Ok(())
 }
 
-fn cmd_lastys(db_path: &str, name: &str) -> scribius_core::Result<()> {
+fn cmd_lastys(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let char = db
         .get_character(name)?
-        .ok_or_else(|| scribius_core::ScribiusError::Data(format!("Character '{}' not found", name)))?;
+        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
 
     let char_id = char.id.unwrap();
     let lastys = db.get_lastys(char_id)?;
@@ -356,11 +356,11 @@ fn cmd_lastys(db_path: &str, name: &str) -> scribius_core::Result<()> {
     Ok(())
 }
 
-fn cmd_pets(db_path: &str, name: &str) -> scribius_core::Result<()> {
+fn cmd_pets(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let char = db
         .get_character(name)?
-        .ok_or_else(|| scribius_core::ScribiusError::Data(format!("Character '{}' not found", name)))?;
+        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
 
     let char_id = char.id.unwrap();
     let pets = db.get_pets(char_id)?;

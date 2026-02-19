@@ -51,7 +51,7 @@ impl LogParser {
         let mut result = ScanResult::default();
 
         if !folder.is_dir() {
-            return Err(crate::error::ScribiusError::Data(format!(
+            return Err(crate::error::AmanuensisError::Data(format!(
                 "Not a directory: {}",
                 folder.display()
             )));
@@ -421,7 +421,7 @@ impl LogParser {
         let mut result = ScanResult::default();
 
         if !folder.is_dir() {
-            return Err(crate::error::ScribiusError::Data(format!(
+            return Err(crate::error::AmanuensisError::Data(format!(
                 "Not a directory: {}",
                 folder.display()
             )));

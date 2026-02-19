@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ScribiusError {
+pub enum AmanuensisError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -21,4 +21,4 @@ pub enum ScribiusError {
     Data(String),
 }
 
-pub type Result<T> = std::result::Result<T, ScribiusError>;
+pub type Result<T> = std::result::Result<T, AmanuensisError>;
