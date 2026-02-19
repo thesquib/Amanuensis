@@ -129,14 +129,14 @@ mod tests {
 
     #[test]
     fn test_welcome_login() {
-        let caps = WELCOME_LOGIN.captures("Welcome to Clan Lord, Ruuk!").unwrap();
-        assert_eq!(&caps[1], "Ruuk");
+        let caps = WELCOME_LOGIN.captures("Welcome to Clan Lord, Fen!").unwrap();
+        assert_eq!(&caps[1], "Fen");
     }
 
     #[test]
     fn test_welcome_back() {
-        let caps = WELCOME_BACK.captures("Welcome back, squib!").unwrap();
-        assert_eq!(&caps[1], "squib");
+        let caps = WELCOME_BACK.captures("Welcome back, pip!").unwrap();
+        assert_eq!(&caps[1], "pip");
     }
 
     #[test]
@@ -161,14 +161,14 @@ mod tests {
 
     #[test]
     fn test_fallen() {
-        let caps = FALLEN.captures("Ruuk has fallen to a Large Vermine.").unwrap();
-        assert_eq!(&caps[1], "Ruuk");
+        let caps = FALLEN.captures("Fen has fallen to a Large Vermine.").unwrap();
+        assert_eq!(&caps[1], "Fen");
         assert_eq!(&caps[2], "Large Vermine");
     }
 
     #[test]
     fn test_fallen_acid() {
-        let caps = FALLEN.captures("Ruuk has fallen to a spray of acid.").unwrap();
+        let caps = FALLEN.captures("Fen has fallen to a spray of acid.").unwrap();
         assert_eq!(&caps[2], "spray of acid");
     }
 
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_loot_share_fur() {
-        let caps = LOOT_SHARE.captures("* Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.").unwrap();
+        let caps = LOOT_SHARE.captures("* Fen recovers the Dark Vermine fur, worth 20c. Your share is 10c.").unwrap();
         assert_eq!(&caps[1], "Dark Vermine");
         assert_eq!(&caps[2], "fur");
         assert_eq!(&caps[3], "20");
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_loot_share_blood() {
-        let caps = LOOT_SHARE.captures("* squib recovers the Orga blood, worth 30c. Your share is 15c.").unwrap();
+        let caps = LOOT_SHARE.captures("* pip recovers the Orga blood, worth 30c. Your share is 15c.").unwrap();
         assert_eq!(&caps[2], "blood");
         assert_eq!(&caps[3], "30");
         assert_eq!(&caps[4], "15");
@@ -203,20 +203,20 @@ mod tests {
 
     #[test]
     fn test_chain_drag() {
-        let caps = CHAIN_DRAG.captures("You start dragging Olga.").unwrap();
-        assert_eq!(&caps[1], "Olga");
+        let caps = CHAIN_DRAG.captures("You start dragging Ava.").unwrap();
+        assert_eq!(&caps[1], "Ava");
     }
 
     #[test]
     fn test_speech_skip() {
         assert!(SPEECH.is_match(r#"Donk thinks, "south""#));
-        assert!(SPEECH.is_match(r#"Ruuk says, "hello""#));
-        assert!(SPEECH.is_match(r#"Ruuk yells, "help!""#));
+        assert!(SPEECH.is_match(r#"Fen says, "hello""#));
+        assert!(SPEECH.is_match(r#"Fen yells, "help!""#));
     }
 
     #[test]
     fn test_emote_skip() {
-        assert!(EMOTE.is_match("(Ruuk waves)"));
+        assert!(EMOTE.is_match("(Fen waves)"));
     }
 
     #[test]
@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_karma_good() {
-        let caps = KARMA_RECEIVED.captures("You just received good karma from Ruuk.").unwrap();
+        let caps = KARMA_RECEIVED.captures("You just received good karma from Fen.").unwrap();
         assert_eq!(&caps[1], "good");
     }
 
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_karma_without_just() {
-        let caps = KARMA_RECEIVED.captures("You received good karma from Ruuk.").unwrap();
+        let caps = KARMA_RECEIVED.captures("You received good karma from Fen.").unwrap();
         assert_eq!(&caps[1], "good");
     }
 
@@ -293,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_loot_share_captures_worth() {
-        let caps = LOOT_SHARE.captures("* Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.").unwrap();
+        let caps = LOOT_SHARE.captures("* Fen recovers the Dark Vermine fur, worth 20c. Your share is 10c.").unwrap();
         assert_eq!(&caps[1], "Dark Vermine");
         assert_eq!(&caps[2], "fur");
         assert_eq!(&caps[3], "20");

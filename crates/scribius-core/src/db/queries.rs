@@ -600,20 +600,20 @@ mod tests {
     #[test]
     fn test_get_or_create_character() {
         let db = Database::open_in_memory().unwrap();
-        let id1 = db.get_or_create_character("Ruuk").unwrap();
-        let id2 = db.get_or_create_character("Ruuk").unwrap();
+        let id1 = db.get_or_create_character("Fen").unwrap();
+        let id2 = db.get_or_create_character("Fen").unwrap();
         assert_eq!(id1, id2, "Same name should return same ID");
 
-        let id3 = db.get_or_create_character("squib").unwrap();
+        let id3 = db.get_or_create_character("pip").unwrap();
         assert_ne!(id1, id3, "Different names should return different IDs");
     }
 
     #[test]
     fn test_get_character() {
         let db = Database::open_in_memory().unwrap();
-        db.get_or_create_character("Ruuk").unwrap();
-        let char = db.get_character("Ruuk").unwrap().unwrap();
-        assert_eq!(char.name, "Ruuk");
+        db.get_or_create_character("Fen").unwrap();
+        let char = db.get_character("Fen").unwrap().unwrap();
+        assert_eq!(char.name, "Fen");
         assert_eq!(char.profession, Profession::Unknown);
         assert_eq!(char.logins, 0);
     }
@@ -621,11 +621,11 @@ mod tests {
     #[test]
     fn test_increment_character_field() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.increment_character_field(id, "logins", 1).unwrap();
         db.increment_character_field(id, "logins", 1).unwrap();
         db.increment_character_field(id, "deaths", 3).unwrap();
-        let char = db.get_character("Ruuk").unwrap().unwrap();
+        let char = db.get_character("Fen").unwrap().unwrap();
         assert_eq!(char.logins, 2);
         assert_eq!(char.deaths, 3);
     }
@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn test_increment_invalid_field_rejected() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         let result = db.increment_character_field(id, "name; DROP TABLE characters;--", 1);
         assert!(result.is_err());
     }
@@ -641,7 +641,7 @@ mod tests {
     #[test]
     fn test_upsert_kill() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.upsert_kill(id, "Rat", "slaughtered_count", 2, "2024-01-01")
             .unwrap();
         db.upsert_kill(id, "Rat", "slaughtered_count", 2, "2024-01-02")
@@ -661,7 +661,7 @@ mod tests {
     #[test]
     fn test_upsert_trainer_rank() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.upsert_trainer_rank(id, "Bangus Anmash", "2024-01-01")
             .unwrap();
         db.upsert_trainer_rank(id, "Bangus Anmash", "2024-01-02")
@@ -680,7 +680,7 @@ mod tests {
     #[test]
     fn test_log_scanning() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         assert!(!db.is_log_scanned("/logs/test.txt").unwrap());
         db.mark_log_scanned(id, "/logs/test.txt", "abc123hash", "2024-01-01")
             .unwrap();
@@ -691,7 +691,7 @@ mod tests {
     #[test]
     fn test_hash_dedup() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         let hash = "deadbeef12345678";
         assert!(!db.is_hash_scanned(hash).unwrap());
         db.mark_log_scanned(id, "/logs/a.txt", hash, "2024-01-01")
@@ -705,8 +705,8 @@ mod tests {
     #[test]
     fn test_list_characters() {
         let db = Database::open_in_memory().unwrap();
-        db.get_or_create_character("Ruuk").unwrap();
-        db.get_or_create_character("squib").unwrap();
+        db.get_or_create_character("Fen").unwrap();
+        db.get_or_create_character("pip").unwrap();
         let chars = db.list_characters().unwrap();
         assert_eq!(chars.len(), 2);
     }
@@ -714,11 +714,11 @@ mod tests {
     #[test]
     fn test_coin_tracking() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.increment_character_field(id, "coins_picked_up", 50).unwrap();
         db.increment_character_field(id, "fur_coins", 10).unwrap();
         db.increment_character_field(id, "blood_coins", 15).unwrap();
-        let char = db.get_character("Ruuk").unwrap().unwrap();
+        let char = db.get_character("Fen").unwrap().unwrap();
         assert_eq!(char.coins_picked_up, 50);
         assert_eq!(char.fur_coins, 10);
         assert_eq!(char.blood_coins, 15);
@@ -727,7 +727,7 @@ mod tests {
     #[test]
     fn test_upsert_pet() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.upsert_pet(id, "Maha Ruknee").unwrap();
         db.upsert_pet(id, "Maha Ruknee").unwrap(); // duplicate should be ignored
         let pets = db.get_pets(id).unwrap();
@@ -739,7 +739,7 @@ mod tests {
     #[test]
     fn test_upsert_lasty() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
         db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
         db.upsert_lasty(id, "Orga Anger", "Morph").unwrap();
@@ -760,7 +760,7 @@ mod tests {
     #[test]
     fn test_complete_lasty() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
         db.complete_lasty(id, "Sespus").unwrap();
 
@@ -772,18 +772,18 @@ mod tests {
     #[test]
     fn test_update_profession() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.update_character_profession(id, "Ranger").unwrap();
-        let char = db.get_character("Ruuk").unwrap().unwrap();
+        let char = db.get_character("Fen").unwrap().unwrap();
         assert_eq!(char.profession, Profession::Ranger);
     }
 
     #[test]
     fn test_update_coin_level() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
         db.update_coin_level(id, 42).unwrap();
-        let char = db.get_character("Ruuk").unwrap().unwrap();
+        let char = db.get_character("Fen").unwrap().unwrap();
         assert_eq!(char.coin_level, 42);
     }
 }

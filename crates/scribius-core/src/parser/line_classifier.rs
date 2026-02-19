@@ -317,15 +317,15 @@ mod tests {
     #[test]
     fn test_login() {
         let db = test_db();
-        let event = classify_line("Welcome to Clan Lord, Ruuk!", &db);
-        assert!(matches!(event, LogEvent::Login { ref name } if name == "Ruuk"));
+        let event = classify_line("Welcome to Clan Lord, Fen!", &db);
+        assert!(matches!(event, LogEvent::Login { ref name } if name == "Fen"));
     }
 
     #[test]
     fn test_reconnect() {
         let db = test_db();
-        let event = classify_line("Welcome back, squib!", &db);
-        assert!(matches!(event, LogEvent::Reconnect { ref name } if name == "squib"));
+        let event = classify_line("Welcome back, pip!", &db);
+        assert!(matches!(event, LogEvent::Reconnect { ref name } if name == "pip"));
     }
 
     #[test]
@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn test_yen_healing_sense_ignored() {
         let db = test_db();
-        let event = classify_line("¥You sense healing energy from Ruuk.", &db);
+        let event = classify_line("¥You sense healing energy from Fen.", &db);
         assert!(matches!(event, LogEvent::Ignored));
     }
 
@@ -397,7 +397,7 @@ mod tests {
             LogEvent::Ignored
         ));
         assert!(matches!(
-            classify_line(r#"Ruuk says, "hello""#, &db),
+            classify_line(r#"Fen says, "hello""#, &db),
             LogEvent::Ignored
         ));
     }
@@ -406,7 +406,7 @@ mod tests {
     fn test_emote_ignored() {
         let db = test_db();
         assert!(matches!(
-            classify_line("(Ruuk waves)", &db),
+            classify_line("(Fen waves)", &db),
             LogEvent::Ignored
         ));
     }
@@ -429,7 +429,7 @@ mod tests {
     fn test_loot_share() {
         let db = test_db();
         let event = classify_line(
-            "* Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.",
+            "* Fen recovers the Dark Vermine fur, worth 20c. Your share is 10c.",
             &db,
         );
         assert!(matches!(
@@ -445,13 +445,13 @@ mod tests {
     #[test]
     fn test_fallen() {
         let db = test_db();
-        let event = classify_line("Ruuk has fallen to a Large Vermine.", &db);
+        let event = classify_line("Fen has fallen to a Large Vermine.", &db);
         assert!(matches!(
             event,
             LogEvent::Fallen {
                 ref name,
                 ref cause
-            } if name == "Ruuk" && cause == "Large Vermine"
+            } if name == "Fen" && cause == "Large Vermine"
         ));
     }
 
@@ -536,10 +536,10 @@ mod tests {
     #[test]
     fn test_chain_used() {
         let db = test_db();
-        let event = classify_line("You start dragging Olga.", &db);
+        let event = classify_line("You start dragging Ava.", &db);
         assert!(matches!(
             event,
-            LogEvent::ChainUsed { ref target } if target == "Olga"
+            LogEvent::ChainUsed { ref target } if target == "Ava"
         ));
     }
 
@@ -680,7 +680,7 @@ mod tests {
     #[test]
     fn test_karma_good() {
         let db = test_db();
-        let event = classify_line("You just received good karma from Ruuk.", &db);
+        let event = classify_line("You just received good karma from Fen.", &db);
         assert!(matches!(event, LogEvent::KarmaReceived { good: true }));
     }
 
@@ -715,7 +715,7 @@ mod tests {
     fn test_loot_share_with_worth() {
         let db = test_db();
         let event = classify_line(
-            "* Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.",
+            "* Fen recovers the Dark Vermine fur, worth 20c. Your share is 10c.",
             &db,
         );
         assert!(matches!(

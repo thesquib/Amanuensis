@@ -8,9 +8,10 @@ import { PetsView } from "../views/PetsView";
 import { LastysView } from "../views/LastysView";
 import { EquipmentView } from "../views/EquipmentView";
 import { RankModifiersView } from "../views/RankModifiersView";
+import { FighterStatsView } from "../views/FighterStatsView";
 import type { ViewType } from "../../types";
 
-const TABS: { id: ViewType; label: string }[] = [
+const TABS: { id: ViewType; label: string; fighterOnly?: boolean }[] = [
   { id: "summary", label: "Summary" },
   { id: "kills", label: "Kills" },
   { id: "trainers", label: "Trainers" },
@@ -19,6 +20,7 @@ const TABS: { id: ViewType; label: string }[] = [
   { id: "pets", label: "Pets" },
   { id: "lastys", label: "Lastys" },
   { id: "equipment", label: "Equipment" },
+  { id: "fighter-stats", label: "Fighter Stats", fighterOnly: true },
 ];
 
 function ViewContent({ view }: { view: ViewType }) {
@@ -39,6 +41,8 @@ function ViewContent({ view }: { view: ViewType }) {
       return <LastysView />;
     case "equipment":
       return <EquipmentView />;
+    case "fighter-stats":
+      return <FighterStatsView />;
   }
 }
 
@@ -58,7 +62,13 @@ export function AppShell() {
           <>
             {/* Tab bar */}
             <div className="flex border-b border-[var(--color-border)] bg-[var(--color-sidebar)]">
-              {TABS.map((tab) => (
+              {TABS.filter(
+                (tab) =>
+                  !tab.fighterOnly ||
+                  ["Fighter", "Ranger", "Champion", "Bloodmage"].includes(
+                    selectedCharacter.profession,
+                  ),
+              ).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveView(tab.id)}
@@ -84,7 +94,7 @@ export function AppShell() {
         ) : (
           <div className="flex flex-1 items-center justify-center text-[var(--color-text-muted)]">
             <div className="text-center">
-              <div className="text-4xl">Scribius</div>
+              <div className="text-4xl">Amanuensis</div>
               <div className="mt-2 text-sm">
                 Select a character or scan logs to get started
               </div>

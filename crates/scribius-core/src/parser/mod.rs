@@ -316,10 +316,6 @@ impl LogParser {
                     lasty_type,
                 } => {
                     self.db.upsert_lasty(char_id, &creature, &lasty_type)?;
-                    // Befriend also creates a pet
-                    if lasty_type == "Befriend" {
-                        self.db.upsert_pet(char_id, &creature)?;
-                    }
                     file_result.events_found += 1;
                 }
                 LogEvent::LastyCompleted { trainer } => {
@@ -363,30 +359,40 @@ impl LogParser {
             }
         }
 
-        // Determine profession by highest rank count
-        let max = *[
-            fighter_ranks, healer_ranks, mystic_ranks,
-            ranger_ranks, bloodmage_ranks, champion_ranks,
-        ].iter().max().unwrap_or(&0);
+        // Specialization-wins logic: if any Fighter specialization has ranks,
+        // pick the specialization with the most ranks (specialists also train
+        // base Fighter trainers, so Fighter would always outnumber them in a
+        // simple majority vote).
+        if ranger_ranks > 0 || bloodmage_ranks > 0 || champion_ranks > 0 {
+            // Pick highest specialization; tie-break: Ranger > Bloodmage > Champion
+            if ranger_ranks >= bloodmage_ranks && ranger_ranks >= champion_ranks {
+                return Ok(Profession::Ranger);
+            }
+            if bloodmage_ranks >= champion_ranks {
+                return Ok(Profession::Bloodmage);
+            }
+            return Ok(Profession::Champion);
+        }
+
+        // No specialization — use base class majority vote
+        let max = *[fighter_ranks, healer_ranks, mystic_ranks]
+            .iter().max().unwrap_or(&0);
 
         if max == 0 {
             return Ok(Profession::Unknown);
         }
 
-        // Priority order matches the original app
+        // Priority: Fighter > Healer > Mystic
         if fighter_ranks == max { return Ok(Profession::Fighter); }
         if healer_ranks == max { return Ok(Profession::Healer); }
         if mystic_ranks == max { return Ok(Profession::Mystic); }
-        if ranger_ranks == max { return Ok(Profession::Ranger); }
-        if bloodmage_ranks == max { return Ok(Profession::Bloodmage); }
-        if champion_ranks == max { return Ok(Profession::Champion); }
 
         Ok(Profession::Unknown)
     }
 
     /// Compute coin level based on total trainer ranks.
-    /// The original app computes this from rank data. Based on the decompiled code,
-    /// it appears to be the sum of all effective ranks divided by a factor.
+    /// The original app computes this from rank data — it appears to be the sum
+    /// of all effective ranks divided by a factor.
     pub fn compute_coin_level(&self, char_id: i64) -> Result<i64> {
         let trainers = self.db.get_trainers(char_id)?;
         let total_ranks: i64 = trainers.iter().map(|t| t.ranks + t.modified_ranks).sum();
@@ -902,8 +908,8 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         let log_content = r#"1/1/24 1:00:00p Donk thinks, "south"
-1/1/24 1:01:00p Ruuk says, "hello everyone"
-1/1/24 1:02:00p (Ruuk waves)
+1/1/24 1:01:00p Fen says, "hello everyone"
+1/1/24 1:02:00p (Fen waves)
 1/1/24 1:03:00p You slaughtered a Rat.
 "#;
         fs::write(
@@ -1022,33 +1028,35 @@ mod tests {
         let vermine = lastys.iter().find(|l| l.creature_name == "Large Vermine").unwrap();
         assert_eq!(vermine.lasty_type, "Movements");
 
-        // Check pets (befriend creates a pet)
+        // Befriend does NOT create pets (only healers get pets via adoption)
         let pets = parser.db().get_pets(char_id).unwrap();
-        assert_eq!(pets.len(), 1);
-        assert_eq!(pets[0].creature_name, "Maha Ruknee");
+        assert_eq!(pets.len(), 0);
 
         // One lasty should be completed (the most recent unfinished one — Large Vermine)
         let finished: Vec<_> = lastys.iter().filter(|l| l.finished).collect();
         assert_eq!(finished.len(), 1);
     }
 
+    /// Helper: build a log file with the given ¥-prefixed rank messages (as raw bytes).
+    fn build_rank_log(messages: &[&[u8]], count_each: usize) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for msg in messages {
+            for _ in 0..count_each {
+                bytes.extend_from_slice(b"1/1/24 1:00:00p ");
+                bytes.push(0xA5);
+                bytes.extend_from_slice(msg);
+                bytes.push(b'\n');
+            }
+        }
+        bytes
+    }
+
     #[test]
-    fn test_profession_detection() {
+    fn test_profession_detection_fighter() {
         let (tmp, char_dir) = create_test_log_dir();
 
-        // Build log with fighter trainer messages (Evus is Fighter)
-        let mut bytes = Vec::new();
-        for _ in 0..5 {
-            bytes.extend_from_slice(b"1/1/24 1:00:00p ");
-            bytes.push(0xA5);
-            bytes.extend_from_slice(b"You seem to fight more effectively now.\n");
-        }
-
-        fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
-            &bytes,
-        )
-        .unwrap();
+        let bytes = build_rank_log(&[b"You seem to fight more effectively now."], 5);
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
@@ -1061,12 +1069,114 @@ mod tests {
     }
 
     #[test]
+    fn test_profession_detection_healer() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let bytes = build_rank_log(&[b"You seem to heal more effectively."], 5);
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Healer);
+    }
+
+    #[test]
+    fn test_profession_detection_ranger_over_fighter() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Ranger has many Fighter ranks + some Ranger ranks → should detect Ranger
+        let bytes = build_rank_log(
+            &[
+                b"You seem to fight more effectively now.",  // Fighter (Evus)
+                b"Your combat ability improves.",            // Ranger (Bangus Anmash)
+            ],
+            10, // 10 of each
+        );
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Ranger);
+    }
+
+    #[test]
+    fn test_profession_detection_champion_over_fighter() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Champion has Fighter ranks + Champion ranks → should detect Champion
+        let bytes = build_rank_log(
+            &[
+                b"You seem to fight more effectively now.",  // Fighter (Evus)
+                b"Your Earthpower improves.",                // Champion (Toomeria)
+            ],
+            5,
+        );
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Champion);
+    }
+
+    #[test]
+    fn test_profession_detection_bloodmage_over_fighter() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Bloodmage has Fighter ranks + Bloodmage ranks → should detect Bloodmage
+        let bytes = build_rank_log(
+            &[
+                b"You seem to fight more effectively now.",         // Fighter (Evus)
+                b"You are better able to feign death.",             // Bloodmage (Posuhm)
+            ],
+            5,
+        );
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Bloodmage);
+    }
+
+    #[test]
+    fn test_profession_detection_unknown_no_trainers() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Log with kills only, no trainer messages
+        let log_content = "1/1/24 1:00:00p You slaughtered a Rat.\n";
+        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), log_content).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Unknown);
+    }
+
+    #[test]
     fn test_loot_share_tracking() {
         let (tmp, char_dir) = create_test_log_dir();
 
         let log_content = "\
-1/1/24 1:00:00p * Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.
-1/1/24 1:01:00p * squib recovers the Orga blood, worth 30c. Your share is 15c.
+1/1/24 1:00:00p * Fen recovers the Dark Vermine fur, worth 20c. Your share is 10c.
+1/1/24 1:01:00p * pip recovers the Orga blood, worth 30c. Your share is 15c.
 ";
         fs::write(
             char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
@@ -1195,20 +1305,20 @@ mod tests {
 
         // Two separate log roots
         let logs1 = root.join("App1").join("Text Logs");
-        let char1 = logs1.join("Ruuk");
+        let char1 = logs1.join("Fen");
         fs::create_dir_all(&char1).unwrap();
         fs::write(
             char1.join("CL Log 2024:01:01 13.00.00.txt"),
-            "1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+            "1/1/24 1:00:00p Welcome to Clan Lord, Fen!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
         )
         .unwrap();
 
         let logs2 = root.join("App2").join("Logs");
-        let char2 = logs2.join("Squib");
+        let char2 = logs2.join("Pip");
         fs::create_dir_all(&char2).unwrap();
         fs::write(
             char2.join("CL Log 2024:01:02 14.00.00.txt"),
-            "1/2/24 2:00:00p Welcome to Clan Lord, Squib!\n1/2/24 2:01:00p You slaughtered a Vermine.\n",
+            "1/2/24 2:00:00p Welcome to Clan Lord, Pip!\n1/2/24 2:01:00p You slaughtered a Vermine.\n",
         )
         .unwrap();
 
@@ -1220,20 +1330,20 @@ mod tests {
 
         assert_eq!(result.characters, 2);
         assert_eq!(result.files_scanned, 2);
-        assert!(parser.db().get_character("Ruuk").unwrap().is_some());
-        assert!(parser.db().get_character("Squib").unwrap().is_some());
+        assert!(parser.db().get_character("Fen").unwrap().is_some());
+        assert!(parser.db().get_character("Pip").unwrap().is_some());
     }
 
     #[test]
     fn test_extract_character_name_login() {
-        let bytes = b"1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!\n";
-        assert_eq!(extract_character_name(bytes), Some("Ruuk".to_string()));
+        let bytes = b"1/1/24 1:00:00p Welcome to Clan Lord, Fen!\n";
+        assert_eq!(extract_character_name(bytes), Some("Fen".to_string()));
     }
 
     #[test]
     fn test_extract_character_name_welcome_back() {
-        let bytes = b"1/1/24 1:00:00p Welcome back, squib!\n";
-        assert_eq!(extract_character_name(bytes), Some("Squib".to_string()));
+        let bytes = b"1/1/24 1:00:00p Welcome back, pip!\n";
+        assert_eq!(extract_character_name(bytes), Some("Pip".to_string()));
     }
 
     #[test]
@@ -1244,9 +1354,9 @@ mod tests {
 
     #[test]
     fn test_titlecase_name_single_word() {
-        assert_eq!(titlecase_name("ruuk"), "Ruuk");
-        assert_eq!(titlecase_name("RUUK"), "Ruuk");
-        assert_eq!(titlecase_name("Ruuk"), "Ruuk");
+        assert_eq!(titlecase_name("fen"), "Fen");
+        assert_eq!(titlecase_name("FEN"), "Fen");
+        assert_eq!(titlecase_name("Fen"), "Fen");
     }
 
     #[test]
@@ -1318,7 +1428,7 @@ mod tests {
 
         let log_content = "\
 1/1/24 1:00:00p You just received good karma from Donk.
-1/1/24 1:01:00p You just received good karma from Squib.
+1/1/24 1:01:00p You just received good karma from Pip.
 1/1/24 1:02:00p You just received bad karma from Troll.
 ";
         fs::write(
@@ -1387,8 +1497,8 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         let log_content = "\
-1/1/24 1:00:00p * Ruuk recovers the Dark Vermine fur, worth 20c. Your share is 10c.
-1/1/24 1:01:00p * squib recovers the Orga blood, worth 30c. Your share is 15c.
+1/1/24 1:00:00p * Fen recovers the Dark Vermine fur, worth 20c. Your share is 10c.
+1/1/24 1:01:00p * pip recovers the Orga blood, worth 30c. Your share is 15c.
 1/1/24 1:02:00p * You recover the Spider mandible, worth 50c. Your share is 25c.
 ";
         fs::write(
@@ -1413,7 +1523,7 @@ mod tests {
     #[test]
     fn test_highest_kill_query() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
 
         // Rat: value 2, killed 10 times -> score 20
         for _ in 0..10 {
@@ -1434,7 +1544,7 @@ mod tests {
     #[test]
     fn test_nemesis_query() {
         let db = Database::open_in_memory().unwrap();
-        let id = db.get_or_create_character("Ruuk").unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
 
         for _ in 0..5 {
             db.upsert_kill(id, "Orga Fury", "killed_by_count", 0, "2024-01-01").unwrap();
