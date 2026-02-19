@@ -4,7 +4,7 @@
   "version": "0.5.0",
   "identifier": "com.dfsw.Amanuensis",
   "build": {
-    "frontendDist": "../ui/dist",
+    "frontendDist": "./ui/dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev --prefix ../ui",
     "beforeBuildCommand": "npm run build --prefix ../ui"

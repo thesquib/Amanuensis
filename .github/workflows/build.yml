@@ -46,6 +46,10 @@ jobs:
         working-directory: crates/scribius-gui/ui
         run: npm ci
 
+      - name: Build frontend
+        working-directory: crates/scribius-gui/ui
+        run: npm run build
+
       - name: Run tests
         run: cargo test
 
@@ -58,7 +62,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: crates/scribius-gui
-          args: --target ${{ matrix.target }}
+          tauriScript: cargo tauri
+          args: --target ${{ matrix.target }} --ci
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
