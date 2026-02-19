@@ -26,11 +26,12 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
 
-    env:
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macos_deployment_target }}
-
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set macOS deployment target
+        if: matrix.macos_deployment_target
+        run: echo "MACOSX_DEPLOYMENT_TARGET=${{ matrix.macos_deployment_target }}" >> $GITHUB_ENV
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
