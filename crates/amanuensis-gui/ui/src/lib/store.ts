@@ -60,6 +60,14 @@ interface AppStore {
   excludeUnknown: boolean;
   setExcludeUnknown: (exclude: boolean) => void;
 
+  // Index log lines for search
+  indexLogLines: boolean;
+  setIndexLogLines: (index: boolean) => void;
+
+  // Log line count (FTS5 indexed)
+  logLineCount: number;
+  setLogLineCount: (count: number) => void;
+
   // Theme
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -108,6 +116,15 @@ export const useStore = create<AppStore>((set) => ({
   setExcludeLowCL: (exclude) => set({ excludeLowCL: exclude }),
   excludeUnknown: true,
   setExcludeUnknown: (exclude) => set({ excludeUnknown: exclude }),
+
+  indexLogLines: localStorage.getItem("amanuensis_index_logs") !== "false",
+  setIndexLogLines: (index) => {
+    localStorage.setItem("amanuensis_index_logs", String(index));
+    set({ indexLogLines: index });
+  },
+
+  logLineCount: 0,
+  setLogLineCount: (count) => set({ logLineCount: count }),
 
   theme: (localStorage.getItem("amanuensis_theme") as Theme) || "dark",
   setTheme: (theme) => {

@@ -121,7 +121,7 @@ impl LogParser {
                     continue;
                 }
 
-                match self.scan_bytes(&bytes, char_id, &char_name) {
+                match self.scan_bytes(&bytes, char_id, &char_name, &path_str, true) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -144,12 +144,20 @@ impl LogParser {
     }
 
     /// Scan log file bytes and process events into the database.
-    fn scan_bytes(&self, bytes: &[u8], char_id: i64, char_name: &str) -> Result<FileResult> {
+    fn scan_bytes(
+        &self,
+        bytes: &[u8],
+        char_id: i64,
+        char_name: &str,
+        file_path: &str,
+        index_lines: bool,
+    ) -> Result<FileResult> {
         let content = decode_log_bytes(bytes);
 
         let mut file_result = FileResult::default();
         let mut found_login = false;
         let mut first_date_str: Option<String> = None;
+        let mut log_lines: Vec<(i64, String, String, String)> = Vec::new();
 
         for line in content.lines() {
             file_result.lines_parsed += 1;
@@ -164,6 +172,15 @@ impl LogParser {
             let date_str = ts
                 .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
                 .unwrap_or_default();
+
+            if index_lines && !line.trim().is_empty() {
+                log_lines.push((
+                    char_id,
+                    line.to_string(),
+                    date_str.clone(),
+                    file_path.to_string(),
+                ));
+            }
 
             // Track first timestamp in file for file-as-login fallback
             if first_date_str.is_none() && !date_str.is_empty() {
@@ -342,6 +359,17 @@ impl LogParser {
             }
         }
 
+        // Batch-insert log lines into FTS5 index
+        if index_lines && !log_lines.is_empty() {
+            for chunk in log_lines.chunks(1000) {
+                let refs: Vec<(i64, &str, &str, &str)> = chunk
+                    .iter()
+                    .map(|(id, content, ts, fp)| (*id, content.as_str(), ts.as_str(), fp.as_str()))
+                    .collect();
+                self.db.insert_log_lines(&refs)?;
+            }
+        }
+
         Ok(file_result)
     }
 
@@ -420,10 +448,12 @@ impl LogParser {
 
     /// Scan a log folder with a progress callback.
     /// The callback receives (current_file_index, total_files, filename).
+    /// When `index_lines` is true, raw log lines are stored in the FTS5 index for search.
     pub fn scan_folder_with_progress<F>(
         &self,
         folder: &Path,
         force: bool,
+        index_lines: bool,
         progress: F,
     ) -> Result<ScanResult>
     where
@@ -510,7 +540,7 @@ impl LogParser {
                     continue;
                 }
 
-                match self.scan_bytes(&bytes, char_id, char_name) {
+                match self.scan_bytes(&bytes, char_id, char_name, &path_str, index_lines) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -535,10 +565,12 @@ impl LogParser {
     /// Scan individual log files with a progress callback.
     /// Character name is extracted from each file's welcome message, falling back to
     /// the parent directory name.
+    /// When `index_lines` is true, raw log lines are stored in the FTS5 index for search.
     pub fn scan_files_with_progress<F>(
         &self,
         files: &[PathBuf],
         force: bool,
+        index_lines: bool,
         progress: F,
     ) -> Result<ScanResult>
     where
@@ -591,7 +623,7 @@ impl LogParser {
                 result.characters += 1;
             }
 
-            match self.scan_bytes(&bytes, char_id, &char_name) {
+            match self.scan_bytes(&bytes, char_id, &char_name, &path_str, index_lines) {
                 Ok(file_result) => {
                     result.files_scanned += 1;
                     result.lines_parsed += file_result.lines_parsed;
@@ -613,10 +645,12 @@ impl LogParser {
 
     /// Recursively scan for log folders under `root`, then scan each discovered folder.
     /// The callback receives (current_file_index, total_files, filename).
+    /// When `index_lines` is true, raw log lines are stored in the FTS5 index for search.
     pub fn scan_recursive_with_progress<F>(
         &self,
         root: &Path,
         force: bool,
+        index_lines: bool,
         progress: F,
     ) -> Result<ScanResult>
     where
@@ -625,13 +659,13 @@ impl LogParser {
         let folders = discover_log_folders(root);
         if folders.is_empty() {
             // Fall back to treating root as a direct log root
-            return self.scan_folder_with_progress(root, force, progress);
+            return self.scan_folder_with_progress(root, force, index_lines, progress);
         }
 
         let mut combined = ScanResult::default();
         for folder in &folders {
             log::info!("Discovered log root: {}", folder.display());
-            let r = self.scan_folder_with_progress(folder, force, &progress)?;
+            let r = self.scan_folder_with_progress(folder, force, index_lines, &progress)?;
             combined.characters += r.characters;
             combined.files_scanned += r.files_scanned;
             combined.skipped += r.skipped;
@@ -1342,7 +1376,7 @@ mod tests {
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
         let result = parser
-            .scan_recursive_with_progress(root, false, |_, _, _| {})
+            .scan_recursive_with_progress(root, false, false, |_, _, _| {})
             .unwrap();
 
         assert_eq!(result.characters, 2);

@@ -100,6 +100,14 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             date_read TEXT NOT NULL,
             FOREIGN KEY (character_id) REFERENCES characters(id)
         );
+
+        CREATE VIRTUAL TABLE IF NOT EXISTS log_lines USING fts5(
+            content,
+            character_id UNINDEXED,
+            timestamp UNINDEXED,
+            file_path UNINDEXED,
+            tokenize='unicode61'
+        );
         ",
     )?;
     Ok(())
@@ -132,6 +140,17 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         }
     }
 
+    // Create FTS5 table for full-text log search (idempotent via IF NOT EXISTS)
+    conn.execute_batch(
+        "CREATE VIRTUAL TABLE IF NOT EXISTS log_lines USING fts5(
+            content,
+            character_id UNINDEXED,
+            timestamp UNINDEXED,
+            file_path UNINDEXED,
+            tokenize='unicode61'
+        );",
+    )?;
+
     Ok(())
 }
 
@@ -145,9 +164,9 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         create_tables(&conn).unwrap();
 
-        // Verify tables exist
+        // Verify tables exist (including virtual tables)
         let tables: Vec<String> = conn
-            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'shadow') ORDER BY name")
             .unwrap()
             .query_map([], |row| row.get(0))
             .unwrap()
@@ -160,6 +179,8 @@ mod tests {
         assert!(tables.contains(&"lastys".to_string()));
         assert!(tables.contains(&"pets".to_string()));
         assert!(tables.contains(&"log_files".to_string()));
+        // FTS5 virtual table creates shadow tables (log_lines_content, etc.)
+        assert!(tables.iter().any(|t| t.starts_with("log_lines")));
     }
 
     #[test]

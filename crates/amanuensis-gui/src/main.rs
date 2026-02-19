@@ -27,6 +27,8 @@ fn main() {
             commands::import_scribius_db,
             commands::check_db_exists,
             commands::reset_database,
+            commands::search_logs,
+            commands::get_log_line_count,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

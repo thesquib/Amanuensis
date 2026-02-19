@@ -8,6 +8,7 @@ import type {
   ScanResult,
   TrainerInfo,
   ImportResult,
+  LogSearchResult,
 } from "../types";
 
 export async function openDatabase(path: string): Promise<void> {
@@ -58,15 +59,29 @@ export async function scanLogs(
   folder: string,
   force: boolean,
   recursive: boolean = false,
+  indexLines: boolean = true,
 ): Promise<ScanResult> {
-  return invoke("scan_logs", { folder, force, recursive });
+  return invoke("scan_logs", { folder, force, recursive, indexLines });
 }
 
 export async function scanFiles(
   files: string[],
   force: boolean = false,
+  indexLines: boolean = true,
 ): Promise<ScanResult> {
-  return invoke("scan_files", { files, force });
+  return invoke("scan_files", { files, force, indexLines });
+}
+
+export async function searchLogs(
+  query: string,
+  charId?: number | null,
+  limit?: number,
+): Promise<LogSearchResult[]> {
+  return invoke("search_logs", { query, charId: charId ?? null, limit: limit ?? 200 });
+}
+
+export async function getLogLineCount(): Promise<number> {
+  return invoke("get_log_line_count");
 }
 
 export async function checkDbExists(path: string): Promise<boolean> {

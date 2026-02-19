@@ -5,7 +5,7 @@ use tauri::{Emitter, State};
 
 use amanuensis_core::models::{Character, Kill, Lasty, Pet, Trainer};
 use amanuensis_core::parser::ScanResult;
-use amanuensis_core::{Database, LogParser, TrainerDb};
+use amanuensis_core::{Database, LogParser, LogSearchResult, TrainerDb};
 
 use crate::state::AppState;
 
@@ -127,12 +127,14 @@ pub fn get_trainer_db_info() -> Result<Vec<TrainerInfo>, String> {
 
 /// Scan a log folder, emitting progress events.
 /// When `recursive` is true, recursively discovers log root folders under `folder`.
+/// When `index_lines` is true, raw log lines are stored in the FTS5 index for search.
 /// Runs on a background thread so the UI stays responsive.
 #[tauri::command]
 pub async fn scan_logs(
     folder: String,
     force: bool,
     recursive: bool,
+    index_lines: bool,
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<ScanResult, String> {
@@ -164,11 +166,11 @@ pub async fn scan_logs(
 
         let result = if recursive {
             parser
-                .scan_recursive_with_progress(Path::new(&folder), force, progress_cb)
+                .scan_recursive_with_progress(Path::new(&folder), force, index_lines, progress_cb)
                 .map_err(|e| e.to_string())?
         } else {
             parser
-                .scan_folder_with_progress(Path::new(&folder), force, progress_cb)
+                .scan_folder_with_progress(Path::new(&folder), force, index_lines, progress_cb)
                 .map_err(|e| e.to_string())?
         };
 
@@ -187,11 +189,13 @@ pub async fn scan_logs(
 }
 
 /// Scan individual log files, emitting progress events.
+/// When `index_lines` is true, raw log lines are stored in the FTS5 index for search.
 /// Runs on a background thread so the UI stays responsive.
 #[tauri::command]
 pub async fn scan_files(
     files: Vec<String>,
     force: bool,
+    index_lines: bool,
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<ScanResult, String> {
@@ -221,7 +225,7 @@ pub async fn scan_files(
 
         let paths: Vec<std::path::PathBuf> = files.iter().map(std::path::PathBuf::from).collect();
         let result = parser
-            .scan_files_with_progress(&paths, force, progress_cb)
+            .scan_files_with_progress(&paths, force, index_lines, progress_cb)
             .map_err(|e| e.to_string())?;
 
         parser.finalize_characters().map_err(|e| e.to_string())?;
@@ -263,6 +267,32 @@ pub fn import_scribius_db(
 #[tauri::command]
 pub fn check_db_exists(path: String) -> bool {
     Path::new(&path).exists()
+}
+
+/// Search indexed log lines using FTS5 full-text search.
+#[tauri::command]
+pub fn search_logs(
+    query: String,
+    char_id: Option<i64>,
+    limit: Option<i64>,
+    state: State<'_, AppState>,
+) -> Result<Vec<LogSearchResult>, String> {
+    if query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    let limit = limit.unwrap_or(200);
+    db.search_log_lines(&query, char_id, limit)
+        .map_err(|e| e.to_string())
+}
+
+/// Get the total number of indexed log lines.
+#[tauri::command]
+pub fn get_log_line_count(state: State<'_, AppState>) -> Result<i64, String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.log_line_count().map_err(|e| e.to_string())
 }
 
 /// Reset the database: delete the file and reopen a fresh one.

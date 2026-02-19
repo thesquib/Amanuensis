@@ -1,7 +1,19 @@
 use rusqlite::{params, Connection};
+use serde::Serialize;
 
 use crate::error::Result;
 use crate::models::*;
+
+/// A single search result from the FTS5 log_lines table.
+#[derive(Debug, Serialize)]
+pub struct LogSearchResult {
+    pub content: String,
+    pub character_id: i64,
+    pub timestamp: String,
+    pub file_path: String,
+    pub snippet: String,
+    pub character_name: String,
+}
 
 /// Database wrapper with CRUD operations.
 pub struct Database {
@@ -591,6 +603,99 @@ impl Database {
             Err(e) => Err(e.into()),
         }
     }
+
+    // === Log Lines (FTS5 full-text search) ===
+
+    /// Batch-insert log lines into the FTS5 table.
+    /// Each tuple is (character_id, content, timestamp, file_path).
+    pub fn insert_log_lines(&self, lines: &[(i64, &str, &str, &str)]) -> Result<()> {
+        let mut stmt = self.conn.prepare_cached(
+            "INSERT INTO log_lines (content, character_id, timestamp, file_path)
+             VALUES (?1, ?2, ?3, ?4)",
+        )?;
+        for &(char_id, content, timestamp, file_path) in lines {
+            stmt.execute(params![content, char_id, timestamp, file_path])?;
+        }
+        Ok(())
+    }
+
+    /// Search log lines using FTS5 full-text search.
+    /// Returns results with highlighted snippets.
+    pub fn search_log_lines(
+        &self,
+        query: &str,
+        char_id: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<LogSearchResult>> {
+        // Escape double quotes in the query and wrap for literal matching
+        let escaped = query.replace('"', "\"\"");
+        let fts_query = format!("\"{}\"", escaped);
+
+        let row_mapper = |row: &rusqlite::Row| -> rusqlite::Result<LogSearchResult> {
+            // character_id may be stored as integer or text depending on how it was inserted
+            let character_id: i64 = row.get::<_, i64>(1).or_else(|_| {
+                row.get::<_, String>(1).map(|s| s.parse().unwrap_or(0))
+            })?;
+            Ok(LogSearchResult {
+                content: row.get(0)?,
+                character_id,
+                timestamp: row.get(2)?,
+                file_path: row.get(3)?,
+                snippet: row.get(4)?,
+                character_name: row.get(5)?,
+            })
+        };
+
+        if let Some(cid) = char_id {
+            let mut stmt = self.conn.prepare(
+                "SELECT l.content, l.character_id, l.timestamp, l.file_path,
+                        snippet(log_lines, 0, '<mark>', '</mark>', '...', 64) AS snippet,
+                        COALESCE(c.name, 'Unknown') AS character_name
+                 FROM log_lines l
+                 LEFT JOIN characters c ON CAST(l.character_id AS INTEGER) = c.id
+                 WHERE log_lines MATCH ?1 AND CAST(l.character_id AS INTEGER) = ?2
+                 ORDER BY rank
+                 LIMIT ?3",
+            )?;
+            let mut results = Vec::new();
+            for row in stmt.query_map(params![fts_query, cid, limit], row_mapper)? {
+                match row {
+                    Ok(r) => results.push(r),
+                    Err(e) => log::warn!("FTS5 row error: {}", e),
+                }
+            }
+            Ok(results)
+        } else {
+            let mut stmt = self.conn.prepare(
+                "SELECT l.content, l.character_id, l.timestamp, l.file_path,
+                        snippet(log_lines, 0, '<mark>', '</mark>', '...', 64) AS snippet,
+                        COALESCE(c.name, 'Unknown') AS character_name
+                 FROM log_lines l
+                 LEFT JOIN characters c ON CAST(l.character_id AS INTEGER) = c.id
+                 WHERE log_lines MATCH ?1
+                 ORDER BY rank
+                 LIMIT ?2",
+            )?;
+            let mut results = Vec::new();
+            for row in stmt.query_map(params![fts_query, limit], row_mapper)? {
+                match row {
+                    Ok(r) => results.push(r),
+                    Err(e) => log::warn!("FTS5 row error: {}", e),
+                }
+            }
+            Ok(results)
+        }
+    }
+
+    /// Get the total number of indexed log lines.
+    pub fn log_line_count(&self) -> Result<i64> {
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM log_lines",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count)
+    }
 }
 
 #[cfg(test)]
@@ -785,5 +890,40 @@ mod tests {
         db.update_coin_level(id, 42).unwrap();
         let char = db.get_character("Fen").unwrap().unwrap();
         assert_eq!(char.coin_level, 42);
+    }
+
+    #[test]
+    fn test_fts5_insert_and_search() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+
+        // Insert some log lines
+        let lines = vec![
+            (id, "You slaughtered a Rat.", "2024-01-01 13:00:00", "/logs/test.txt"),
+            (id, "You helped vanquish a Large Vermine.", "2024-01-01 13:01:00", "/logs/test.txt"),
+            (id, "Welcome to Clan Lord, Fen!", "2024-01-01 13:00:00", "/logs/test.txt"),
+        ];
+        db.insert_log_lines(&lines).unwrap();
+
+        assert_eq!(db.log_line_count().unwrap(), 3);
+
+        // Search all
+        let results = db.search_log_lines("Rat", None, 10).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].snippet.contains("<mark>"));
+        assert_eq!(results[0].character_name, "Fen");
+
+        // Search with character filter
+        let results = db.search_log_lines("Rat", Some(id), 10).unwrap();
+        assert_eq!(results.len(), 1);
+
+        // Search with wrong character
+        let id2 = db.get_or_create_character("Pip").unwrap();
+        let results = db.search_log_lines("Rat", Some(id2), 10).unwrap();
+        assert_eq!(results.len(), 0);
+
+        // Search no match
+        let results = db.search_log_lines("Dragon", None, 10).unwrap();
+        assert_eq!(results.len(), 0);
     }
 }
