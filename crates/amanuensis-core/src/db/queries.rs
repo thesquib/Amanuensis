@@ -41,6 +41,45 @@ impl Database {
         &self.conn
     }
 
+    /// Begin a transaction for batch operations.
+    pub fn begin_transaction(&self) -> Result<()> {
+        self.conn.execute_batch("BEGIN")?;
+        Ok(())
+    }
+
+    /// Commit the current transaction.
+    pub fn commit_transaction(&self) -> Result<()> {
+        self.conn.execute_batch("COMMIT")?;
+        Ok(())
+    }
+
+    /// Rollback the current transaction.
+    pub fn rollback_transaction(&self) -> Result<()> {
+        self.conn.execute_batch("ROLLBACK")?;
+        Ok(())
+    }
+
+    /// Set performance PRAGMAs for bulk scanning operations.
+    pub fn set_scan_pragmas(&self) -> Result<()> {
+        self.conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA synchronous = NORMAL;
+             PRAGMA cache_size = -64000;
+             PRAGMA temp_store = MEMORY;
+             PRAGMA mmap_size = 268435456;",
+        )?;
+        Ok(())
+    }
+
+    /// Reset PRAGMAs to safe defaults after scanning.
+    pub fn reset_pragmas(&self) -> Result<()> {
+        self.conn.execute_batch(
+            "PRAGMA synchronous = FULL;
+             PRAGMA cache_size = -2000;",
+        )?;
+        Ok(())
+    }
+
     // === Characters ===
 
     /// Get or create a character by name. Returns the character ID.
@@ -210,6 +249,7 @@ impl Database {
     // === Kills ===
 
     /// Upsert a kill record. Increments the appropriate count field.
+    /// Uses INSERT...ON CONFLICT for single-statement upsert performance.
     pub fn upsert_kill(
         &self,
         char_id: i64,
@@ -230,33 +270,17 @@ impl Database {
             )));
         }
 
-        // Try insert first
-        let existing: Option<i64> = self
-            .conn
-            .query_row(
-                "SELECT id FROM kills WHERE character_id = ?1 AND creature_name = ?2",
-                params![char_id, creature_name],
-                |row| row.get(0),
-            )
-            .ok();
-
-        if let Some(kill_id) = existing {
-            let sql = format!(
-                "UPDATE kills SET {} = {} + 1, date_last = ?1 WHERE id = ?2",
-                field, field
-            );
-            self.conn.execute(&sql, params![date, kill_id])?;
-        } else {
-            let sql = format!(
-                "INSERT INTO kills (character_id, creature_name, {}, creature_value, date_first, date_last)
-                 VALUES (?1, ?2, 1, ?3, ?4, ?4)",
-                field
-            );
-            self.conn.execute(
-                &sql,
-                params![char_id, creature_name, creature_value, date],
-            )?;
-        }
+        let sql = format!(
+            "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last)
+             VALUES (?1, ?2, 1, ?3, ?4, ?4)
+             ON CONFLICT(character_id, creature_name) DO UPDATE SET
+                {field} = {field} + 1,
+                date_last = excluded.date_last",
+        );
+        self.conn.execute(
+            &sql,
+            params![char_id, creature_name, creature_value, date],
+        )?;
         Ok(())
     }
 
@@ -298,33 +322,21 @@ impl Database {
     // === Trainers ===
 
     /// Upsert a trainer rank.
+    /// Uses INSERT...ON CONFLICT for single-statement upsert performance.
     pub fn upsert_trainer_rank(
         &self,
         char_id: i64,
         trainer_name: &str,
         date: &str,
     ) -> Result<()> {
-        let existing: Option<i64> = self
-            .conn
-            .query_row(
-                "SELECT id FROM trainers WHERE character_id = ?1 AND trainer_name = ?2",
-                params![char_id, trainer_name],
-                |row| row.get(0),
-            )
-            .ok();
-
-        if let Some(trainer_id) = existing {
-            self.conn.execute(
-                "UPDATE trainers SET ranks = ranks + 1, date_of_last_rank = ?1 WHERE id = ?2",
-                params![date, trainer_id],
-            )?;
-        } else {
-            self.conn.execute(
-                "INSERT INTO trainers (character_id, trainer_name, ranks, date_of_last_rank)
-                 VALUES (?1, ?2, 1, ?3)",
-                params![char_id, trainer_name, date],
-            )?;
-        }
+        self.conn.execute(
+            "INSERT INTO trainers (character_id, trainer_name, ranks, date_of_last_rank)
+             VALUES (?1, ?2, 1, ?3)
+             ON CONFLICT(character_id, trainer_name) DO UPDATE SET
+                ranks = ranks + 1,
+                date_of_last_rank = excluded.date_of_last_rank",
+            params![char_id, trainer_name, date],
+        )?;
         Ok(())
     }
 
@@ -358,27 +370,13 @@ impl Database {
         trainer_name: &str,
         modified_ranks: i64,
     ) -> Result<()> {
-        let existing: Option<i64> = self
-            .conn
-            .query_row(
-                "SELECT id FROM trainers WHERE character_id = ?1 AND trainer_name = ?2",
-                params![char_id, trainer_name],
-                |row| row.get(0),
-            )
-            .ok();
-
-        if let Some(trainer_id) = existing {
-            self.conn.execute(
-                "UPDATE trainers SET modified_ranks = ?1 WHERE id = ?2",
-                params![modified_ranks, trainer_id],
-            )?;
-        } else {
-            self.conn.execute(
-                "INSERT INTO trainers (character_id, trainer_name, ranks, modified_ranks)
-                 VALUES (?1, ?2, 0, ?3)",
-                params![char_id, trainer_name, modified_ranks],
-            )?;
-        }
+        self.conn.execute(
+            "INSERT INTO trainers (character_id, trainer_name, ranks, modified_ranks)
+             VALUES (?1, ?2, 0, ?3)
+             ON CONFLICT(character_id, trainer_name) DO UPDATE SET
+                modified_ranks = excluded.modified_ranks",
+            params![char_id, trainer_name, modified_ranks],
+        )?;
 
         // Recalculate coin level from all trainer ranks
         let coin_level: i64 = self.conn.query_row(
@@ -473,33 +471,20 @@ impl Database {
     // === Lastys ===
 
     /// Upsert a lasty record. Increments message_count on subsequent encounters.
+    /// Uses INSERT...ON CONFLICT for single-statement upsert performance.
     pub fn upsert_lasty(
         &self,
         char_id: i64,
         creature_name: &str,
         lasty_type: &str,
     ) -> Result<()> {
-        let existing: Option<i64> = self
-            .conn
-            .query_row(
-                "SELECT id FROM lastys WHERE character_id = ?1 AND creature_name = ?2",
-                params![char_id, creature_name],
-                |row| row.get(0),
-            )
-            .ok();
-
-        if let Some(lasty_id) = existing {
-            self.conn.execute(
-                "UPDATE lastys SET message_count = message_count + 1 WHERE id = ?1",
-                params![lasty_id],
-            )?;
-        } else {
-            self.conn.execute(
-                "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count)
-                 VALUES (?1, ?2, ?3, 1)",
-                params![char_id, creature_name, lasty_type],
-            )?;
-        }
+        self.conn.execute(
+            "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count)
+             VALUES (?1, ?2, ?3, 1)
+             ON CONFLICT(character_id, creature_name) DO UPDATE SET
+                message_count = message_count + 1",
+            params![char_id, creature_name, lasty_type],
+        )?;
         Ok(())
     }
 
