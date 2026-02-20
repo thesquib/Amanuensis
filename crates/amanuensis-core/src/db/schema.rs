@@ -124,6 +124,8 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE characters ADD COLUMN mandible_worth INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN blood_worth INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN eps_broken INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE trainers ADD COLUMN apply_learning_ranks INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE trainers ADD COLUMN apply_learning_unknown_count INTEGER NOT NULL DEFAULT 0",
     ];
 
     for sql in &migrations {

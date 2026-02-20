@@ -370,10 +370,21 @@ impl LogParser {
                     self.db.complete_lasty(char_id, &trainer)?;
                     file_result.events_found += 1;
                 }
-                LogEvent::ApplyLearningRank { trainer_name } => {
-                    self.db
-                        .upsert_trainer_rank(char_id, &trainer_name, &date_str)?;
-                    file_result.events_found += 1;
+                LogEvent::ApplyLearningRank { character_name, trainer_name, is_full } => {
+                    // Only count apply-learning ranks for the current character
+                    // (other characters' ranks can appear in our logs)
+                    if character_name.eq_ignore_ascii_case(char_name) {
+                        if is_full {
+                            // "much more" = exactly 10 confirmed bonus ranks
+                            self.db
+                                .upsert_apply_learning(char_id, &trainer_name, &date_str, 10)?;
+                        } else {
+                            // "more" = 1-9 unknown bonus ranks, just count occurrences
+                            self.db
+                                .upsert_apply_learning_unknown(char_id, &trainer_name, &date_str)?;
+                        }
+                        file_result.events_found += 1;
+                    }
                 }
             }
         }
@@ -468,7 +479,7 @@ impl LogParser {
     /// of all effective ranks divided by a factor.
     pub fn compute_coin_level(&self, char_id: i64) -> Result<i64> {
         let trainers = self.db.get_trainers(char_id)?;
-        let total_ranks: i64 = trainers.iter().map(|t| t.ranks + t.modified_ranks).sum();
+        let total_ranks: i64 = trainers.iter().map(|t| t.ranks + t.modified_ranks + t.apply_learning_ranks).sum();
         // Coin level is approximately total ranks (effective + modified)
         // The original app has a more complex formula, but this is a reasonable approximation
         Ok(total_ranks)

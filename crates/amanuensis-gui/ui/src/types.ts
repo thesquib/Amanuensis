@@ -62,6 +62,8 @@ export interface Trainer {
   ranks: number;
   modified_ranks: number;
   date_of_last_rank: string | null;
+  apply_learning_ranks: number;
+  apply_learning_unknown_count: number;
 }
 
 /** Mirrors Rust `Pet` struct */

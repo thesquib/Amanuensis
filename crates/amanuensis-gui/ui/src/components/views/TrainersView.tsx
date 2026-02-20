@@ -73,17 +73,44 @@ export function TrainersView() {
         header: "Modified",
         cell: (info) => info.getValue(),
       }),
-      columnHelper.accessor((row) => row.ranks + row.modified_ranks, {
-        id: "total",
-        header: "Total",
-        cell: (info) => info.getValue(),
+      columnHelper.accessor("apply_learning_ranks", {
+        id: "applied",
+        header: "Applied",
+        cell: (info) => {
+          const row = info.row.original;
+          const confirmed = row.apply_learning_ranks;
+          const unknown = row.apply_learning_unknown_count;
+          if (confirmed === 0 && unknown === 0) return 0;
+          if (unknown > 0) {
+            return (
+              <span>
+                {confirmed}
+                <span
+                  className="text-[var(--color-text-muted)]"
+                  title={`${unknown} partial apply-learning event${unknown > 1 ? "s" : ""} (1-9 ranks each, exact amount unknown)`}
+                >
+                  +{unknown}?
+                </span>
+              </span>
+            );
+          }
+          return confirmed;
+        },
       }),
+      columnHelper.accessor(
+        (row) => row.ranks + row.modified_ranks + row.apply_learning_ranks,
+        {
+          id: "total",
+          header: "Total",
+          cell: (info) => info.getValue(),
+        },
+      ),
       ...(showEffective
         ? [
             columnHelper.accessor(
               (row: EnrichedTrainer) =>
                 Math.round(
-                  (row.ranks + row.modified_ranks) * row.multiplier * 10,
+                  (row.ranks + row.modified_ranks + row.apply_learning_ranks) * row.multiplier * 10,
                 ) / 10,
               {
                 id: "effective",
@@ -149,6 +176,8 @@ export function TrainersView() {
             ranks: 0,
             modified_ranks: 0,
             date_of_last_rank: null,
+            apply_learning_ranks: 0,
+            apply_learning_unknown_count: 0,
             profession: dbTrainer.profession,
             multiplier: dbTrainer.multiplier,
             is_combo: dbTrainer.is_combo,
@@ -193,13 +222,13 @@ export function TrainersView() {
   }, [enrichedTrainers]);
 
   const totalRanks = trainers.reduce(
-    (s, t) => s + t.ranks + t.modified_ranks,
+    (s, t) => s + t.ranks + t.modified_ranks + t.apply_learning_ranks,
     0,
   );
 
   const effectiveTotal = useMemo(() => {
     return enrichedTrainers.reduce(
-      (s, t) => s + (t.ranks + t.modified_ranks) * t.multiplier,
+      (s, t) => s + (t.ranks + t.modified_ranks + t.apply_learning_ranks) * t.multiplier,
       0,
     );
   }, [enrichedTrainers]);
