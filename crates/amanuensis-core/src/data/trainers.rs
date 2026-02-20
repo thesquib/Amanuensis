@@ -40,8 +40,8 @@ impl TrainerDb {
 
         for (key, value) in raw {
             if let Some(trainer_name) = value.get("trainer").and_then(|v| v.as_str()) {
-                // Strip ¥ prefix if present for matching
-                let message = key.strip_prefix('¥').unwrap_or(&key).to_string();
+                // Strip ¥ prefix if present for matching, and trim whitespace
+                let message = key.strip_prefix('¥').unwrap_or(&key).trim().to_string();
                 trainers.insert(message, trainer_name.to_string());
 
                 // Store profession mapping if present
@@ -92,8 +92,24 @@ impl TrainerDb {
     }
 
     /// Look up a trainer name by message text (without ¥ prefix).
+    /// Tries exact match first, then with/without trailing period, for robustness.
     pub fn get_trainer(&self, message: &str) -> Option<&str> {
-        self.trainers.get(message).map(|s| s.as_str())
+        let trimmed = message.trim();
+        if let Some(name) = self.trainers.get(trimmed) {
+            return Some(name.as_str());
+        }
+        // Try adding/removing trailing period for edge cases
+        if let Some(without_period) = trimmed.strip_suffix('.') {
+            if let Some(name) = self.trainers.get(without_period) {
+                return Some(name.as_str());
+            }
+        } else {
+            let with_period = format!("{}.", trimmed);
+            if let Some(name) = self.trainers.get(&with_period) {
+                return Some(name.as_str());
+            }
+        }
+        None
     }
 
     /// Look up a profession by trainer name.

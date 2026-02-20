@@ -12,16 +12,16 @@ import { FighterStatsView } from "../views/FighterStatsView";
 import { LogSearchView } from "../views/LogSearchView";
 import type { ViewType } from "../../types";
 
-const TABS: { id: ViewType; label: string; fighterOnly?: boolean }[] = [
+const TABS: { id: ViewType; label: string; visibleFor?: string[] }[] = [
   { id: "summary", label: "Summary" },
   { id: "kills", label: "Kills" },
   { id: "trainers", label: "Trainers" },
   { id: "rank-modifiers", label: "Rank Modifiers" },
   { id: "coins", label: "Coins" },
-  { id: "pets", label: "Pets" },
-  { id: "lastys", label: "Lastys" },
+  { id: "pets", label: "Pets", visibleFor: ["Healer"] },
+  { id: "lastys", label: "Lastys", visibleFor: ["Ranger"] },
   { id: "equipment", label: "Equipment" },
-  { id: "fighter-stats", label: "Fighter Stats", fighterOnly: true },
+  { id: "fighter-stats", label: "Stats" },
   { id: "log-search", label: "Log Search" },
 ];
 
@@ -58,6 +58,15 @@ export function AppShell() {
     (c) => c.id === selectedCharacterId,
   );
 
+  // Fall back to summary if current view is hidden for this character's profession
+  const activeTab = TABS.find((t) => t.id === activeView);
+  const effectiveView =
+    selectedCharacter &&
+    activeTab?.visibleFor &&
+    !activeTab.visibleFor.includes(selectedCharacter.profession)
+      ? "summary"
+      : activeView;
+
   return (
     <div className="flex h-screen">
       <Sidebar />
@@ -68,16 +77,14 @@ export function AppShell() {
             <div className="flex border-b border-[var(--color-border)] bg-[var(--color-sidebar)]">
               {TABS.filter(
                 (tab) =>
-                  !tab.fighterOnly ||
-                  ["Fighter", "Ranger", "Champion", "Bloodmage"].includes(
-                    selectedCharacter.profession,
-                  ),
+                  !tab.visibleFor ||
+                  tab.visibleFor.includes(selectedCharacter.profession),
               ).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveView(tab.id)}
                   className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                    activeView === tab.id
+                    effectiveView === tab.id
                       ? "border-b-2 border-[var(--color-accent)] text-[var(--color-accent)]"
                       : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
                   }`}
@@ -92,7 +99,7 @@ export function AppShell() {
             </div>
             {/* View content */}
             <div className="min-h-0 flex-1 overflow-auto p-4">
-              <ViewContent view={activeView} />
+              <ViewContent view={effectiveView} />
             </div>
           </>
         ) : (

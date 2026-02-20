@@ -212,13 +212,13 @@ fn study_type_to_lasty(study_type: &str) -> String {
 /// Classify system-prefixed messages (¥ on Mac, • on Windows).
 /// These can be trainer ranks, study messages, sun events, healing sense, etc.
 fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
-    // Strip the prefix character (¥ or •) and any leading whitespace
+    // Strip the prefix character (¥ or •) and any surrounding whitespace
     let body = if message.starts_with('¥') {
         &message['¥'.len_utf8()..]
     } else {
         &message['•'.len_utf8()..]
     }
-    .trim_start();
+    .trim();
 
     // Check for study charge
     if let Some(caps) = patterns::STUDY_CHARGE.captures(body) {
