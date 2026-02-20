@@ -57,6 +57,27 @@ impl LogParser {
             )));
         }
 
+        self.db.set_scan_pragmas()?;
+        self.db.begin_transaction()?;
+
+        let scan_result = self.scan_folder_inner(folder, force, &mut result);
+
+        match scan_result {
+            Ok(()) => {
+                self.db.commit_transaction()?;
+                self.db.reset_pragmas()?;
+            }
+            Err(e) => {
+                let _ = self.db.rollback_transaction();
+                let _ = self.db.reset_pragmas();
+                return Err(e);
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn scan_folder_inner(&self, folder: &Path, force: bool, result: &mut ScanResult) -> Result<()> {
         // Find character subdirectories
         let mut entries: Vec<_> = std::fs::read_dir(folder)?
             .filter_map(|e| e.ok())
@@ -140,7 +161,7 @@ impl LogParser {
             result.characters += 1;
         }
 
-        Ok(result)
+        Ok(())
     }
 
     /// Scan log file bytes and process events into the database.
@@ -468,6 +489,37 @@ impl LogParser {
             )));
         }
 
+        self.db.set_scan_pragmas()?;
+        self.db.begin_transaction()?;
+
+        let scan_result = self.scan_folder_with_progress_inner(folder, force, index_lines, &progress, &mut result);
+
+        match scan_result {
+            Ok(()) => {
+                self.db.commit_transaction()?;
+                self.db.reset_pragmas()?;
+            }
+            Err(e) => {
+                let _ = self.db.rollback_transaction();
+                let _ = self.db.reset_pragmas();
+                return Err(e);
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn scan_folder_with_progress_inner<F>(
+        &self,
+        folder: &Path,
+        force: bool,
+        index_lines: bool,
+        progress: &F,
+        result: &mut ScanResult,
+    ) -> Result<()>
+    where
+        F: Fn(usize, usize, &str),
+    {
         // Collect all (char_dir, char_name, log_files) first to know total count
         let mut all_work: Vec<(PathBuf, String, Vec<PathBuf>)> = Vec::new();
         let mut total_files: usize = 0;
@@ -559,7 +611,7 @@ impl LogParser {
             result.characters += 1;
         }
 
-        Ok(result)
+        Ok(())
     }
 
     /// Scan individual log files with a progress callback.
@@ -577,6 +629,38 @@ impl LogParser {
         F: Fn(usize, usize, &str),
     {
         let mut result = ScanResult::default();
+
+        self.db.set_scan_pragmas()?;
+        self.db.begin_transaction()?;
+
+        let scan_result = self.scan_files_with_progress_inner(files, force, index_lines, &progress, &mut result);
+
+        match scan_result {
+            Ok(()) => {
+                self.db.commit_transaction()?;
+                self.db.reset_pragmas()?;
+            }
+            Err(e) => {
+                let _ = self.db.rollback_transaction();
+                let _ = self.db.reset_pragmas();
+                return Err(e);
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn scan_files_with_progress_inner<F>(
+        &self,
+        files: &[PathBuf],
+        force: bool,
+        index_lines: bool,
+        progress: &F,
+        result: &mut ScanResult,
+    ) -> Result<()>
+    where
+        F: Fn(usize, usize, &str),
+    {
         let total_files = files.len();
         let mut seen_characters = std::collections::HashSet::new();
 
@@ -640,7 +724,7 @@ impl LogParser {
             }
         }
 
-        Ok(result)
+        Ok(())
     }
 
     /// Recursively scan for log folders under `root`, then scan each discovered folder.
@@ -663,16 +747,30 @@ impl LogParser {
         }
 
         let mut combined = ScanResult::default();
-        for folder in &folders {
-            log::info!("Discovered log root: {}", folder.display());
-            let r = self.scan_folder_with_progress(folder, force, index_lines, &progress)?;
-            combined.characters += r.characters;
-            combined.files_scanned += r.files_scanned;
-            combined.skipped += r.skipped;
-            combined.lines_parsed += r.lines_parsed;
-            combined.events_found += r.events_found;
-            combined.errors += r.errors;
+
+        self.db.set_scan_pragmas()?;
+        self.db.begin_transaction()?;
+
+        let scan_result = (|| -> Result<()> {
+            for folder in &folders {
+                log::info!("Discovered log root: {}", folder.display());
+                self.scan_folder_with_progress_inner(folder, force, index_lines, &progress, &mut combined)?;
+            }
+            Ok(())
+        })();
+
+        match scan_result {
+            Ok(()) => {
+                self.db.commit_transaction()?;
+                self.db.reset_pragmas()?;
+            }
+            Err(e) => {
+                let _ = self.db.rollback_transaction();
+                let _ = self.db.reset_pragmas();
+                return Err(e);
+            }
         }
+
         Ok(combined)
     }
 
@@ -694,10 +792,23 @@ impl LogParser {
     }
 }
 
+/// Check if a word is a Roman numeral (I, II, III, IV, V, VI, VII, VIII, IX, X, etc.)
+fn is_roman_numeral(word: &str) -> bool {
+    if word.is_empty() {
+        return false;
+    }
+    word.chars().all(|c| matches!(c, 'I' | 'V' | 'X' | 'L' | 'C' | 'D' | 'M'))
+}
+
 /// Normalize a character name to title case (first letter of each word capitalized).
+/// Preserves Roman numerals (e.g., "II", "IV", "XIV").
 fn titlecase_name(name: &str) -> String {
     name.split_whitespace()
         .map(|word| {
+            // Preserve Roman numerals
+            if is_roman_numeral(word) {
+                return word.to_string();
+            }
             let mut chars = word.chars();
             match chars.next() {
                 None => String::new(),
@@ -1414,6 +1525,16 @@ mod tests {
     fn test_titlecase_name_multi_word() {
         assert_eq!(titlecase_name("some player"), "Some Player");
         assert_eq!(titlecase_name("SOME PLAYER"), "Some Player");
+    }
+
+    #[test]
+    fn test_titlecase_name_roman_numerals() {
+        assert_eq!(titlecase_name("Magnic II"), "Magnic II");
+        assert_eq!(titlecase_name("magnic ii"), "Magnic Ii"); // lowercase 'ii' is not Roman numeral
+        assert_eq!(titlecase_name("MAGNIC II"), "Magnic II");
+        assert_eq!(titlecase_name("Character III"), "Character III");
+        assert_eq!(titlecase_name("Character IV"), "Character IV");
+        assert_eq!(titlecase_name("Character XIV"), "Character XIV");
     }
 
     #[test]
