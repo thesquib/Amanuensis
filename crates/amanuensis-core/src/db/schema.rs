@@ -126,6 +126,10 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE characters ADD COLUMN eps_broken INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE trainers ADD COLUMN apply_learning_ranks INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE trainers ADD COLUMN apply_learning_unknown_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE lastys ADD COLUMN first_seen_date TEXT",
+        "ALTER TABLE lastys ADD COLUMN last_seen_date TEXT",
+        "ALTER TABLE lastys ADD COLUMN completed_date TEXT",
+        "ALTER TABLE lastys ADD COLUMN abandoned_date TEXT",
     ];
 
     for sql in &migrations {

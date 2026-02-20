@@ -22,6 +22,22 @@ const columns = [
     header: "Completed",
     cell: (info) => (info.getValue() ? "Yes" : "No"),
   }),
+  columnHelper.accessor("first_seen_date", {
+    header: "First Seen",
+    cell: (info) => info.getValue() ?? "",
+  }),
+  columnHelper.accessor("last_seen_date", {
+    header: "Last Seen",
+    cell: (info) => info.getValue() ?? "",
+  }),
+  columnHelper.accessor("completed_date", {
+    header: "Completed Date",
+    cell: (info) => info.getValue() ?? "",
+  }),
+  columnHelper.accessor("abandoned_date", {
+    header: "Abandoned",
+    cell: (info) => info.getValue() ?? "",
+  }),
 ];
 
 export function LastysView() {

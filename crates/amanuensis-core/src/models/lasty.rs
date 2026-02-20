@@ -40,6 +40,10 @@ pub struct Lasty {
     pub lasty_type: String,
     pub finished: bool,
     pub message_count: i64,
+    pub first_seen_date: Option<String>,
+    pub last_seen_date: Option<String>,
+    pub completed_date: Option<String>,
+    pub abandoned_date: Option<String>,
 }
 
 impl Lasty {
@@ -51,6 +55,10 @@ impl Lasty {
             lasty_type,
             finished: false,
             message_count: 0,
+            first_seen_date: None,
+            last_seen_date: None,
+            completed_date: None,
+            abandoned_date: None,
         }
     }
 }

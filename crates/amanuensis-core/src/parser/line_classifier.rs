@@ -288,9 +288,9 @@ fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
-    // Lasty in-progress patterns (begin studying, progress with type)
+    // Lasty begin study pattern
     if let Some(caps) = patterns::LASTY_BEGIN_STUDY.captures(body) {
-        return LogEvent::LastyProgress {
+        return LogEvent::LastyBeginStudy {
             creature: caps[2].to_string(),
             lasty_type: study_type_to_lasty(&caps[1]),
         };
@@ -302,21 +302,21 @@ fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
-    // Lasty completion patterns (before trainer lookup, since these are also ¥-prefixed)
+    // Lasty finished patterns (before trainer lookup, since these are also ¥-prefixed)
     if let Some(caps) = patterns::LASTY_BEFRIEND.captures(body) {
-        return LogEvent::LastyProgress {
+        return LogEvent::LastyFinished {
             creature: caps[1].to_string(),
             lasty_type: "Befriend".to_string(),
         };
     }
     if let Some(caps) = patterns::LASTY_MORPH.captures(body) {
-        return LogEvent::LastyProgress {
+        return LogEvent::LastyFinished {
             creature: caps[1].to_string(),
             lasty_type: "Morph".to_string(),
         };
     }
     if let Some(caps) = patterns::LASTY_MOVEMENTS.captures(body) {
-        return LogEvent::LastyProgress {
+        return LogEvent::LastyFinished {
             creature: caps[1].to_string(),
             lasty_type: "Movements".to_string(),
         };
@@ -643,7 +643,7 @@ mod tests {
         let event = classify_line("¥You learn to befriend the Maha Ruknee.", &db);
         assert!(matches!(
             event,
-            LogEvent::LastyProgress {
+            LogEvent::LastyFinished {
                 ref creature,
                 ref lasty_type
             } if creature == "Maha Ruknee" && lasty_type == "Befriend"
@@ -656,7 +656,7 @@ mod tests {
         let event = classify_line("¥You learn to assume the form of the Orga Anger.", &db);
         assert!(matches!(
             event,
-            LogEvent::LastyProgress {
+            LogEvent::LastyFinished {
                 ref creature,
                 ref lasty_type
             } if creature == "Orga Anger" && lasty_type == "Morph"
@@ -669,7 +669,7 @@ mod tests {
         let event = classify_line("¥You learn to fight the Large Vermine more effectively.", &db);
         assert!(matches!(
             event,
-            LogEvent::LastyProgress {
+            LogEvent::LastyFinished {
                 ref creature,
                 ref lasty_type
             } if creature == "Large Vermine" && lasty_type == "Movements"
@@ -694,7 +694,7 @@ mod tests {
             classify_line("¥ You learn to fight the Purple Arachnoid more effectively.", &db);
         assert!(matches!(
             event,
-            LogEvent::LastyProgress {
+            LogEvent::LastyFinished {
                 ref creature,
                 ref lasty_type
             } if creature == "Purple Arachnoid" && lasty_type == "Movements"
@@ -707,7 +707,7 @@ mod tests {
         let event = classify_line("¥ You learn to befriend the Vermine.", &db);
         assert!(matches!(
             event,
-            LogEvent::LastyProgress {
+            LogEvent::LastyFinished {
                 ref creature,
                 ref lasty_type
             } if creature == "Vermine" && lasty_type == "Befriend"
@@ -721,7 +721,7 @@ mod tests {
             classify_line("¥You begin studying the movements of the Darshak Liche.", &db);
         assert!(matches!(
             event,
-            LogEvent::LastyProgress {
+            LogEvent::LastyBeginStudy {
                 ref creature,
                 ref lasty_type
             } if creature == "Darshak Liche" && lasty_type == "Movements"
@@ -735,7 +735,7 @@ mod tests {
             classify_line("¥You begin studying the ways of the Purple Arachnoid.", &db);
         assert!(matches!(
             event,
-            LogEvent::LastyProgress {
+            LogEvent::LastyBeginStudy {
                 ref creature,
                 ref lasty_type
             } if creature == "Purple Arachnoid" && lasty_type == "Befriend"

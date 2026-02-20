@@ -517,13 +517,38 @@ impl Database {
         char_id: i64,
         creature_name: &str,
         lasty_type: &str,
+        date: &str,
     ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count)
-             VALUES (?1, ?2, ?3, 1)
+            "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count, first_seen_date, last_seen_date)
+             VALUES (?1, ?2, ?3, 1, ?4, ?4)
              ON CONFLICT(character_id, creature_name) DO UPDATE SET
-                message_count = message_count + 1",
-            params![char_id, creature_name, lasty_type],
+                message_count = message_count + 1,
+                last_seen_date = excluded.last_seen_date",
+            params![char_id, creature_name, lasty_type, date],
+        )?;
+        Ok(())
+    }
+
+    /// Mark a lasty as finished by creature name and type.
+    /// INSERT with finished=1 if new, or UPDATE to set finished=1 and completed_date.
+    pub fn finish_lasty(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+        lasty_type: &str,
+        date: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count, finished,
+                                 first_seen_date, last_seen_date, completed_date)
+             VALUES (?1, ?2, ?3, 1, 1, ?4, ?4, ?4)
+             ON CONFLICT(character_id, creature_name) DO UPDATE SET
+                message_count = message_count + 1,
+                finished = 1,
+                last_seen_date = excluded.last_seen_date,
+                completed_date = excluded.completed_date",
+            params![char_id, creature_name, lasty_type, date],
         )?;
         Ok(())
     }
@@ -543,10 +568,40 @@ impl Database {
         Ok(())
     }
 
+    /// Record that a lasty study was abandoned. Sets abandoned_date on the matching record.
+    pub fn abandon_lasty(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+        date: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE lastys SET abandoned_date = ?3
+             WHERE character_id = ?1 AND creature_name = ?2",
+            params![char_id, creature_name, date],
+        )?;
+        Ok(())
+    }
+
+    /// Clear the abandoned_date on a lasty (when study is resumed).
+    pub fn clear_lasty_abandon(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE lastys SET abandoned_date = NULL
+             WHERE character_id = ?1 AND creature_name = ?2",
+            params![char_id, creature_name],
+        )?;
+        Ok(())
+    }
+
     /// Get lastys for a character.
     pub fn get_lastys(&self, char_id: i64) -> Result<Vec<Lasty>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, character_id, creature_name, lasty_type, finished, message_count
+            "SELECT id, character_id, creature_name, lasty_type, finished, message_count,
+                    first_seen_date, last_seen_date, completed_date, abandoned_date
              FROM lastys WHERE character_id = ?1 ORDER BY creature_name",
         )?;
 
@@ -558,6 +613,10 @@ impl Database {
                 lasty_type: row.get(3)?,
                 finished: row.get::<_, i64>(4)? != 0,
                 message_count: row.get(5)?,
+                first_seen_date: row.get(6)?,
+                last_seen_date: row.get(7)?,
+                completed_date: row.get(8)?,
+                abandoned_date: row.get(9)?,
             })
         })?;
 
@@ -870,9 +929,9 @@ mod tests {
     fn test_upsert_lasty() {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Fen").unwrap();
-        db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
-        db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
-        db.upsert_lasty(id, "Orga Anger", "Morph").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-02").unwrap();
+        db.upsert_lasty(id, "Orga Anger", "Morph", "2024-01-03").unwrap();
 
         let lastys = db.get_lastys(id).unwrap();
         assert_eq!(lastys.len(), 2);
@@ -881,6 +940,8 @@ mod tests {
         assert_eq!(maha.lasty_type, "Befriend");
         assert_eq!(maha.message_count, 2);
         assert!(!maha.finished);
+        assert_eq!(maha.first_seen_date, Some("2024-01-01".to_string()));
+        assert_eq!(maha.last_seen_date, Some("2024-01-02".to_string()));
 
         let orga = lastys.iter().find(|l| l.creature_name == "Orga Anger").unwrap();
         assert_eq!(orga.lasty_type, "Morph");
@@ -891,12 +952,57 @@ mod tests {
     fn test_complete_lasty() {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Fen").unwrap();
-        db.upsert_lasty(id, "Maha Ruknee", "Befriend").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
         db.complete_lasty(id, "Sespus").unwrap();
 
         let lastys = db.get_lastys(id).unwrap();
         assert_eq!(lastys.len(), 1);
         assert!(lastys[0].finished);
+    }
+
+    #[test]
+    fn test_finish_lasty() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
+        db.finish_lasty(id, "Maha Ruknee", "Befriend", "2024-01-05").unwrap();
+
+        let lastys = db.get_lastys(id).unwrap();
+        assert_eq!(lastys.len(), 1);
+        assert!(lastys[0].finished);
+        assert_eq!(lastys[0].message_count, 2);
+        assert_eq!(lastys[0].completed_date, Some("2024-01-05".to_string()));
+        assert_eq!(lastys[0].first_seen_date, Some("2024-01-01".to_string()));
+    }
+
+    #[test]
+    fn test_finish_lasty_new_creature() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        // finish_lasty on a creature with no prior record should still work
+        db.finish_lasty(id, "Rat", "Movements", "2024-01-01").unwrap();
+
+        let lastys = db.get_lastys(id).unwrap();
+        assert_eq!(lastys.len(), 1);
+        assert!(lastys[0].finished);
+        assert_eq!(lastys[0].message_count, 1);
+        assert_eq!(lastys[0].completed_date, Some("2024-01-01".to_string()));
+    }
+
+    #[test]
+    fn test_abandon_lasty() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
+        db.abandon_lasty(id, "Maha Ruknee", "2024-01-02").unwrap();
+
+        let lastys = db.get_lastys(id).unwrap();
+        assert_eq!(lastys[0].abandoned_date, Some("2024-01-02".to_string()));
+
+        // Clear abandon
+        db.clear_lasty_abandon(id, "Maha Ruknee").unwrap();
+        let lastys = db.get_lastys(id).unwrap();
+        assert_eq!(lastys[0].abandoned_date, None);
     }
 
     #[test]
