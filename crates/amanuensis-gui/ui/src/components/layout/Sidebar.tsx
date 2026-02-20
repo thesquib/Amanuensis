@@ -108,14 +108,17 @@ export function Sidebar() {
     [setDbPath, setCharacters, setScannedLogCount, setLogLineCount, handleSelectCharacter],
   );
 
-  // Auto-open last database on startup
+  // Auto-open database on startup: last-used path, or default app data dir
   useEffect(() => {
     const lastDb = localStorage.getItem("amanuensis_last_db");
     if (lastDb) {
       loadDatabase(lastDb).catch(() => {
-        // DB file may have been deleted — clear the stale entry
+        // DB file may have been deleted — clear stale entry and fall back to default
         localStorage.removeItem("amanuensis_last_db");
+        getDefaultDbPath().then((p) => loadDatabase(p)).catch(console.error);
       });
+    } else {
+      getDefaultDbPath().then((p) => loadDatabase(p)).catch(console.error);
     }
   }, [loadDatabase]);
 
@@ -450,7 +453,7 @@ export function Sidebar() {
         )}
         {!dbPath && (
           <div className="p-3 text-center text-xs text-[var(--color-text-muted)]">
-            Open a database or scan logs to get started.
+            Scan logs to get started.
           </div>
         )}
       </div>
