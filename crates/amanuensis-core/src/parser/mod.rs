@@ -969,7 +969,7 @@ mod tests {
 1/1/24 1:05:00p * You pick up 25 coins.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1005,7 +1005,7 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             "1/1/24 1:00:00p You slaughtered a Rat.\n",
         )
         .unwrap();
@@ -1027,7 +1027,7 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             "1/1/24 1:00:00p You slaughtered a Rat.\n",
         )
         .unwrap();
@@ -1051,7 +1051,7 @@ mod tests {
 1/1/24 1:02:00p \u{00a5}You notice your balance recovering more quickly.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1087,7 +1087,7 @@ mod tests {
 1/1/24 1:03:00p You slaughtered a Rat.
 "#;
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1108,7 +1108,7 @@ mod tests {
         bytes.extend_from_slice(b"Your combat ability improves.\n");
 
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             &bytes,
         )
         .unwrap();
@@ -1133,7 +1133,7 @@ mod tests {
 1/1/24 1:01:00p Your spirit has departed your body 5 times.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1175,7 +1175,7 @@ mod tests {
         bytes.extend_from_slice(b"You have completed your training with Sespus.\n");
 
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             &bytes,
         )
         .unwrap();
@@ -1230,7 +1230,7 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         let bytes = build_rank_log(&[b"You seem to fight more effectively now."], 5);
-        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), &bytes).unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
@@ -1247,7 +1247,7 @@ mod tests {
         let (tmp, char_dir) = create_test_log_dir();
 
         let bytes = build_rank_log(&[b"You seem to heal more effectively."], 5);
-        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), &bytes).unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
@@ -1270,7 +1270,7 @@ mod tests {
             ],
             10, // 10 of each
         );
-        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), &bytes).unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
@@ -1293,7 +1293,7 @@ mod tests {
             ],
             5,
         );
-        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), &bytes).unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
@@ -1316,7 +1316,7 @@ mod tests {
             ],
             5,
         );
-        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), &bytes).unwrap();
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), &bytes).unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
@@ -1333,7 +1333,7 @@ mod tests {
 
         // Log with kills only, no trainer messages
         let log_content = "1/1/24 1:00:00p You slaughtered a Rat.\n";
-        fs::write(char_dir.join("CL Log 2024:01:01 13.00.00.txt"), log_content).unwrap();
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), log_content).unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
@@ -1353,7 +1353,7 @@ mod tests {
 1/1/24 1:01:00p * pip recovers the Orga blood, worth 30c. Your share is 15c.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1396,7 +1396,7 @@ mod tests {
 1/1/24 1:01:00p You slaughtered a Rat.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1422,7 +1422,7 @@ mod tests {
 1/1/24 1:00:00p You slaughtered a Rat.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1446,7 +1446,7 @@ mod tests {
         let char_a = text_logs.join("CharA");
         fs::create_dir_all(&char_a).unwrap();
         fs::write(
-            char_a.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_a.join("CL Log 2024-01-01 13.00.00.txt"),
             "1/1/24 1:00:00p You slaughtered a Rat.\n",
         )
         .unwrap();
@@ -1456,7 +1456,7 @@ mod tests {
         let char_b = other_logs.join("CharB");
         fs::create_dir_all(&char_b).unwrap();
         fs::write(
-            char_b.join("CL Log 2024:01:02 14.00.00.txt"),
+            char_b.join("CL Log 2024-01-02 14.00.00.txt"),
             "1/2/24 2:00:00p You slaughtered a Vermine.\n",
         )
         .unwrap();
@@ -1482,7 +1482,7 @@ mod tests {
         let char1 = logs1.join("Fen");
         fs::create_dir_all(&char1).unwrap();
         fs::write(
-            char1.join("CL Log 2024:01:01 13.00.00.txt"),
+            char1.join("CL Log 2024-01-01 13.00.00.txt"),
             "1/1/24 1:00:00p Welcome to Clan Lord, Fen!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
         )
         .unwrap();
@@ -1491,7 +1491,7 @@ mod tests {
         let char2 = logs2.join("Pip");
         fs::create_dir_all(&char2).unwrap();
         fs::write(
-            char2.join("CL Log 2024:01:02 14.00.00.txt"),
+            char2.join("CL Log 2024-01-02 14.00.00.txt"),
             "1/2/24 2:00:00p Welcome to Clan Lord, Pip!\n1/2/24 2:01:00p You slaughtered a Vermine.\n",
         )
         .unwrap();
@@ -1560,7 +1560,7 @@ mod tests {
 1/1/24 1:01:00p You slaughtered a Rat.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1581,7 +1581,7 @@ mod tests {
 
         // First log file has no welcome message
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             "1/1/24 1:00:00p You slaughtered a Rat.\n",
         )
         .unwrap();
@@ -1592,7 +1592,7 @@ mod tests {
 1/2/24 1:01:00p You slaughtered a Rat.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:02 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-02 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1616,7 +1616,7 @@ mod tests {
 1/1/24 1:02:00p You just received bad karma from Troll.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1640,7 +1640,7 @@ mod tests {
 1/1/24 1:02:00p * You gain experience.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1662,7 +1662,7 @@ mod tests {
 1/16/24 1:00:00p Welcome back, TestChar!
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:15 15.00.00.txt"),
+            char_dir.join("CL Log 2024-01-15 15.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1686,7 +1686,7 @@ mod tests {
 1/1/24 1:02:00p * You recover the Spider mandible, worth 50c. Your share is 25c.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1755,7 +1755,7 @@ mod tests {
 1/1/24 1:03:00p TestChar has fallen to a Rat.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1786,7 +1786,7 @@ mod tests {
 1/1/24 1:01:00p * Fen recovers the Spider mandibles, worth 4c. Your share is 2c.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1809,7 +1809,7 @@ mod tests {
 1/1/24 1:01:00p Honor thinks, \"Congratulations go out to TestChar, who has just passed the second circle fighter test.\"
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1832,7 +1832,7 @@ mod tests {
 1/1/24 1:01:00p Haima Myrtillus thinks, \"Congratulations to TestChar, who has just become a Bloodmage.\"
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1855,7 +1855,7 @@ mod tests {
 1/1/24 1:01:00p Honor thinks, \"Congratulations go out to SomeoneElse, who has just passed the second circle fighter test.\"
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1879,7 +1879,7 @@ mod tests {
 1/1/24 1:01:00p * You recover the Orga blood, worth 10c.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
@@ -1906,7 +1906,7 @@ mod tests {
 1/1/24 1:01:00p You slaughtered a Vermine.
 ";
         fs::write(
-            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
             log_content,
         )
         .unwrap();
