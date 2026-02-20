@@ -121,6 +121,15 @@ pub static LASTY_LEARN_PROGRESS: Lazy<Regex> =
 pub static STUDY_ABANDON: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You abandon your study of the (.+)\.$").unwrap());
 
+// === Profession detection from NPC announcements ===
+// Circle test: Honor thinks, "Congratulations go out to {name}, who has just passed the {ordinal} circle {profession} test."
+// Glory thinks, "Congratulations go out to {name}, who has just passed the {ordinal} circle healer test."
+pub static PROFESSION_CIRCLE_TEST: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"(?:thinks|says), "Congratulations go out to (.+), who has just passed the \w+ circle (\w+) test\."#).unwrap());
+// Becoming: "Congratulations to {name}, who has just become a {profession}."
+pub static PROFESSION_BECOME: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"(?:thinks|says), "Congratulations to (.+), who has just become an? (\w+)\."#).unwrap());
+
 // === Apply-learning bonus rank (non-¥, spoken by NPC) ===
 pub static APPLY_LEARNING_OFFER: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"[Ww]ould you like to apply some of your learning to (.+)'s lessons").unwrap());
@@ -358,6 +367,33 @@ mod tests {
         assert_eq!(&caps[1], "Noble Myrm");
         assert_eq!(&caps[2], "mandibles");
         assert_eq!(&caps[3], "2");
+    }
+
+    #[test]
+    fn test_profession_circle_test() {
+        let caps = PROFESSION_CIRCLE_TEST.captures(
+            r#"Honor thinks, "Congratulations go out to Camo, who has just passed the seventh circle fighter test.""#
+        ).unwrap();
+        assert_eq!(&caps[1], "Camo");
+        assert_eq!(&caps[2], "fighter");
+    }
+
+    #[test]
+    fn test_profession_circle_test_healer() {
+        let caps = PROFESSION_CIRCLE_TEST.captures(
+            r#"Glory thinks, "Congratulations go out to Squib, who has just passed the sixth circle healer test.""#
+        ).unwrap();
+        assert_eq!(&caps[1], "Squib");
+        assert_eq!(&caps[2], "healer");
+    }
+
+    #[test]
+    fn test_profession_become() {
+        let caps = PROFESSION_BECOME.captures(
+            r#"Haima Myrtillus thinks, "Congratulations to Kargan, who has just become a Bloodmage.""#
+        ).unwrap();
+        assert_eq!(&caps[1], "Kargan");
+        assert_eq!(&caps[2], "Bloodmage");
     }
 
     #[test]

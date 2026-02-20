@@ -88,6 +88,8 @@ pub enum LogEvent {
     KarmaReceived { good: bool },
     /// Esteem gain: "* You gain esteem." or "* You gain experience and esteem."
     EsteemGain,
+    /// Profession announcement from NPC (circle test or "become a" message)
+    ProfessionAnnouncement { name: String, profession: String },
     /// Line was not classified (speech, emote, or unrecognized)
     Ignored,
 }

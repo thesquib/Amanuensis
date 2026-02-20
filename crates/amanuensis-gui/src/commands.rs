@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use serde::Serialize;
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 
 use amanuensis_core::models::{Character, Kill, Lasty, Pet, Trainer};
 use amanuensis_core::parser::ScanResult;
@@ -261,6 +261,14 @@ pub fn import_scribius_db(
     *state.db_path.lock().unwrap() = Some(output_path);
 
     Ok(result)
+}
+
+/// Get the default database path in the app's data directory.
+#[tauri::command]
+pub fn get_default_db_path(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("amanuensis.db").to_string_lossy().into_owned())
 }
 
 /// Check if a database file exists at a path (for auto-detection).
