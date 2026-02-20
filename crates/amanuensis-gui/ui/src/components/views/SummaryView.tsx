@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useStore } from "../../lib/store";
 import { StatCard } from "../shared/StatCard";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
+import { CreatureImage } from "../shared/CreatureImage";
+import { CharacterPortrait } from "../shared/CharacterPortrait";
 import { getTrainerDbInfo } from "../../lib/commands";
 import type { TrainerInfo } from "../../types";
 
@@ -14,6 +16,7 @@ export function SummaryView() {
       .then(setTrainerDb)
       .catch(() => {});
   }, []);
+
   const char = characters.find((c) => c.id === selectedCharacterId);
   if (!char) return null;
 
@@ -99,16 +102,20 @@ export function SummaryView() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-3">
-        <h2 className="text-xl font-bold">{char.name}</h2>
-        <ProfessionBadge profession={char.profession} />
+      <div className="mb-4 flex items-center gap-4">
+        <CharacterPortrait name={char.name} />
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold">{char.name}</h2>
+            <ProfessionBadge profession={char.profession} />
+          </div>
+          {char.start_date && (
+            <p className="text-[var(--color-text-muted)] mt-1 text-sm">
+              Playing since {char.start_date.split(" ")[0]}
+            </p>
+          )}
+        </div>
       </div>
-
-      {char.start_date && (
-        <p className="text-muted-foreground mb-4 text-sm">
-          Playing since {char.start_date.split(" ")[0]}
-        </p>
-      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="Coin Level" value={char.coin_level.toLocaleString()} />
@@ -132,12 +139,28 @@ export function SummaryView() {
               ? `Value: ${highestKill.creature_value}`
               : undefined
           }
+          image={
+            highestKill ? (
+              <CreatureImage
+                creatureName={highestKill.creature_name}
+                className="h-12 w-auto"
+              />
+            ) : undefined
+          }
         />
         <StatCard
           label="Nemesis"
           value={nemesis?.creature_name ?? "None"}
           sub={
             nemesis ? `Killed you ${nemesis.killed_by_count} times` : undefined
+          }
+          image={
+            nemesis ? (
+              <CreatureImage
+                creatureName={nemesis.creature_name}
+                className="h-12 w-auto"
+              />
+            ) : undefined
           }
         />
         <StatCard

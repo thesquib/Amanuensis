@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use tauri::{Emitter, Manager, State};
@@ -326,4 +326,111 @@ pub fn reset_database(state: State<'_, AppState>) -> Result<(), String> {
     *state.db.lock().unwrap() = Some(db);
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Character portrait commands (Rank Tracker mirror)
+// ---------------------------------------------------------------------------
+
+/// Sanitize a character name for use as a filename.
+fn sanitize_portrait_name(name: &str) -> String {
+    name.chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == ' ' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+/// Directory for cached character portraits.
+fn portraits_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    Ok(dir.join("portraits"))
+}
+
+/// Fetch a character portrait from Rank Tracker mirror, cache it locally.
+/// Returns the local file path on success, or None if not found / error.
+#[tauri::command]
+pub async fn fetch_character_portrait(
+    name: String,
+    app: tauri::AppHandle,
+) -> Result<Option<String>, String> {
+    let sanitized = sanitize_portrait_name(&name);
+    let dir = portraits_dir(&app)?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    let dest = dir.join(format!("{sanitized}.png"));
+
+    // If already cached, return immediately
+    if dest.exists() {
+        return Ok(Some(dest.to_string_lossy().into_owned()));
+    }
+
+    let encoded_name = urlencoding::encode(&name);
+    let url = format!("https://ranktracker.squib.co.nz/mirror/{encoded_name}/");
+
+    let result = tauri::async_runtime::spawn(async move {
+        let client = reqwest::Client::new();
+        let resp = match client.get(&url).send().await {
+            Ok(r) => r,
+            Err(_) => return Ok(None),
+        };
+
+        if !resp.status().is_success() {
+            return Ok(None);
+        }
+
+        let html = match resp.text().await {
+            Ok(t) => t,
+            Err(_) => return Ok(None),
+        };
+
+        // Find the first base64-encoded PNG image in the HTML
+        let marker = "data:image/png;base64,";
+        let start = match html.find(marker) {
+            Some(pos) => pos + marker.len(),
+            None => return Ok(None),
+        };
+
+        let remaining = &html[start..];
+        let end = match remaining.find('"') {
+            Some(pos) => pos,
+            None => return Ok(None),
+        };
+
+        let b64_data = &remaining[..end];
+
+        use base64::Engine;
+        let bytes = match base64::engine::general_purpose::STANDARD.decode(b64_data) {
+            Ok(b) => b,
+            Err(_) => return Ok(None),
+        };
+
+        std::fs::write(&dest, &bytes).map_err(|e| e.to_string())?;
+
+        Ok::<Option<String>, String>(Some(dest.to_string_lossy().into_owned()))
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    result
+}
+
+/// Get the cached portrait path if it exists.
+#[tauri::command]
+pub fn get_character_portrait_path(
+    name: String,
+    app: tauri::AppHandle,
+) -> Result<Option<String>, String> {
+    let sanitized = sanitize_portrait_name(&name);
+    let dir = portraits_dir(&app)?;
+    let path = dir.join(format!("{sanitized}.png"));
+    if path.exists() {
+        Ok(Some(path.to_string_lossy().into_owned()))
+    } else {
+        Ok(None)
+    }
 }
