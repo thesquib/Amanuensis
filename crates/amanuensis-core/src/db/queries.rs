@@ -343,7 +343,8 @@ impl Database {
     /// Get trainers for a character, ordered by ranks descending.
     pub fn get_trainers(&self, char_id: i64) -> Result<Vec<Trainer>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, character_id, trainer_name, ranks, modified_ranks, date_of_last_rank
+            "SELECT id, character_id, trainer_name, ranks, modified_ranks, date_of_last_rank,
+                    apply_learning_ranks, apply_learning_unknown_count
              FROM trainers WHERE character_id = ?1 ORDER BY ranks DESC",
         )?;
 
@@ -355,10 +356,49 @@ impl Database {
                 ranks: row.get(3)?,
                 modified_ranks: row.get(4)?,
                 date_of_last_rank: row.get(5)?,
+                apply_learning_ranks: row.get(6)?,
+                apply_learning_unknown_count: row.get(7)?,
             })
         })?;
 
         Ok(trainers.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Upsert apply-learning confirmed ranks (10 per "much more" event).
+    pub fn upsert_apply_learning(
+        &self,
+        char_id: i64,
+        trainer_name: &str,
+        date: &str,
+        amount: i64,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO trainers (character_id, trainer_name, apply_learning_ranks, date_of_last_rank)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(character_id, trainer_name) DO UPDATE SET
+                apply_learning_ranks = apply_learning_ranks + ?3,
+                date_of_last_rank = excluded.date_of_last_rank",
+            params![char_id, trainer_name, amount, date],
+        )?;
+        Ok(())
+    }
+
+    /// Upsert apply-learning unknown count (1 per "more" event).
+    pub fn upsert_apply_learning_unknown(
+        &self,
+        char_id: i64,
+        trainer_name: &str,
+        date: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO trainers (character_id, trainer_name, apply_learning_unknown_count, date_of_last_rank)
+             VALUES (?1, ?2, 1, ?3)
+             ON CONFLICT(character_id, trainer_name) DO UPDATE SET
+                apply_learning_unknown_count = apply_learning_unknown_count + 1,
+                date_of_last_rank = excluded.date_of_last_rank",
+            params![char_id, trainer_name, date],
+        )?;
+        Ok(())
     }
 
     /// Set the modified_ranks for a specific trainer record.
@@ -378,9 +418,9 @@ impl Database {
             params![char_id, trainer_name, modified_ranks],
         )?;
 
-        // Recalculate coin level from all trainer ranks
+        // Recalculate coin level from all trainer ranks (including apply-learning)
         let coin_level: i64 = self.conn.query_row(
-            "SELECT COALESCE(SUM(ranks + modified_ranks), 0) FROM trainers WHERE character_id = ?1",
+            "SELECT COALESCE(SUM(ranks + modified_ranks + apply_learning_ranks), 0) FROM trainers WHERE character_id = ?1",
             params![char_id],
             |row| row.get(0),
         )?;

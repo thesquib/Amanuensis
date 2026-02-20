@@ -8,6 +8,8 @@ pub struct Trainer {
     pub ranks: i64,
     pub modified_ranks: i64,
     pub date_of_last_rank: Option<String>,
+    pub apply_learning_ranks: i64,
+    pub apply_learning_unknown_count: i64,
 }
 
 impl Trainer {
@@ -19,6 +21,8 @@ impl Trainer {
             ranks: 0,
             modified_ranks: 0,
             date_of_last_rank: None,
+            apply_learning_ranks: 0,
+            apply_learning_unknown_count: 0,
         }
     }
 }

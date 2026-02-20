@@ -82,8 +82,9 @@ pub enum LogEvent {
     LastyCompleted { trainer: String },
     /// Study abandon: player abandoned creature study
     StudyAbandon { creature: String },
-    /// Apply-learning bonus rank confirmed for a trainer
-    ApplyLearningRank { trainer_name: String },
+    /// Apply-learning bonus rank for a trainer
+    /// is_full: true = "much more" (10 confirmed ranks), false = "more" (1-9 unknown)
+    ApplyLearningRank { character_name: String, trainer_name: String, is_full: bool },
     /// Karma received: "You just received good/bad karma from {name}."
     KarmaReceived { good: bool },
     /// Esteem gain: "* You gain esteem." or "* You gain experience and esteem."

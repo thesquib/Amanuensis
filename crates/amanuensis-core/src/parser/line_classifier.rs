@@ -17,9 +17,19 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     }
 
     // Apply-learning bonus rank (NPC speech containing the confirmation)
+    // Check "much more" (full) before "more" (partial) since "much more" contains "more"
     if let Some(caps) = patterns::APPLY_LEARNING_CONFIRM.captures(message) {
         return LogEvent::ApplyLearningRank {
-            trainer_name: caps[1].to_string(),
+            character_name: caps[1].to_string(),
+            trainer_name: caps[2].to_string(),
+            is_full: true,
+        };
+    }
+    if let Some(caps) = patterns::APPLY_LEARNING_PARTIAL.captures(message) {
+        return LogEvent::ApplyLearningRank {
+            character_name: caps[1].to_string(),
+            trainer_name: caps[2].to_string(),
+            is_full: false,
         };
     }
 
@@ -804,12 +814,27 @@ mod tests {
     fn test_apply_learning_confirm() {
         let db = test_db();
         let event = classify_line(
-            r#"Aitnos says, "Congratulations! You should now understand much more of Evus's teachings.""#,
+            r#"Aitnos says, "Congratulations, Ajahn. You should now understand much more of Evus's teachings.""#,
             &db,
         );
         assert!(matches!(
             event,
-            LogEvent::ApplyLearningRank { ref trainer_name } if trainer_name == "Evus"
+            LogEvent::ApplyLearningRank { ref character_name, ref trainer_name, is_full: true }
+                if character_name == "Ajahn" && trainer_name == "Evus"
+        ));
+    }
+
+    #[test]
+    fn test_apply_learning_partial() {
+        let db = test_db();
+        let event = classify_line(
+            "Aitnos says, \"Congratulations, Ajahn. You should now understand more of Evus\u{2019}s teachings.\"",
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::ApplyLearningRank { ref character_name, ref trainer_name, is_full: false }
+                if character_name == "Ajahn" && trainer_name == "Evus"
         ));
     }
 

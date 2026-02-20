@@ -132,9 +132,11 @@ pub static PROFESSION_BECOME: Lazy<Regex> =
 
 // === Apply-learning bonus rank (non-¥, spoken by NPC) ===
 pub static APPLY_LEARNING_OFFER: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[Ww]ould you like to apply some of your learning to (.+)'s lessons").unwrap());
+    Lazy::new(|| Regex::new(r"[Ww]ould you like to apply some of your learning to (.+?)[\u{0027}\u{2019}]s lessons").unwrap());
 pub static APPLY_LEARNING_CONFIRM: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[Yy]ou should now understand much more of (.+)'s teachings").unwrap());
+    Lazy::new(|| Regex::new(r"Congratulations, (.+?)\. [Yy]ou should now understand much more of (.+?)[\u{0027}\u{2019}]s teachings").unwrap());
+pub static APPLY_LEARNING_PARTIAL: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"Congratulations, (.+?)\. [Yy]ou should now understand more of (.+?)[\u{0027}\u{2019}]s teachings").unwrap());
 
 // === ¥-prefixed lines to skip (not trainer ranks) ===
 pub static YEN_HEALING_SENSE: Lazy<Regex> =
@@ -328,11 +330,62 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_learning_offer_curly_apostrophe() {
+        assert!(APPLY_LEARNING_OFFER.is_match(
+            "Aitnos asks, \"Would you like to apply some of your learning to Evus\u{2019}s lessons?\""
+        ));
+    }
+
+    #[test]
     fn test_apply_learning_confirm() {
         let caps = APPLY_LEARNING_CONFIRM.captures(
-            r#"Aitnos says, "Congratulations! You should now understand much more of Evus's teachings.""#
+            r#"Aitnos says, "Congratulations, Ajahn. You should now understand much more of Evus's teachings.""#
         ).unwrap();
-        assert_eq!(&caps[1], "Evus");
+        assert_eq!(&caps[1], "Ajahn");
+        assert_eq!(&caps[2], "Evus");
+    }
+
+    #[test]
+    fn test_apply_learning_confirm_curly_apostrophe() {
+        let caps = APPLY_LEARNING_CONFIRM.captures(
+            "Aitnos says, \"Congratulations, Ajahn. You should now understand much more of Evus\u{2019}s teachings.\""
+        ).unwrap();
+        assert_eq!(&caps[1], "Ajahn");
+        assert_eq!(&caps[2], "Evus");
+    }
+
+    #[test]
+    fn test_apply_learning_partial_not_counted_as_full() {
+        // "understand more" (without "much") is partial learning, not a full rank
+        assert!(APPLY_LEARNING_CONFIRM.captures(
+            "Aitnos says, \"Congratulations, Ajahn. You should now understand more of Evus\u{2019}s teachings.\""
+        ).is_none());
+    }
+
+    #[test]
+    fn test_apply_learning_partial() {
+        let caps = APPLY_LEARNING_PARTIAL.captures(
+            "Aitnos says, \"Congratulations, Ajahn. You should now understand more of Evus\u{2019}s teachings.\""
+        ).unwrap();
+        assert_eq!(&caps[1], "Ajahn");
+        assert_eq!(&caps[2], "Evus");
+    }
+
+    #[test]
+    fn test_apply_learning_partial_does_not_match_much_more() {
+        // "understand much more" should NOT match "understand more" (literal match)
+        assert!(APPLY_LEARNING_PARTIAL.captures(
+            "Aitnos says, \"Congratulations, Ajahn. You should now understand much more of Evus\u{2019}s teachings.\""
+        ).is_none());
+    }
+
+    #[test]
+    fn test_apply_learning_partial_straight_apostrophe() {
+        let caps = APPLY_LEARNING_PARTIAL.captures(
+            r#"Aitnos says, "Congratulations, Ajahn. You should now understand more of Evus's teachings.""#
+        ).unwrap();
+        assert_eq!(&caps[1], "Ajahn");
+        assert_eq!(&caps[2], "Evus");
     }
 
     #[test]
