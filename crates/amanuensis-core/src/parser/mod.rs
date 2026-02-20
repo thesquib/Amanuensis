@@ -351,6 +351,13 @@ impl LogParser {
                         .increment_character_field(char_id, "esteem", 1)?;
                     file_result.events_found += 1;
                 }
+                LogEvent::ProfessionAnnouncement { name, profession } => {
+                    if name.eq_ignore_ascii_case(char_name) {
+                        self.db
+                            .update_character_profession(char_id, &profession)?;
+                    }
+                    file_result.events_found += 1;
+                }
 
                 LogEvent::LastyProgress {
                     creature,
@@ -775,13 +782,18 @@ impl LogParser {
     }
 
     /// After scanning, determine professions and coin levels for all characters.
+    /// If a character already has a profession set from a direct announcement (circle test
+    /// or "become a" message), keep it. Otherwise, fall back to majority-vote from trainers.
     pub fn finalize_characters(&self) -> Result<()> {
         let chars = self.db.list_characters()?;
         for c in &chars {
             let char_id = c.id.unwrap();
-            let profession = self.determine_profession(char_id)?;
-            if profession != Profession::Unknown {
-                self.db.update_character_profession(char_id, profession.as_str())?;
+            // Only use trainer-based detection if no direct profession was set
+            if c.profession == Profession::Unknown {
+                let profession = self.determine_profession(char_id)?;
+                if profession != Profession::Unknown {
+                    self.db.update_character_profession(char_id, profession.as_str())?;
+                }
             }
             let coin_level = self.compute_coin_level(char_id)?;
             if coin_level > 0 {
@@ -1786,6 +1798,76 @@ mod tests {
         let char = parser.db().get_character("TestChar").unwrap().unwrap();
         assert_eq!(char.mandible_coins, 3); // 1 + 2
         assert_eq!(char.mandible_worth, 6); // 2 + 4
+    }
+
+    #[test]
+    fn test_profession_from_circle_test() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p Honor thinks, \"Congratulations go out to TestChar, who has just passed the second circle fighter test.\"
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Fighter);
+    }
+
+    #[test]
+    fn test_profession_from_become_message() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p Haima Myrtillus thinks, \"Congratulations to TestChar, who has just become a Bloodmage.\"
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        assert_eq!(char.profession, crate::models::Profession::Bloodmage);
+    }
+
+    #[test]
+    fn test_profession_announcement_other_character_ignored() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p Honor thinks, \"Congratulations go out to SomeoneElse, who has just passed the second circle fighter test.\"
+";
+        fs::write(
+            char_dir.join("CL Log 2024:01:01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        // Should remain Unknown since the announcement was for a different character
+        assert_eq!(char.profession, crate::models::Profession::Unknown);
     }
 
     #[test]

@@ -112,10 +112,13 @@ export function AppShell() {
                     Getting Started
                   </div>
                   <p className="text-sm leading-relaxed">
-                    Click <span className="font-medium text-[var(--color-accent)]">Scan Folder</span> in
-                    the sidebar (optionally check <span className="italic">Deep scan</span> for
-                    recursive scanning), choose a database location, then select your Clan Lord
-                    folder where your logs are. The app will do the rest.
+                    Click <span className="font-medium text-[var(--color-accent)]">Scan Log Folder</span> in
+                    the sidebar and select your Clan Lord log folder. A database will be created automatically.
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]">
+                    Characters are detected automatically from log content, so mixed-character
+                    folders work fine. Check <span className="italic">Deep scan</span> if your logs
+                    are nested inside multiple folders.
                   </p>
                 </div>
               ) : (

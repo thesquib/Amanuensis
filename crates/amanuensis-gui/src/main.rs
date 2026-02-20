@@ -25,6 +25,7 @@ fn main() {
             commands::scan_logs,
             commands::scan_files,
             commands::import_scribius_db,
+            commands::get_default_db_path,
             commands::check_db_exists,
             commands::reset_database,
             commands::search_logs,

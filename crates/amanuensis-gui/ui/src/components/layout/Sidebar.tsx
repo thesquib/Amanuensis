@@ -7,6 +7,7 @@ import {
   listCharacters,
   getScannedLogCount,
   getLogLineCount,
+  getDefaultDbPath,
   scanLogs,
   scanFiles,
   getKills,
@@ -16,6 +17,7 @@ import {
   resetDatabase,
   importScribiusDb,
 } from "../../lib/commands";
+import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { ProgressBar } from "../shared/ProgressBar";
 import type { ScanProgress } from "../../types";
@@ -133,15 +135,10 @@ export function Sidebar() {
 
   const ensureDb = useCallback(async (): Promise<boolean> => {
     if (dbPath) return true;
-    const selected = await save({
-      title: "Create New Database",
-      filters: [{ name: "SQLite Database", extensions: ["db"] }],
-      defaultPath: "amanuensis.db",
-    });
-    if (!selected) return false;
-    await openDatabase(selected);
-    setDbPath(selected);
-    localStorage.setItem("amanuensis_last_db", selected);
+    const defaultPath = await getDefaultDbPath();
+    await openDatabase(defaultPath);
+    setDbPath(defaultPath);
+    localStorage.setItem("amanuensis_last_db", defaultPath);
     return true;
   }, [dbPath, setDbPath]);
 
@@ -298,14 +295,14 @@ export function Sidebar() {
           disabled={isScanning}
           className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/80 disabled:opacity-50"
         >
-          {isScanning ? "Scanning..." : "Scan Folder"}
+          {isScanning ? "Scanning..." : "Scan Log Folder"}
         </button>
         <button
           onClick={handleScanFiles}
           disabled={isScanning}
           className="rounded bg-[var(--color-accent)]/80 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/60 disabled:opacity-50"
         >
-          Scan Files
+          Scan Log Files
         </button>
         <button
           onClick={handleImportScribius}
@@ -334,6 +331,9 @@ export function Sidebar() {
           />
           Index logs for search
         </label>
+        <div className="text-[10px] text-[var(--color-text-muted)]/60 leading-tight">
+          Characters are detected automatically from log content. Mixed-character folders are supported.
+        </div>
       </div>
 
       {/* Scan progress */}
@@ -350,8 +350,20 @@ export function Sidebar() {
       {/* Info */}
       {dbPath && (
         <div className="border-b border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text-muted)]">
-          <div className="truncate" title={dbPath}>
-            DB: {dbPath.split("/").pop()}
+          <div className="flex items-center gap-1">
+            <div className="min-w-0 flex-1 truncate" title={dbPath}>
+              DB: {dbPath.split("/").pop()}
+            </div>
+            <button
+              onClick={() => {
+                const dir = dbPath.substring(0, dbPath.lastIndexOf("/"));
+                shellOpen(dir);
+              }}
+              title="Show in Finder"
+              className="shrink-0 rounded px-1 py-0.5 text-[10px] text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)]"
+            >
+              Reveal
+            </button>
           </div>
           {logFolder && (
             <div className="mt-1 truncate" title={logFolder}>

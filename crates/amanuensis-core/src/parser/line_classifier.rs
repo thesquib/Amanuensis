@@ -23,6 +23,20 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
+    // Profession announcements (NPC speech — check before speech filter)
+    if let Some(caps) = patterns::PROFESSION_CIRCLE_TEST.captures(message) {
+        return LogEvent::ProfessionAnnouncement {
+            name: caps[1].to_string(),
+            profession: normalize_profession(&caps[2]),
+        };
+    }
+    if let Some(caps) = patterns::PROFESSION_BECOME.captures(message) {
+        return LogEvent::ProfessionAnnouncement {
+            name: caps[1].to_string(),
+            profession: normalize_profession(&caps[2]),
+        };
+    }
+
     // Skip speech and emotes early (very common)
     if patterns::SPEECH.is_match(message) || patterns::EMOTE.is_match(message) {
         return LogEvent::Ignored;
@@ -196,6 +210,29 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     }
 
     LogEvent::Ignored
+}
+
+/// Normalize a profession name from log text to canonical form.
+fn normalize_profession(raw: &str) -> String {
+    match raw.to_lowercase().as_str() {
+        "fighter" => "Fighter".to_string(),
+        "healer" => "Healer".to_string(),
+        "mystic" => "Mystic".to_string(),
+        "ranger" => "Ranger".to_string(),
+        "bloodmage" => "Bloodmage".to_string(),
+        "champion" => "Champion".to_string(),
+        other => {
+            // Title-case unknown profession
+            let mut chars = other.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => {
+                    let upper: String = first.to_uppercase().collect();
+                    upper + chars.as_str()
+                }
+            }
+        }
+    }
 }
 
 /// Map study type names to lasty display types.
@@ -807,6 +844,48 @@ mod tests {
         let db = test_db();
         let event = classify_line("You just received anonymous good karma.", &db);
         assert!(matches!(event, LogEvent::KarmaReceived { good: true }));
+    }
+
+    #[test]
+    fn test_profession_circle_test_fighter() {
+        let db = test_db();
+        let event = classify_line(
+            r#"Honor thinks, "Congratulations go out to Camo, who has just passed the seventh circle fighter test.""#,
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::ProfessionAnnouncement { ref name, ref profession }
+            if name == "Camo" && profession == "Fighter"
+        ));
+    }
+
+    #[test]
+    fn test_profession_circle_test_healer() {
+        let db = test_db();
+        let event = classify_line(
+            r#"Glory thinks, "Congratulations go out to Squib, who has just passed the sixth circle healer test.""#,
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::ProfessionAnnouncement { ref name, ref profession }
+            if name == "Squib" && profession == "Healer"
+        ));
+    }
+
+    #[test]
+    fn test_profession_become_bloodmage() {
+        let db = test_db();
+        let event = classify_line(
+            r#"Haima Myrtillus thinks, "Congratulations to Kargan, who has just become a Bloodmage.""#,
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::ProfessionAnnouncement { ref name, ref profession }
+            if name == "Kargan" && profession == "Bloodmage"
+        ));
     }
 
     #[test]

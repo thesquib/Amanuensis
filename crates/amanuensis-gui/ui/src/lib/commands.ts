@@ -84,6 +84,10 @@ export async function getLogLineCount(): Promise<number> {
   return invoke("get_log_line_count");
 }
 
+export async function getDefaultDbPath(): Promise<string> {
+  return invoke("get_default_db_path");
+}
+
 export async function checkDbExists(path: string): Promise<boolean> {
   return invoke("check_db_exists", { path });
 }
