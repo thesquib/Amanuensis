@@ -374,7 +374,14 @@ export function Sidebar() {
           <button
             onClick={handleReset}
             disabled={isScanning}
-            className="mt-2 w-full rounded bg-red-900/30 px-2 py-1 text-xs text-red-300 hover:bg-red-900/50 disabled:opacity-50"
+            className="mt-2 w-full rounded px-2 py-1 text-xs disabled:opacity-50"
+            style={{
+              backgroundColor: "var(--color-danger-bg)",
+              color: "var(--color-danger)",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--color-danger-bg-hover)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--color-danger-bg)")}
+
           >
             Reset Database
           </button>
