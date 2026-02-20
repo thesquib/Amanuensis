@@ -1,0 +1,5594 @@
+{
+ "(Super) Crookbeak Kestrel": {
+  "family": "Avian",
+  "pic": "CrookbeakKestrelSuper.gif",
+  "w": 42,
+  "h": 36
+ },
+ "Abominable Snow Yorilla": {
+  "family": "Yorilla",
+  "pic": "AbominableSnowYorilla.gif",
+  "w": 37,
+  "h": 60
+ },
+ "Abyssal Hunter": {
+  "family": "Skeletal Undine",
+  "pic": "abyssalhunter.gif",
+  "w": 56,
+  "h": 56
+ },
+ "Acid Cobra": {
+  "family": "Serpent",
+  "pic": "AcidCobra.gif",
+  "w": 38,
+  "h": 23
+ },
+ "Adult Rockodile": {
+  "family": "Lizard",
+  "pic": "adultrockodile.gif",
+  "w": 32,
+  "h": 32
+ },
+ "Agronox": {
+  "family": "Avian",
+  "pic": "agronox.png",
+  "w": 64,
+  "h": 59
+ },
+ "Albino Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "albinoarachnoid.gif",
+  "w": 65,
+  "h": 61
+ },
+ "Albino Flying Foxweir": {
+  "family": "Vermine",
+  "pic": "AlbinoFlyingFoxweir.gif",
+  "w": 33,
+  "h": 35
+ },
+ "Albino Maha": {
+  "family": "Feline",
+  "pic": "albinomaha.gif",
+  "w": 37,
+  "h": 34
+ },
+ "Alpine Goat": {
+  "family": "Bovidae",
+  "pic": "AlpineGoat.gif",
+  "w": 27,
+  "h": 30
+ },
+ "Alpine Timber Feral": {
+  "family": "Canine",
+  "pic": "AlpineTimberFeral.gif",
+  "w": 34,
+  "h": 34
+ },
+ "Ancient Darshak Liche": {
+  "family": "Demonic Undine",
+  "pic": "AncientDarshakLiche.gif",
+  "w": 35,
+  "h": 35
+ },
+ "Ancient Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "ancientgreymyr.gif",
+  "w": 63,
+  "h": 74
+ },
+ "Andvari": {
+  "family": "Lizard",
+  "pic": "andvari.gif",
+  "w": 35,
+  "h": 32
+ },
+ "Angry Earth-Zu": {
+  "family": "Plant",
+  "pic": "AngryEarthZu.gif",
+  "w": 41,
+  "h": 41
+ },
+ "Angry Kudzu": {
+  "family": "Plant",
+  "pic": "AngryKudzu.gif",
+  "w": 41,
+  "h": 41
+ },
+ "Angry Kudzu Giant": {
+  "family": "Uncategorized",
+  "pic": "AngryKudzuGiant.gif",
+  "w": 98,
+  "h": 117
+ },
+ "Angry Moon-Zu": {
+  "family": "Plant",
+  "pic": "AngryMoonZu.gif",
+  "w": 41,
+  "h": 41
+ },
+ "Angry Mother Sasquatch": {
+  "family": "Wendecka",
+  "pic": "angrymothersasquatch.gif",
+  "w": 51,
+  "h": 50
+ },
+ "Anguished Spirit": {
+  "family": "Insubstantial Undine",
+  "pic": "AnguishedSpirit.png",
+  "w": 23,
+  "h": 33
+ },
+ "Animus Agro": {
+  "family": "Shadow",
+  "pic": "AnimusAgro.gif",
+  "w": 33,
+  "h": 49
+ },
+ "Arachne": {
+  "family": "Arachne",
+  "pic": "arachne.gif",
+  "w": 35,
+  "h": 32
+ },
+ "Arboreal Fervor": {
+  "family": "Tree Elemental",
+  "pic": "ArborealFervor.gif",
+  "w": 43,
+  "h": 48
+ },
+ "Artak Cougar": {
+  "family": "Feline",
+  "pic": "artakcougar.gif",
+  "w": 32,
+  "h": 31
+ },
+ "Ash Giant": {
+  "family": "Tree Elemental",
+  "pic": "ashgiant.gif",
+  "w": 57,
+  "h": 60
+ },
+ "Astral Guardian": {
+  "family": "Astral Elemental",
+  "pic": "astralguardian.gif",
+  "w": 36,
+  "h": 40
+ },
+ "Astral Wyrm": {
+  "family": "Drake",
+  "pic": "lesserastraldrake.gif",
+  "w": 62,
+  "h": 54
+ },
+ "Augite Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "AugiteGreymyr.gif",
+  "w": 59,
+  "h": 76
+ },
+ "Aurora Wendecka": {
+  "family": "Wendecka",
+  "pic": "AuroraWendecka_Fixed.gif",
+  "w": 39,
+  "h": 43
+ },
+ "Avalanche Meshra": {
+  "family": "Meshra",
+  "pic": "AvalancheMeshra.gif",
+  "w": 57,
+  "h": 65
+ },
+ "Azul Scorp": {
+  "family": "Arachne",
+  "pic": "AzulScorp.gif",
+  "w": 27,
+  "h": 28
+ },
+ "Azurite Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "azuritearachnoid.gif",
+  "w": 61,
+  "h": 60
+ },
+ "Baby Night Wendecka": {
+  "family": "Wendecka",
+  "pic": "babynightwendecka.gif",
+  "w": 24,
+  "h": 26
+ },
+ "Baby Plesio'don": {
+  "family": "Wyrm",
+  "pic": "babyplesiodon.gif",
+  "w": 61,
+  "h": 53
+ },
+ "Baby Wendecka": {
+  "family": "Wendecka",
+  "pic": "babywendecka.gif",
+  "w": 27,
+  "h": 27
+ },
+ "Badger": {
+  "family": "Raccoon",
+  "pic": "Badger.gif",
+  "w": 33,
+  "h": 32
+ },
+ "Baked Presence": {
+  "family": "Insubstantial Undine",
+  "pic": "BakedPresence.gif",
+  "w": 22,
+  "h": 27
+ },
+ "Baltoise": {
+  "family": "Oceanic",
+  "pic": "baltoise.gif",
+  "w": 43,
+  "h": 34
+ },
+ "Bamboo Mantis": {
+  "family": "Insect",
+  "pic": "BambooMantis.gif",
+  "w": 29,
+  "h": 26
+ },
+ "Bamboo Wildcat": {
+  "family": "Feline",
+  "pic": "BambooWildcat.gif",
+  "w": 25,
+  "h": 25
+ },
+ "Banana Arachne": {
+  "family": "Arachne",
+  "pic": "BananaArachne.gif",
+  "w": 33,
+  "h": 28
+ },
+ "Banshee": {
+  "family": "Insubstantial Undine",
+  "pic": "banshee.gif",
+  "w": 33,
+  "h": 34
+ },
+ "Bar'Kin": {
+  "family": "Trool",
+  "pic": "barkin.gif",
+  "w": 28,
+  "h": 32
+ },
+ "Bark Scorp": {
+  "family": "Arachne",
+  "pic": "BarkScorp.gif",
+  "w": 26,
+  "h": 27
+ },
+ "Barracuda": {
+  "family": "Oceanic",
+  "pic": "barracuda.png",
+  "w": 52,
+  "h": 53
+ },
+ "Barrens Feral": {
+  "family": "Canine",
+  "pic": "BarrensFeral.gif",
+  "w": 48,
+  "h": 44
+ },
+ "Bartok": {
+  "family": "Extinct",
+  "pic": "bartoks.gif",
+  "w": 65,
+  "h": 63
+ },
+ "Basalt Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "basaltgreymyr.gif",
+  "w": 67,
+  "h": 72
+ },
+ "Bat": {
+  "family": "Vermine",
+  "pic": "bat.gif",
+  "w": 24,
+  "h": 11
+ },
+ "Bawkmas Colossus": {
+  "family": "Tree Elemental",
+  "pic": "BawkmasColossus.gif",
+  "w": 88,
+  "h": 119
+ },
+ "Beehive": {
+  "family": "Uncategorized",
+  "pic": "Beehive.gif",
+  "w": 40,
+  "h": 48
+ },
+ "Beer Golem": {
+  "family": "Uncategorized",
+  "pic": "BeerGolem.gif",
+  "w": 54,
+  "h": 140
+ },
+ "Befouled Water Spirit": {
+  "family": "Water Elemental",
+  "pic": "BefouledWaterSpirit.gif",
+  "w": 42,
+  "h": 34
+ },
+ "Berenstain Bear": {
+  "family": "Ursine",
+  "pic": "MountainGrizzlyBear.gif",
+  "w": 46,
+  "h": 46
+ },
+ "Berenstein Bear": {
+  "family": "Ursine",
+  "pic": "MountainGrizzlyBear.gif",
+  "w": 46,
+  "h": 46
+ },
+ "Bespeckled Bloodblader": {
+  "family": "Darshak",
+  "pic": "BespeckledBloodblader.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Black Locust": {
+  "family": "Insect",
+  "pic": "blacklocust.gif",
+  "w": 32,
+  "h": 30
+ },
+ "Black Mamba": {
+  "family": "Serpent",
+  "pic": "cobra.gif",
+  "w": 42,
+  "h": 32
+ },
+ "Black Mantis": {
+  "family": "Insect",
+  "pic": "BlackMantis.gif",
+  "w": 30,
+  "h": 28
+ },
+ "Black Widow": {
+  "family": "Arachnoid",
+  "pic": "blackwidow.gif",
+  "w": 62,
+  "h": 57
+ },
+ "Blephat": {
+  "family": "Vermine",
+  "pic": "Blephat.gif",
+  "w": 20,
+  "h": 18
+ },
+ "Blight Feral": {
+  "family": "Canine",
+  "pic": "BlightFeral.gif",
+  "w": 52,
+  "h": 51
+ },
+ "Blight Shade": {
+  "family": "Insubstantial Undine",
+  "pic": "BlightShade.gif",
+  "w": 22,
+  "h": 32
+ },
+ "Blighted Sortoise": {
+  "family": "Turtle",
+  "pic": "BlightedSortoise.gif",
+  "w": 47,
+  "h": 38
+ },
+ "Blind Adumbration": {
+  "family": "Shadow",
+  "pic": "BlindAdumbration.gif",
+  "w": 47,
+  "h": 46
+ },
+ "Blind Amphibia": {
+  "family": "Anura",
+  "pic": "blindamphibia.gif",
+  "w": 36,
+  "h": 28
+ },
+ "Blind Meshra": {
+  "family": "Meshra",
+  "pic": "BlindMeshra.png",
+  "w": 25,
+  "h": 40
+ },
+ "Blird": {
+  "family": "Avian",
+  "pic": "Blird.gif",
+  "w": 67,
+  "h": 69
+ },
+ "Blizzard Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "BlizzardGreymyr.gif",
+  "w": 33,
+  "h": 58
+ },
+ "Blood Meshra": {
+  "family": "Meshra",
+  "pic": "bloodmeshra.png",
+  "w": 35,
+  "h": 40
+ },
+ "Blood Wyrm": {
+  "family": "Wyrm",
+  "pic": "bloodwyrm.gif",
+  "w": 57,
+  "h": 45
+ },
+ "Bloodhawk": {
+  "family": "Avian",
+  "pic": "bloodhawk.gif",
+  "w": 25,
+  "h": 19
+ },
+ "Bloodthorn": {
+  "family": "Uncategorized",
+  "pic": "bloodthorn.gif",
+  "w": 32,
+  "h": 31
+ },
+ "Blue Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "bluearachnoid.gif",
+  "w": 63,
+  "h": 60
+ },
+ "Blue Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "bluelyfelidae.gif",
+  "w": 33,
+  "h": 60
+ },
+ "Blue-Brim Bonnet": {
+  "family": "Orion Fungus",
+  "pic": "BlueBrimBonnet.gif",
+  "w": 50,
+  "h": 51
+ },
+ "Bluff Billy Goat": {
+  "family": "Bovidae",
+  "pic": "BluffBillyGoat.gif",
+  "w": 30,
+  "h": 29
+ },
+ "Bluli": {
+  "family": "Plant",
+  "pic": "bluli.gif",
+  "w": 42,
+  "h": 42
+ },
+ "Blymoid": {
+  "family": "Blymoid",
+  "pic": "blymoid.gif",
+  "w": 25,
+  "h": 28
+ },
+ "Blymoid Blocker": {
+  "family": "Blymoid",
+  "pic": "blymoid.gif",
+  "w": 25,
+  "h": 28
+ },
+ "Blymoid Breaker": {
+  "family": "Blymoid",
+  "pic": "blymoid.gif",
+  "w": 25,
+  "h": 28
+ },
+ "Bodyguard": {
+  "family": "Darshak",
+  "pic": "bodyguard.gif",
+  "w": 25,
+  "h": 34
+ },
+ "Bog Feral": {
+  "family": "Canine",
+  "pic": "BogFeral.gif",
+  "w": 38,
+  "h": 39
+ },
+ "Bolok Cougar": {
+  "family": "Feline",
+  "pic": "bolokcougar.gif",
+  "w": 32,
+  "h": 23
+ },
+ "Boma Winder": {
+  "family": "Serpent",
+  "pic": "bomawinder.gif",
+  "w": 32,
+  "h": 30
+ },
+ "Booty Biter": {
+  "family": "Crustacean",
+  "pic": "Megabite.png",
+  "w": 29,
+  "h": 19
+ },
+ "Booty Crawler": {
+  "family": "Crustacean",
+  "pic": "MazarineCrawler.png",
+  "w": 38,
+  "h": 38
+ },
+ "Boss Scorp": {
+  "family": "Arachne",
+  "pic": "BossScorp.gif",
+  "w": 37,
+  "h": 43
+ },
+ "Bounding Shadow Cub": {
+  "family": "Ursine",
+  "pic": "BoundingShadowCub.gif",
+  "w": 29,
+  "h": 29
+ },
+ "Bowie Owl": {
+  "family": "Avian",
+  "pic": "PirTaOwl.gif",
+  "w": 56,
+  "h": 40
+ },
+ "Brackwater Leech": {
+  "family": "Annelida",
+  "pic": "BrackwaterLeech.gif",
+  "w": 20,
+  "h": 16
+ },
+ "Brown Bear": {
+  "family": "Ursine",
+  "pic": "brownbear.gif",
+  "w": 30,
+  "h": 41
+ },
+ "Brown Feral": {
+  "family": "Canine",
+  "pic": "brownferal.gif",
+  "w": 29,
+  "h": 28
+ },
+ "Burning Reed Amedon": {
+  "family": "Anura",
+  "pic": "burningreedamedon.gif",
+  "w": 41,
+  "h": 35
+ },
+ "Burrowing Bear": {
+  "family": "Ursine",
+  "pic": "BurrowingBear.gif",
+  "w": 52,
+  "h": 49
+ },
+ "Burrowing Catbear": {
+  "family": "Chimera",
+  "pic": "BurrowingCatbear.gif",
+  "w": 41,
+  "h": 53
+ },
+ "Butterfly": {
+  "family": "Insect",
+  "pic": "butterfly.gif",
+  "w": 33,
+  "h": 25
+ },
+ "Captain of the Guard": {
+  "family": "Extinct",
+  "pic": "darkknight.gif",
+  "w": 27,
+  "h": 32
+ },
+ "Carin Viper": {
+  "family": "Serpent",
+  "pic": "snake.gif",
+  "w": 18,
+  "h": 30
+ },
+ "Carnivorous Tor": {
+  "family": "Turtle",
+  "pic": "carnivoroustornew.gif",
+  "w": 18,
+  "h": 24
+ },
+ "Carnivorous Wurm": {
+  "family": "Worm",
+  "pic": "carnivorouswurm.gif",
+  "w": 32,
+  "h": 25
+ },
+ "Carrion Arachne": {
+  "family": "Arachne",
+  "pic": "deadlycarrion.gif",
+  "w": 23,
+  "h": 25
+ },
+ "Carrion Beetle": {
+  "family": "Insect",
+  "pic": "CarrionBeetle.gif",
+  "w": 43,
+  "h": 41
+ },
+ "Castle Guard": {
+  "family": "Human Guard",
+  "pic": "castleguardnew.gif",
+  "w": 24,
+  "h": 32
+ },
+ "Cave Arachne": {
+  "family": "Arachne",
+  "pic": "cavearachne.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Cave Chamelopod": {
+  "family": "Insect",
+  "pic": "cavechamelopod.gif",
+  "w": 34,
+  "h": 26
+ },
+ "Cave Cobra": {
+  "family": "Serpent",
+  "pic": "cobra.gif",
+  "w": 42,
+  "h": 32
+ },
+ "Cave Maha Ruknee": {
+  "family": "Feline",
+  "pic": "cavemaharuknee.gif",
+  "w": 38,
+  "h": 33
+ },
+ "Cave Maha Rukness": {
+  "family": "Feline",
+  "pic": "CaveMahaRukness.gif",
+  "w": 32,
+  "h": 28
+ },
+ "Cave Wurm": {
+  "family": "Worm",
+  "pic": "giantslug.gif",
+  "w": 24,
+  "h": 32
+ },
+ "Cavern Rat": {
+  "family": "Vermine",
+  "pic": "cavernrat.png",
+  "w": 24,
+  "h": 22
+ },
+ "Cavern Wurm": {
+  "family": "Worm",
+  "pic": "CavernWurm.gif",
+  "w": 37,
+  "h": 26
+ },
+ "Cedar Colossus": {
+  "family": "Tree Elemental",
+  "pic": "CedarColossus.gif",
+  "w": 106,
+  "h": 123
+ },
+ "Cereb Vermine": {
+  "family": "Vermine",
+  "pic": "cerebvermine.png",
+  "w": 32,
+  "h": 30
+ },
+ "Chami Cobra": {
+  "family": "Serpent",
+  "pic": "cobra.gif",
+  "w": 42,
+  "h": 32
+ },
+ "Charged Chunk": {
+  "family": "Stone Elemental",
+  "pic": "ChargedChunk.gif",
+  "w": 69,
+  "h": 111
+ },
+ "Chestnut Bear": {
+  "family": "Ursine",
+  "pic": "chestnutbear.gif",
+  "w": 28,
+  "h": 41
+ },
+ "Chocolate Bear": {
+  "family": "Ursine",
+  "pic": "chocolatebear.gif",
+  "w": 41,
+  "h": 37
+ },
+ "Chosen Host": {
+  "family": "Darshak",
+  "pic": "ChosenHost.gif",
+  "w": 25,
+  "h": 32
+ },
+ "Cinder Bear": {
+  "family": "Ursine",
+  "pic": "cinderbear.gif",
+  "w": 36,
+  "h": 32
+ },
+ "Cirrus Maha": {
+  "family": "Feline",
+  "pic": "CirrusMaha.gif",
+  "w": 31,
+  "h": 30
+ },
+ "Cloud Maha": {
+  "family": "Feline",
+  "pic": "cloudmaharuknee.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Cloud of Ether": {
+  "family": "Ethereal",
+  "pic": "etherealcloud.gif",
+  "w": 70,
+  "h": 70
+ },
+ "Cloudlifter Agronox": {
+  "family": "Avian",
+  "pic": "agronox.png",
+  "w": 64,
+  "h": 59
+ },
+ "Clucking Cavalry": {
+  "family": "Avian",
+  "pic": "CluckingCavalry.gif",
+  "w": 26,
+  "h": 26
+ },
+ "Co'Acha": {
+  "family": "Insect",
+  "pic": "coacha.gif",
+  "w": 28,
+  "h": 27
+ },
+ "Cod": {
+  "family": "Oceanic",
+  "pic": "cod.png",
+  "w": 26,
+  "h": 27
+ },
+ "Coin Golem": {
+  "family": "Uncategorized",
+  "pic": "CashGolem.gif",
+  "w": 76,
+  "h": 90
+ },
+ "Cold Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "coldlyfelidae.gif",
+  "w": 40,
+  "h": 70
+ },
+ "Common Vulture": {
+  "family": "Avian",
+  "pic": "commonvulture.png",
+  "w": 31,
+  "h": 30
+ },
+ "Confused Yorilla": {
+  "family": "Yorilla",
+  "pic": "ConfusedYorilla.gif",
+  "w": 34,
+  "h": 48
+ },
+ "Conjugant Agro": {
+  "family": "Orga",
+  "pic": "ConjugantAgro.gif",
+  "w": 70,
+  "h": 43
+ },
+ "Corpse Knight": {
+  "family": "Substantial Undine",
+  "pic": "deathfurie.gif",
+  "w": 18,
+  "h": 31
+ },
+ "Corpse Warrior": {
+  "family": "Substantial Undine",
+  "pic": "corpsewar.gif",
+  "w": 24,
+  "h": 32
+ },
+ "Corrosive Corpse": {
+  "family": "Substantial Undine",
+  "pic": "hodcorpse.gif",
+  "w": 25,
+  "h": 31
+ },
+ "Corsica": {
+  "family": "Plant",
+  "pic": "corsica.gif",
+  "w": 49,
+  "h": 50
+ },
+ "Crawler": {
+  "family": "Crustacean",
+  "pic": "crawler.gif",
+  "w": 23,
+  "h": 27
+ },
+ "Crevyrn": {
+  "family": "Chimera",
+  "pic": "Crevyrn.gif",
+  "w": 33,
+  "h": 39
+ },
+ "Crimson Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "crimsonarachnoid.gif",
+  "w": 60,
+  "h": 64
+ },
+ "Crimsonhawk": {
+  "family": "Avian",
+  "pic": "bloodhawk.gif",
+  "w": 25,
+  "h": 19
+ },
+ "Crookbeak Kestrel": {
+  "family": "Avian",
+  "pic": "CrookbeakKestrel.png",
+  "w": 35,
+  "h": 35
+ },
+ "Crota Winder": {
+  "family": "Serpent",
+  "pic": "crotawinder.gif",
+  "w": 33,
+  "h": 26
+ },
+ "Crushing Spirit": {
+  "family": "Insubstantial Undine",
+  "pic": "CrushingSpirit.gif",
+  "w": 24,
+  "h": 35
+ },
+ "Crypt Mamba": {
+  "family": "Serpent",
+  "pic": "AcidCobra.gif",
+  "w": 38,
+  "h": 23
+ },
+ "Crypt Rat": {
+  "family": "Vermine",
+  "pic": "CryptRat.gif",
+  "w": 24,
+  "h": 22
+ },
+ "Ctenizidae": {
+  "family": "Arachne",
+  "pic": "Ctenizidae.gif",
+  "w": 63,
+  "h": 60
+ },
+ "Culcan": {
+  "family": "Oceanic",
+  "pic": "culcan.gif",
+  "w": 55,
+  "h": 50
+ },
+ "Cumulus Maha": {
+  "family": "Feline",
+  "pic": "CumulusMaha.gif",
+  "w": 33,
+  "h": 31
+ },
+ "Curate": {
+  "family": "Insubstantial Undine",
+  "pic": "curate.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Dal'Noth": {
+  "family": "Noth",
+  "pic": "dal.gif",
+  "w": 27,
+  "h": 32
+ },
+ "Damaged Spirit": {
+  "family": "Insubstantial Undine",
+  "pic": "DamagedSpirit.gif",
+  "w": 34,
+  "h": 35
+ },
+ "Dank Presence": {
+  "family": "Insubstantial Undine",
+  "pic": "DankPresence.gif",
+  "w": 20,
+  "h": 27
+ },
+ "Dankyssal Hunter": {
+  "family": "Uncategorized",
+  "pic": "DankyssalHunter.gif",
+  "w": 44,
+  "h": 60
+ },
+ "Dar'kin": {
+  "family": "Trool",
+  "pic": "Darkin.gif",
+  "w": 33,
+  "h": 31
+ },
+ "Dar'kin Shadow": {
+  "family": "Insubstantial Undine",
+  "pic": "DarkinShadow.gif",
+  "w": 32,
+  "h": 34
+ },
+ "Dar'kin Thrall": {
+  "family": "Trool",
+  "pic": "DarkinThrall.gif",
+  "w": 32,
+  "h": 33
+ },
+ "Dark Knight": {
+  "family": "Human Guard",
+  "pic": "darkknightnew.gif",
+  "w": 31,
+  "h": 33
+ },
+ "Dark Myotis": {
+  "family": "Vermine",
+  "pic": "DarkMyotis.gif",
+  "w": 30,
+  "h": 35
+ },
+ "Dark Recluse": {
+  "family": "Arachne",
+  "pic": "DarkRecluse.gif",
+  "w": 65,
+  "h": 57
+ },
+ "Dark Rift": {
+  "family": "Uncategorized",
+  "pic": "DarkRift.gif",
+  "w": 46,
+  "h": 70
+ },
+ "Dark Vermine": {
+  "family": "Vermine",
+  "pic": "darkvermine.png",
+  "w": 29,
+  "h": 27
+ },
+ "Darklight Beacon": {
+  "family": "Shadow",
+  "pic": "DarklightBeacon.gif",
+  "w": 45,
+  "h": 51
+ },
+ "Darshak Acolyte": {
+  "family": "Darshak",
+  "pic": "darshakacolyte.gif",
+  "w": 19,
+  "h": 32
+ },
+ "Darshak Ancient": {
+  "family": "Demonic Undine",
+  "pic": "DarshakAncient.gif",
+  "w": 32,
+  "h": 33
+ },
+ "Darshak Assassin": {
+  "family": "Darshak",
+  "pic": "DarshakAssassin.gif",
+  "w": 27,
+  "h": 34
+ },
+ "Darshak Blade": {
+  "family": "Darshak",
+  "pic": "blade.gif",
+  "w": 24,
+  "h": 32
+ },
+ "Darshak Bloodwrath": {
+  "family": "Darshak",
+  "pic": "DarshakBloodwrath.gif",
+  "w": 21,
+  "h": 32
+ },
+ "Darshak Bodysnatcher": {
+  "family": "Darshak",
+  "pic": "DarshakBodysnatcher.gif",
+  "w": 23,
+  "h": 34
+ },
+ "Darshak Brava": {
+  "family": "Darshak",
+  "pic": "DarshakBrava.gif",
+  "w": 24,
+  "h": 34
+ },
+ "Darshak Brawler": {
+  "family": "Darshak",
+  "pic": "DarshakBrawler.gif",
+  "w": 23,
+  "h": 33
+ },
+ "Darshak Brute": {
+  "family": "Darshak",
+  "pic": "darshakbrute.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Darshak Captain": {
+  "family": "Extinct",
+  "pic": "captainnew.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Darshak Carouser": {
+  "family": "Darshak",
+  "pic": "darshakcarouser.gif",
+  "w": 33,
+  "h": 36
+ },
+ "Darshak Clipper": {
+  "family": "Darshak",
+  "pic": "DarshakClipper.gif",
+  "w": 79,
+  "h": 76
+ },
+ "Darshak Corsair": {
+  "family": "EXTINCT",
+  "pic": "corsair.gif",
+  "w": 81,
+  "h": 72
+ },
+ "Darshak Defender": {
+  "family": "Darshak",
+  "pic": "darshakdefenderguardian.gif",
+  "w": 28,
+  "h": 34
+ },
+ "Darshak Guard": {
+  "family": "Darshak",
+  "pic": "darshakguard.gif",
+  "w": 34,
+  "h": 33
+ },
+ "Darshak Guardian": {
+  "family": "Darshak",
+  "pic": "darshakdefenderguardian.gif",
+  "w": 28,
+  "h": 34
+ },
+ "Darshak Harrier": {
+  "family": "Darshak",
+  "pic": "DarshakHarrier.gif",
+  "w": 27,
+  "h": 34
+ },
+ "Darshak Houndsman": {
+  "family": "Darshak",
+  "pic": "DarshakHoundsman.gif",
+  "w": 22,
+  "h": 32
+ },
+ "Darshak Liche": {
+  "family": "Demonic Undine",
+  "pic": "darshakliche.gif",
+  "w": 32,
+  "h": 30
+ },
+ "Darshak Marauder": {
+  "family": "Darshak",
+  "pic": "darshakmarauder.gif",
+  "w": 31,
+  "h": 33
+ },
+ "Darshak Marine": {
+  "family": "Darshak",
+  "pic": "darshakmarine.gif",
+  "w": 35,
+  "h": 34
+ },
+ "Darshak Mercenary": {
+  "family": "Darshak",
+  "pic": "darshakmercenary.gif",
+  "w": 36,
+  "h": 34
+ },
+ "Darshak Necromancer": {
+  "family": "Darshak",
+  "pic": "necromancer.gif",
+  "w": 21,
+  "h": 30
+ },
+ "Darshak Overseer": {
+  "family": "Darshak",
+  "pic": "DarshakSlaveMaster.gif",
+  "w": 26,
+  "h": 32
+ },
+ "Darshak Petty Officer": {
+  "family": "Darshak",
+  "pic": "DarshakPettyOfficer.gif",
+  "w": 26,
+  "h": 34
+ },
+ "Darshak Pillager": {
+  "family": "Darshak",
+  "pic": "darshakpillager.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Darshak Priest": {
+  "family": "Darshak",
+  "pic": "darshakpriest.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Darshak Pumpkomancer": {
+  "family": "Darshak",
+  "pic": "Pumpkomancer.gif",
+  "w": 23,
+  "h": 33
+ },
+ "Darshak Punk": {
+  "family": "Darshak",
+  "pic": "darshakpillager.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Darshak Pyromancer": {
+  "family": "Darshak",
+  "pic": "DarshakPyromancer.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Darshak Raider": {
+  "family": "Darshak",
+  "pic": "darshakpillager.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Darshak Ravager": {
+  "family": "Darshak",
+  "pic": "darshakravager.gif",
+  "w": 33,
+  "h": 34
+ },
+ "Darshak Rebel Commander": {
+  "family": "Darshak",
+  "pic": "DarshakSlaveMaster.gif",
+  "w": 26,
+  "h": 32
+ },
+ "Darshak Rebel Roustabout": {
+  "family": "Darshak",
+  "pic": "DarshakRebelRoustabout.gif",
+  "w": 27,
+  "h": 34
+ },
+ "Darshak Rebel Swashbuckler": {
+  "family": "Darshak",
+  "pic": "DarshakRebelSwashbuckler.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Darshak Rebel Swordsman": {
+  "family": "Darshak",
+  "pic": "DarshakRebelSwordsman.gif",
+  "w": 33,
+  "h": 32
+ },
+ "Darshak Ruffian": {
+  "family": "Darshak",
+  "pic": "darshakpillager.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Darshak Sailor": {
+  "family": "Darshak",
+  "pic": "darshaksailor.gif",
+  "w": 30,
+  "h": 34
+ },
+ "Darshak Scientist": {
+  "family": "Darshak",
+  "pic": "DarshakScientist.gif",
+  "w": 26,
+  "h": 33
+ },
+ "Darshak Scout": {
+  "family": "Darshak",
+  "pic": "scout.gif",
+  "w": 26,
+  "h": 32
+ },
+ "Darshak Seamstress": {
+  "family": "Darshak",
+  "pic": "DarshakSeamstress.gif",
+  "w": 24,
+  "h": 31
+ },
+ "Darshak Sentry": {
+  "family": "Darshak",
+  "pic": "marauder.gif",
+  "w": 28,
+  "h": 32
+ },
+ "Darshak Skirmisher": {
+  "family": "Darshak",
+  "pic": "darshakskirmisher.gif",
+  "w": 32,
+  "h": 34
+ },
+ "Darshak Slave Master": {
+  "family": "Darshak",
+  "pic": "DarshakSlaveMaster.gif",
+  "w": 26,
+  "h": 32
+ },
+ "Darshak Slaver": {
+  "family": "Darshak",
+  "pic": "captainnew.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Darshak Spirit": {
+  "family": "Insubstantial Undine",
+  "pic": "DarshakSpirit.gif",
+  "w": 26,
+  "h": 33
+ },
+ "Darshak Swabbie": {
+  "family": "Darshak",
+  "pic": "DarshakSwabbie.gif",
+  "w": 28,
+  "h": 35
+ },
+ "Darshak Thug": {
+  "family": "Darshak",
+  "pic": "thug.gif",
+  "w": 25,
+  "h": 32
+ },
+ "Darshak Tracker": {
+  "family": "Darshak",
+  "pic": "DarshakTracker.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Darshak Tug": {
+  "family": "Extinct",
+  "pic": "darshaktug.gif",
+  "w": 29,
+  "h": 33
+ },
+ "Darshak Veteran": {
+  "family": "Darshak",
+  "pic": "darshakveteran.gif",
+  "w": 32,
+  "h": 34
+ },
+ "Darshak War Hound": {
+  "family": "Extinct",
+  "pic": "darshakwarhound.gif",
+  "w": 37,
+  "h": 38
+ },
+ "Darshak Warship": {
+  "family": "Darshak",
+  "pic": "warship.gif",
+  "w": 47,
+  "h": 76
+ },
+ "Darshak Woodsman": {
+  "family": "Darshak",
+  "pic": "DarshakWoodsman.gif",
+  "w": 25,
+  "h": 37
+ },
+ "Dawn Wendecka": {
+  "family": "Wendecka",
+  "pic": "dawnwendecka.gif",
+  "w": 32,
+  "h": 34
+ },
+ "Day Wendecka": {
+  "family": "Wendecka",
+  "pic": "daywendecka.gif",
+  "w": 31,
+  "h": 34
+ },
+ "Deadly Adder": {
+  "family": "Serpent",
+  "pic": "snake.gif",
+  "w": 18,
+  "h": 30
+ },
+ "Deadly Arachne": {
+  "family": "Arachne",
+  "pic": "deadlycarrion.gif",
+  "w": 23,
+  "h": 25
+ },
+ "Deadly Crawler": {
+  "family": "Crustacean",
+  "pic": "deadlycrawler.gif",
+  "w": 33,
+  "h": 36
+ },
+ "Deadly Hornet": {
+  "family": "Insect",
+  "pic": "DeadlyHornet.png",
+  "w": 25,
+  "h": 31
+ },
+ "Deadly Poppy": {
+  "family": "Extinct",
+  "pic": "blackrose.gif",
+  "w": 9,
+  "h": 12
+ },
+ "Deadly Wasp": {
+  "family": "Insect",
+  "pic": "deadlywasp.gif",
+  "w": 28,
+  "h": 27
+ },
+ "Death Furie": {
+  "family": "Substantial Undine",
+  "pic": "deathfurie.gif",
+  "w": 18,
+  "h": 31
+ },
+ "Death Vermine": {
+  "family": "Vermine",
+  "pic": "deathvermine.png",
+  "w": 23,
+  "h": 32
+ },
+ "Deathhawk": {
+  "family": "Avian",
+  "pic": "Deathhawk.gif",
+  "w": 41,
+  "h": 42
+ },
+ "Deep Meshra": {
+  "family": "Meshra",
+  "pic": "deepmeshra.png",
+  "w": 35,
+  "h": 44
+ },
+ "Delta Toad": {
+  "family": "Anura",
+  "pic": "DeltaToad.png",
+  "w": 40,
+  "h": 40
+ },
+ "Demonic Vermine": {
+  "family": "Vermine",
+  "pic": "demonicvermine.png",
+  "w": 31,
+  "h": 30
+ },
+ "Dense Ethereal Spume": {
+  "family": "Ethereal",
+  "pic": "DenseEtherealSpume.gif",
+  "w": 23,
+  "h": 20
+ },
+ "Despair Bear": {
+  "family": "Shadow",
+  "pic": "DespairBear.gif",
+  "w": 92,
+  "h": 75
+ },
+ "Detached Spirit": {
+  "family": "Insubstantial Undine",
+  "pic": "detatchedspirit.gif",
+  "w": 64,
+  "h": 64
+ },
+ "Deth'Kin": {
+  "family": "Trool",
+  "pic": "dethkin.gif",
+  "w": 34,
+  "h": 32
+ },
+ "Devouring Darkness": {
+  "family": "Shadow",
+  "pic": "DevouringDarkness.gif",
+  "w": 92,
+  "h": 82
+ },
+ "Dire Bear": {
+  "family": "Ursine",
+  "pic": "DireBear.gif",
+  "w": 51,
+  "h": 49
+ },
+ "Dire Feral": {
+  "family": "Canine",
+  "pic": "direferal.gif",
+  "w": 78,
+  "h": 78
+ },
+ "Dour Dowager": {
+  "family": "Arachne",
+  "pic": "DourDowager.gif",
+  "w": 58,
+  "h": 50
+ },
+ "Dra'ryx": {
+  "family": "Wyrm",
+  "pic": "draryx.gif",
+  "w": 27,
+  "h": 27
+ },
+ "Dragonfly": {
+  "family": "Insect",
+  "pic": "dragonfly.gif",
+  "w": 31,
+  "h": 22
+ },
+ "Dreamdrinker": {
+  "family": "Insect",
+  "pic": "Dreamdrinker.gif",
+  "w": 151,
+  "h": 136
+ },
+ "Dusk Wendecka": {
+  "family": "Wendecka",
+  "pic": "duskwendecka.gif",
+  "w": 34,
+  "h": 34
+ },
+ "Dust Arachne": {
+  "family": "Arachne",
+  "pic": "dustarachne.gif",
+  "w": 32,
+  "h": 30
+ },
+ "Dwarven Miner": {
+  "family": "Uncategorized",
+  "pic": "DwarvenMiner.gif",
+  "w": 33,
+  "h": 45
+ },
+ "Eagle Owl": {
+  "family": "Avian",
+  "pic": "EagleOwl.gif",
+  "w": 56,
+  "h": 42
+ },
+ "Earth Wyrm": {
+  "family": "Wyrm",
+  "pic": "earthwyrm.gif",
+  "w": 64,
+  "h": 70
+ },
+ "Earth-zu": {
+  "family": "Plant",
+  "pic": "earthzu.gif",
+  "w": 39,
+  "h": 42
+ },
+ "Ebb Meshra": {
+  "family": "Meshra",
+  "pic": "EbbMeshra.png",
+  "w": 39,
+  "h": 43
+ },
+ "Ebb Meshra Warden": {
+  "family": "Meshra",
+  "pic": "EbbMeshraWarden.png",
+  "w": 45,
+  "h": 62
+ },
+ "Ebon Scorp": {
+  "family": "Insect",
+  "pic": "scorp.gif",
+  "w": 15,
+  "h": 20
+ },
+ "Ebon Wraith": {
+  "family": "Insubstantial Undine",
+  "pic": "EbonWraith.gif",
+  "w": 29,
+  "h": 32
+ },
+ "Elder Guardian": {
+  "family": "Meshra",
+  "pic": "elderlairmottlednew.png",
+  "w": 37,
+  "h": 43
+ },
+ "Elder Night Wendecka": {
+  "family": "Wendecka",
+  "pic": "nightwendecka.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Elder Tae-Su": {
+  "family": "Oceanic",
+  "pic": "ElderTaeSu.gif",
+  "w": 46,
+  "h": 44
+ },
+ "Elder Wendecka": {
+  "family": "Wendecka",
+  "pic": "elderwendecka.gif",
+  "w": 37,
+  "h": 36
+ },
+ "Electrified Fogbank": {
+  "family": "Air Elemental",
+  "pic": "ElectrifiedFogbank.gif",
+  "w": 73,
+  "h": 87
+ },
+ "Elite Darshak Skirmisher": {
+  "family": "Darshak",
+  "pic": "darshakskirmisher.gif",
+  "w": 32,
+  "h": 34
+ },
+ "Elite Eukaryid": {
+  "family": "Eukaryid",
+  "pic": "EliteEukaryid.gif",
+  "w": 30,
+  "h": 30
+ },
+ "Ember Wyrm": {
+  "family": "Wyrm",
+  "pic": "emberwyrm.gif",
+  "w": 40,
+  "h": 39
+ },
+ "Emerald Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "emeraldarachnoid.gif",
+  "w": 64,
+  "h": 67
+ },
+ "Emerald Scorp": {
+  "family": "Insect",
+  "pic": "emeraldscorpion.gif",
+  "w": 22,
+  "h": 23
+ },
+ "Emerald Tok'Han": {
+  "family": "Serpent",
+  "pic": "emeraldtokhan.gif",
+  "w": 55,
+  "h": 55
+ },
+ "Enchanted Peg-Leg": {
+  "family": "Uncategorized",
+  "pic": "EnchantedPegLeg.gif",
+  "w": 19,
+  "h": 26
+ },
+ "Eolith Crawler": {
+  "family": "Crustacean",
+  "pic": "EolithCrawler.gif",
+  "w": 33,
+  "h": 26
+ },
+ "Escaping Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "pitcharachnoid.gif",
+  "w": 67,
+  "h": 61
+ },
+ "Escaping Yorilla": {
+  "family": "Yorilla",
+  "pic": "TawnyYorilla.gif",
+  "w": 32,
+  "h": 45
+ },
+ "Ethereal Chamelopod": {
+  "family": "Ethereal",
+  "pic": "etherealchamelopod.gif",
+  "w": 34,
+  "h": 27
+ },
+ "Ethereal Darshak Captain": {
+  "family": "Ethereal",
+  "pic": "EtherealDarshakCaptain.gif",
+  "w": 24,
+  "h": 32
+ },
+ "Ethereal Golem": {
+  "family": "Ethereal",
+  "pic": "etherealgolem.gif",
+  "w": 59,
+  "h": 62
+ },
+ "Ethereal Hunter": {
+  "family": "Ethereal",
+  "pic": "EtherealHunter.gif",
+  "w": 39,
+  "h": 36
+ },
+ "Ethereal Sailor": {
+  "family": "Ethereal",
+  "pic": "EtherealSailor.gif",
+  "w": 25,
+  "h": 33
+ },
+ "Ethereal Scarmis Warrior": {
+  "family": "Ethereal",
+  "pic": "etherealscarmis.gif",
+  "w": 85,
+  "h": 88
+ },
+ "Ethereal Skeletal": {
+  "family": "Ethereal",
+  "pic": "etherealskeletal.gif",
+  "w": 12,
+  "h": 38
+ },
+ "Ethereal Slug": {
+  "family": "Ethereal",
+  "pic": "etherealslug.gif",
+  "w": 34,
+  "h": 28
+ },
+ "Ethereal Stalker": {
+  "family": "Ethereal",
+  "pic": "etherealstalker.gif",
+  "w": 44,
+  "h": 43
+ },
+ "Ethereal Walker": {
+  "family": "Ethereal",
+  "pic": "etherealwalker.gif",
+  "w": 36,
+  "h": 40
+ },
+ "Ethereal Wurm": {
+  "family": "Ethereal",
+  "pic": "EtherealWurmNew.gif",
+  "w": 32,
+  "h": 31
+ },
+ "Evil Noble King": {
+  "family": "Uncategorized",
+  "pic": "EvilNobleKing.gif",
+  "w": 38,
+  "h": 44
+ },
+ "Experienced Darshak Captain": {
+  "family": "Darshak",
+  "pic": "captainnew.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Exploding Pumpkin": {
+  "family": "Plant",
+  "pic": "Jackolantern.gif",
+  "w": 40,
+  "h": 33
+ },
+ "Eye Agro": {
+  "family": "Shadow",
+  "pic": "EyeAgro.gif",
+  "w": 20,
+  "h": 19
+ },
+ "Faithless": {
+  "family": "Insubstantial Undine",
+  "pic": "faithless.gif",
+  "w": 24,
+  "h": 34
+ },
+ "Fang Warrior Shadow": {
+  "family": "Insubstantial Undine",
+  "pic": "FangWarriorShadow.gif",
+  "w": 31,
+  "h": 33
+ },
+ "Father Silversnag": {
+  "family": "Tree Elemental",
+  "pic": "FatherSilversnag.gif",
+  "w": 87,
+  "h": 117
+ },
+ "Fellbuck": {
+  "family": "Equine",
+  "pic": "Fellbuck.gif",
+  "w": 39,
+  "h": 38
+ },
+ "Fellock": {
+  "family": "Orga",
+  "pic": "fellock.gif",
+  "w": 56,
+  "h": 60
+ },
+ "Fenix": {
+  "family": "Extinct",
+  "pic": "phoenix.gif",
+  "w": 63,
+  "h": 56
+ },
+ "Feral": {
+  "family": "Canine",
+  "pic": "feral.gif",
+  "w": 30,
+  "h": 28
+ },
+ "Feral Moon Manual": {
+  "family": "Uncategorized",
+  "pic": "FeralMoonManual.gif",
+  "w": 30,
+  "h": 26
+ },
+ "Feral Pup": {
+  "family": "Canine",
+  "pic": "feralpup.gif",
+  "w": 25,
+  "h": 24
+ },
+ "Fickle Foxweir": {
+  "family": "Canine",
+  "pic": "FickleFoxweir.gif",
+  "w": 25,
+  "h": 21
+ },
+ "Fiery Bubble": {
+  "family": "Fire Elemental",
+  "pic": "firebubble.gif",
+  "w": 36,
+  "h": 34
+ },
+ "Fire Beetle": {
+  "family": "Insect",
+  "pic": "firebeetle.gif",
+  "w": 44,
+  "h": 41
+ },
+ "Fire Dra'ryx": {
+  "family": "Wyrm",
+  "pic": "firedraryx.gif",
+  "w": 29,
+  "h": 30
+ },
+ "Fire Drake": {
+  "family": "Drake",
+  "pic": "firedrake.gif",
+  "w": 87,
+  "h": 82
+ },
+ "Fire Myrm": {
+  "family": "Insect",
+  "pic": "warriorprotector.gif",
+  "w": 26,
+  "h": 31
+ },
+ "Fire Rat": {
+  "family": "Vermine",
+  "pic": "lavarat.png",
+  "w": 22,
+  "h": 26
+ },
+ "Fire Vermine": {
+  "family": "Vermine",
+  "pic": "demonicvermine.png",
+  "w": 31,
+  "h": 30
+ },
+ "Fledgling Kestrel": {
+  "family": "Avian",
+  "pic": "FledglingKestrel.gif",
+  "w": 20,
+  "h": 16
+ },
+ "Fleet Foxweir": {
+  "family": "Canine",
+  "pic": "FleetFoxweir.gif",
+  "w": 27,
+  "h": 29
+ },
+ "Flint Foxweir": {
+  "family": "Canine",
+  "pic": "FlintFoxweir.gif",
+  "w": 28,
+  "h": 26
+ },
+ "Flood Meshra": {
+  "family": "Meshra",
+  "pic": "FloodMeshra.gif",
+  "w": 30,
+  "h": 42
+ },
+ "Florese Vermine": {
+  "family": "Vermine",
+  "pic": "CryptRat.gif",
+  "w": 24,
+  "h": 22
+ },
+ "Flotsam Meshra": {
+  "family": "Meshra",
+  "pic": "FlotsamMeshra.png",
+  "w": 30,
+  "h": 39
+ },
+ "Flower Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "flowerlyfelidae.gif",
+  "w": 33,
+  "h": 60
+ },
+ "Flying Foxweir": {
+  "family": "Vermine",
+  "pic": "flyingfoxweir.png",
+  "w": 33,
+  "h": 33
+ },
+ "Foil Vulture": {
+  "family": "Avian",
+  "pic": "FoilVulture.png",
+  "w": 30,
+  "h": 29
+ },
+ "Forest Chamelopod": {
+  "family": "Insect",
+  "pic": "forestchamelopod.gif",
+  "w": 36,
+  "h": 30
+ },
+ "Forest Cobra": {
+  "family": "Serpent",
+  "pic": "ForestCobra.gif",
+  "w": 35,
+  "h": 30
+ },
+ "Forest Drake": {
+  "family": "Drake",
+  "pic": "fordrake.gif",
+  "w": 86,
+  "h": 83
+ },
+ "Foxweir": {
+  "family": "Canine",
+  "pic": "foxweir.gif",
+  "w": 22,
+  "h": 20
+ },
+ "Foxweir Friend": {
+  "family": "Uncategorized",
+  "pic": "FoxweirFriend.gif",
+  "w": 29,
+  "h": 34
+ },
+ "Foxweir Pup": {
+  "family": "Canine",
+  "pic": "foxweir.gif",
+  "w": 22,
+  "h": 20
+ },
+ "Fragile Penumbryx": {
+  "family": "Shadow",
+  "pic": "FragilePenumbryx.gif",
+  "w": 52,
+  "h": 49
+ },
+ "Frog": {
+  "family": "Anura",
+  "pic": "frog.gif",
+  "w": 16,
+  "h": 19
+ },
+ "Frost Elemental": {
+  "family": "Ice Elemental",
+  "pic": "FrostElemental.gif",
+  "w": 63,
+  "h": 80
+ },
+ "Frost Foxweir": {
+  "family": "Canine",
+  "pic": "FrostFoxweir.gif",
+  "w": 23,
+  "h": 23
+ },
+ "Frost Giant": {
+  "family": "Tree Elemental",
+  "pic": "frostgiant.gif",
+  "w": 59,
+  "h": 61
+ },
+ "Frost Orga": {
+  "family": "Orga",
+  "pic": "frostorga.gif",
+  "w": 25,
+  "h": 32
+ },
+ "Frost Yorilla": {
+  "family": "Yorilla",
+  "pic": "FrostYorilla.gif",
+  "w": 37,
+  "h": 47
+ },
+ "Frostbite Meshra": {
+  "family": "Meshra",
+  "pic": "FrostbiteMeshra.gif",
+  "w": 33,
+  "h": 43
+ },
+ "Frostquill": {
+  "family": "Chimera",
+  "pic": "Frostquill.gif",
+  "w": 28,
+  "h": 28
+ },
+ "Frozen Abyssal Hunter": {
+  "family": "Skeletal Undine",
+  "pic": "frozenabyssalhunter.gif",
+  "w": 38,
+  "h": 60
+ },
+ "Frozen Drake": {
+  "family": "Drake",
+  "pic": "frostdrake.png",
+  "w": 84,
+  "h": 86
+ },
+ "Fumehorn Colossus": {
+  "family": "Shadow",
+  "pic": "FumehornColossus.gif",
+  "w": 91,
+  "h": 117
+ },
+ "Fuu Nomad Shadow": {
+  "family": "Insubstantial Undine",
+  "pic": "FuuNomadShadow.gif",
+  "w": 24,
+  "h": 34
+ },
+ "Gan Vara Elite": {
+  "family": "Corrupted Guard",
+  "pic": "ganvaraelite.gif",
+  "w": 32,
+  "h": 39
+ },
+ "Gan Vara Soldier": {
+  "family": "Corrupted Guard",
+  "pic": "ganvarasoldier.gif",
+  "w": 32,
+  "h": 39
+ },
+ "Gan Vara Warrior": {
+  "family": "Corrupted Guard",
+  "pic": "ganvarawarrior.gif",
+  "w": 37,
+  "h": 37
+ },
+ "Gar'Noth": {
+  "family": "Noth",
+  "pic": "gar.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Garr'Noth": {
+  "family": "Noth",
+  "pic": "gar.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Gaw'Kin": {
+  "family": "Trool",
+  "pic": "gawkin.gif",
+  "w": 33,
+  "h": 32
+ },
+ "Ghastly Presence": {
+  "family": "Insubstantial Undine",
+  "pic": "ghastlypresence.gif",
+  "w": 20,
+  "h": 24
+ },
+ "Gho Shadow": {
+  "family": "Insect",
+  "pic": "GhoShadow.gif",
+  "w": 60,
+  "h": 54
+ },
+ "Gho-Wei Carnivant": {
+  "family": "Insubstantial Undine",
+  "pic": "GhoWeiCarnivant.gif",
+  "w": 40,
+  "h": 44
+ },
+ "Gho-Wei Ghoulish": {
+  "family": "Insubstantial Undine",
+  "pic": "GhoWeiGhoulish.gif",
+  "w": 23,
+  "h": 26
+ },
+ "Gho-Wei Inkling": {
+  "family": "Insubstantial Undine",
+  "pic": "GhoWeiInkling.gif",
+  "w": 32,
+  "h": 42
+ },
+ "Ghost Vulture": {
+  "family": "Avian",
+  "pic": "GhostVulture.gif",
+  "w": 29,
+  "h": 30
+ },
+ "Giant Carnivorous Plankton": {
+  "family": "Oceanic",
+  "pic": "gcp.png",
+  "w": 50,
+  "h": 50
+ },
+ "Giant Crawler": {
+  "family": "Crustacean",
+  "pic": "giantcrawler.gif",
+  "w": 30,
+  "h": 36
+ },
+ "Giant Feral": {
+  "family": "Canine",
+  "pic": "giantferal.gif",
+  "w": 67,
+  "h": 62
+ },
+ "Giant Foxweir": {
+  "family": "Canine",
+  "pic": "giantfoxweir.gif",
+  "w": 33,
+  "h": 30
+ },
+ "Giant River Lizard": {
+  "family": "Lizard",
+  "pic": "GiantRiverLizard.png",
+  "w": 32,
+  "h": 43
+ },
+ "Giant Skeletal": {
+  "family": "Skeletal Undine",
+  "pic": "giantskeletal.gif",
+  "w": 22,
+  "h": 39
+ },
+ "Giant Slug": {
+  "family": "Worm",
+  "pic": "giantslug.gif",
+  "w": 24,
+  "h": 32
+ },
+ "Giant Vermine": {
+  "family": "Vermine",
+  "pic": "giantvermine.png",
+  "w": 38,
+  "h": 36
+ },
+ "Giayl": {
+  "family": "Uncategorized",
+  "pic": "Giayl.gif",
+  "w": 23,
+  "h": 27
+ },
+ "Gilded Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "GildedGreymyr.gif",
+  "w": 39,
+  "h": 60
+ },
+ "Gitoise": {
+  "family": "Turtle",
+  "pic": "Gitoise_New.gif",
+  "w": 44,
+  "h": 33
+ },
+ "Glacial Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "GlacialGreymyr.gif",
+  "w": 67,
+  "h": 74
+ },
+ "Glacial Guardian": {
+  "family": "Tree Guardian",
+  "pic": "GlacialGuardian.gif",
+  "w": 32,
+  "h": 45
+ },
+ "Glacier Bear": {
+  "family": "Ursine",
+  "pic": "GlacierBear.gif",
+  "w": 43,
+  "h": 37
+ },
+ "Glacier Bear Cub": {
+  "family": "Ursine",
+  "pic": "GlacierBearCub.gif",
+  "w": 38,
+  "h": 31
+ },
+ "Glacier Meshra": {
+  "family": "Meshra",
+  "pic": "glaciermeshra.png",
+  "w": 36,
+  "h": 41
+ },
+ "Gloaming Wendecka": {
+  "family": "Wendecka",
+  "pic": "gloamingwendecka.gif",
+  "w": 33,
+  "h": 32
+ },
+ "Gnasher": {
+  "family": "Shadow",
+  "pic": "Gnasher.gif",
+  "w": 56,
+  "h": 63
+ },
+ "Goat": {
+  "family": "Bovidae",
+  "pic": "goat.gif",
+  "w": 19,
+  "h": 27
+ },
+ "Gob'Kin": {
+  "family": "Trool",
+  "pic": "gobkin.gif",
+  "w": 31,
+  "h": 33
+ },
+ "Gorged Gull": {
+  "family": "Avian",
+  "pic": "ScavengerBird.gif",
+  "w": 22,
+  "h": 16
+ },
+ "Grandew": {
+  "family": "Extinct",
+  "pic": "grandew.gif",
+  "w": 36,
+  "h": 38
+ },
+ "Granite Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "GraniteGreymyr.gif",
+  "w": 54,
+  "h": 60
+ },
+ "Grasper": {
+  "family": "Shadow",
+  "pic": "Gnasher.gif",
+  "w": 56,
+  "h": 63
+ },
+ "Grasping Horror": {
+  "family": "Shadow",
+  "pic": "GraspingHorror.gif",
+  "w": 165,
+  "h": 150
+ },
+ "Great Rockodile": {
+  "family": "Lizard",
+  "pic": "greatrockodile.gif",
+  "w": 39,
+  "h": 38
+ },
+ "Greater Blymoid": {
+  "family": "Blymoid",
+  "pic": "blymoid.gif",
+  "w": 25,
+  "h": 28
+ },
+ "Greater Death": {
+  "family": "Demonic Undine",
+  "pic": "greaterdeath.gif",
+  "w": 32,
+  "h": 31
+ },
+ "Greater Guardian": {
+  "family": "Insubstantial Undine",
+  "pic": "wailingspirit.gif",
+  "w": 27,
+  "h": 31
+ },
+ "Greater Liche": {
+  "family": "Demonic Undine",
+  "pic": "GreaterLiche.gif",
+  "w": 35,
+  "h": 34
+ },
+ "Greater Spectre": {
+  "family": "Insubstantial Undine",
+  "pic": "GreaterSpectre.gif",
+  "w": 30,
+  "h": 30
+ },
+ "Greater Wraith": {
+  "family": "Insubstantial Undine",
+  "pic": "greaterwraith.gif",
+  "w": 27,
+  "h": 32
+ },
+ "Green Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "greenarachnoid.gif",
+  "w": 63,
+  "h": 62
+ },
+ "Green Crawler": {
+  "family": "Crustacean",
+  "pic": "greencrawler.gif",
+  "w": 36,
+  "h": 35
+ },
+ "Green Meshra": {
+  "family": "Meshra",
+  "pic": "greenmeshranew.png",
+  "w": 36,
+  "h": 35
+ },
+ "Green Sea Beetle": {
+  "family": "Insect",
+  "pic": "GreenSeaBeetle.png",
+  "w": 29,
+  "h": 29
+ },
+ "Green Tok'Han": {
+  "family": "Serpent",
+  "pic": "greentokhan.gif",
+  "w": 52,
+  "h": 56
+ },
+ "Greisen Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "GreisenGreymyr.gif",
+  "w": 61,
+  "h": 74
+ },
+ "Grey Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "greyarachnoid.gif",
+  "w": 59,
+  "h": 64
+ },
+ "Grey Feral": {
+  "family": "Canine",
+  "pic": "feral.gif",
+  "w": 30,
+  "h": 28
+ },
+ "Grey Tok'Han": {
+  "family": "Serpent",
+  "pic": "greytokhan.gif",
+  "w": 60,
+  "h": 57
+ },
+ "Grey Wyrm": {
+  "family": "Wyrm",
+  "pic": "greywyrm.gif",
+  "w": 59,
+  "h": 49
+ },
+ "Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "greymyr.gif",
+  "w": 46,
+  "h": 58
+ },
+ "Greymyr Pusher": {
+  "family": "Earth Elemental",
+  "pic": "GreymyrPusher.gif",
+  "w": 58,
+  "h": 72
+ },
+ "Greymyr Shover": {
+  "family": "Earth Elemental",
+  "pic": "GreymyrShover.gif",
+  "w": 53,
+  "h": 62
+ },
+ "Grizzly Bear": {
+  "family": "Ursine",
+  "pic": "grizzybear.gif",
+  "w": 31,
+  "h": 41
+ },
+ "Grove Guardian": {
+  "family": "Tree Guardian",
+  "pic": "GroveGuardian.gif",
+  "w": 29,
+  "h": 34
+ },
+ "Gruff Mountain Goat": {
+  "family": "Bovidae",
+  "pic": "GruffMountainGoat.gif",
+  "w": 28,
+  "h": 29
+ },
+ "Guard Commander": {
+  "family": "Human Guard",
+  "pic": "guardcommandernew.gif",
+  "w": 25,
+  "h": 32
+ },
+ "Guard Dog": {
+  "family": "Canine",
+  "pic": "guarddog.gif",
+  "w": 31,
+  "h": 30
+ },
+ "Guard Tosser": {
+  "family": "Human Guard",
+  "pic": "castleveteran.gif",
+  "w": 26,
+  "h": 33
+ },
+ "Guard Veteran": {
+  "family": "Human Guard",
+  "pic": "castleveteran.gif",
+  "w": 26,
+  "h": 33
+ },
+ "Guardian of the Item": {
+  "family": "Ethereal",
+  "pic": "etherealstalker.gif",
+  "w": 44,
+  "h": 43
+ },
+ "Happy Lil' Fledgling": {
+  "family": "Avian",
+  "pic": "FledglingKestrel.gif",
+  "w": 20,
+  "h": 16
+ },
+ "Hardened Mud Golem": {
+  "family": "Earth Elemental",
+  "pic": "HardenedMudGolem.gif",
+  "w": 60,
+  "h": 61
+ },
+ "Hardew": {
+  "family": "Extinct",
+  "pic": "hardew.gif",
+  "w": 28,
+  "h": 33
+ },
+ "Haremau": {
+  "family": "Feline",
+  "pic": "haremau.gif",
+  "w": 52,
+  "h": 36
+ },
+ "Haremau Kitten": {
+  "family": "Feline",
+  "pic": "haremaukitten.gif",
+  "w": 38,
+  "h": 34
+ },
+ "Harvest Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "harvestlyfelidae.gif",
+  "w": 30,
+  "h": 60
+ },
+ "Haunted Pumpkin": {
+  "family": "Plant",
+  "pic": "Jackolantern.gif",
+  "w": 40,
+  "h": 33
+ },
+ "Haunting Shade": {
+  "family": "Insubstantial Undine",
+  "pic": "BlightShade.gif",
+  "w": 22,
+  "h": 32
+ },
+ "Heartwood Hierophant": {
+  "family": "Tree Elemental",
+  "pic": "HeartwoodHierophant.gif",
+  "w": 81,
+  "h": 111
+ },
+ "Hek'Noth": {
+  "family": "Noth",
+  "pic": "hel.gif",
+  "w": 25,
+  "h": 31
+ },
+ "Hel'Noth": {
+  "family": "Noth",
+  "pic": "hel.gif",
+  "w": 25,
+  "h": 31
+ },
+ "Hell Boar": {
+  "family": "Suidae",
+  "pic": "wildboar.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Hellebore": {
+  "family": "Plant",
+  "pic": "hellebore.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Herpetad": {
+  "family": "Lizard",
+  "pic": "herpetad.gif",
+  "w": 21,
+  "h": 22
+ },
+ "Herpetid": {
+  "family": "Lizard",
+  "pic": "herpetid.gif",
+  "w": 30,
+  "h": 28
+ },
+ "Hickory Giant": {
+  "family": "Tree Elemental",
+  "pic": "HickoryGiant.png",
+  "w": 57,
+  "h": 61
+ },
+ "High Priest": {
+  "family": "Darshak",
+  "pic": "highpriest.gif",
+  "w": 26,
+  "h": 32
+ },
+ "High Priestess Shadow": {
+  "family": "Insubstantial Undine",
+  "pic": "HighPriestessShadow.gif",
+  "w": 24,
+  "h": 34
+ },
+ "Hob'Kin": {
+  "family": "Trool",
+  "pic": "hobkin.gif",
+  "w": 27,
+  "h": 31
+ },
+ "Honey Bear": {
+  "family": "Ursine",
+  "pic": "honeybear.gif",
+  "w": 35,
+  "h": 38
+ },
+ "Honor Guard": {
+  "family": "Human Guard",
+  "pic": "castleguardnew.gif",
+  "w": 24,
+  "h": 32
+ },
+ "Honor Guard Captain": {
+  "family": "Extinct",
+  "pic": "darkknightnew.gif",
+  "w": 31,
+  "h": 33
+ },
+ "Honor Guard Commander": {
+  "family": "Human Guard",
+  "pic": "guardcommandernew.gif",
+  "w": 25,
+  "h": 32
+ },
+ "Honor Guard Veteran": {
+  "family": "Human Guard",
+  "pic": "castleveteran.gif",
+  "w": 26,
+  "h": 33
+ },
+ "Honor Knight": {
+  "family": "Human Guard",
+  "pic": "darkknightnew.gif",
+  "w": 31,
+  "h": 33
+ },
+ "Hooded Corpse": {
+  "family": "Substantial Undine",
+  "pic": "hodcorpse.gif",
+  "w": 25,
+  "h": 31
+ },
+ "Hooded Guardian": {
+  "family": "Substantial Undine",
+  "pic": "hodcorpse.gif",
+  "w": 25,
+  "h": 31
+ },
+ "Hooded Shadow": {
+  "family": "Insubstantial Undine",
+  "pic": "hoodedshadow.gif",
+  "w": 30,
+  "h": 31
+ },
+ "Horseshoe Crawler": {
+  "family": "Crustacean",
+  "pic": "HorseshoeCrawler.png",
+  "w": 29,
+  "h": 29
+ },
+ "Hovering Hell Boar": {
+  "family": "Suidae",
+  "pic": "HoveringHellBoar.gif",
+  "w": 28,
+  "h": 30
+ },
+ "Hungry Hell Boar": {
+  "family": "Suidae",
+  "pic": "HungryHellBoar.gif",
+  "w": 30,
+  "h": 25
+ },
+ "Hungry Hungry Hellebore": {
+  "family": "Plant",
+  "pic": "HungryHungryHellebore.gif",
+  "w": 46,
+  "h": 54
+ },
+ "Hungry Mountain Bear": {
+  "family": "Ursine",
+  "pic": "HungryMountainBear.gif",
+  "w": 47,
+  "h": 44
+ },
+ "Hunter's Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "hunterslyfelidae.gif",
+  "w": 33,
+  "h": 60
+ },
+ "Ice Giant": {
+  "family": "Tree Elemental",
+  "pic": "bobgiant.gif",
+  "w": 51,
+  "h": 59
+ },
+ "Ice Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "icegreymyr.gif",
+  "w": 47,
+  "h": 61
+ },
+ "Ice Maha Ruknee": {
+  "family": "Feline",
+  "pic": "icemaharuknee.gif",
+  "w": 35,
+  "h": 36
+ },
+ "Ice'kin": {
+  "family": "Trool",
+  "pic": "IceKin.gif",
+  "w": 29,
+  "h": 34
+ },
+ "Igneous Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "IgneousGreymyr.gif",
+  "w": 56,
+  "h": 75
+ },
+ "Ill Cub": {
+  "family": "Shadow",
+  "pic": "IllCub.gif",
+  "w": 23,
+  "h": 24
+ },
+ "Indigo Crowlet": {
+  "family": "Avian",
+  "pic": "IndigoCrowlet.gif",
+  "w": 24,
+  "h": 21
+ },
+ "Indigo Ravenhawk": {
+  "family": "Avian",
+  "pic": "IndigoRavenhawk.gif",
+  "w": 36,
+  "h": 34
+ },
+ "Infant Ebb Meshra": {
+  "family": "Meshra",
+  "pic": "InfantEbbMeshra.png",
+  "w": 23,
+  "h": 19
+ },
+ "Infant Meshra": {
+  "family": "Meshra",
+  "pic": "infantmeshra.png",
+  "w": 26,
+  "h": 27
+ },
+ "Ironwood Giant": {
+  "family": "Tree Elemental",
+  "pic": "ironwoodgiant.gif",
+  "w": 60,
+  "h": 60
+ },
+ "Island Locust": {
+  "family": "Insect",
+  "pic": "islandlocustnew.gif",
+  "w": 29,
+  "h": 31
+ },
+ "Island Mantis": {
+  "family": "Insect",
+  "pic": "islandmantis.gif",
+  "w": 30,
+  "h": 31
+ },
+ "Island Panther": {
+  "family": "Feline",
+  "pic": "islandpanther.gif",
+  "w": 26,
+  "h": 21
+ },
+ "Jack o' Liche": {
+  "family": "Demonic Undine",
+  "pic": "JackoLiche.gif",
+  "w": 35,
+  "h": 35
+ },
+ "Jack-o-Lantern": {
+  "family": "Plant",
+  "pic": "jackolantern.gif",
+  "w": 37,
+  "h": 27
+ },
+ "Jade Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "jadearachnoid.gif",
+  "w": 61,
+  "h": 64
+ },
+ "Jellyfish": {
+  "family": "Oceanic",
+  "pic": "jelly.gif",
+  "w": 19,
+  "h": 19
+ },
+ "Jerk Knight": {
+  "family": "Uncategorized",
+  "pic": "JerkKnight.gif",
+  "w": 27,
+  "h": 45
+ },
+ "Juliosaur": {
+  "family": "Insect",
+  "pic": "juliosaur.gif",
+  "w": 61,
+  "h": 52
+ },
+ "Jun'Kin": {
+  "family": "Trool",
+  "pic": "junkin.gif",
+  "w": 24,
+  "h": 31
+ },
+ "Kal'Noth": {
+  "family": "Noth",
+  "pic": "qual.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Kil'Kin": {
+  "family": "Trool",
+  "pic": "kilkin.gif",
+  "w": 33,
+  "h": 32
+ },
+ "Klarik": {
+  "family": "Ice Elemental",
+  "pic": "Klarik.gif",
+  "w": 35,
+  "h": 37
+ },
+ "Ko'Kin": {
+  "family": "Trool",
+  "pic": "kokin.gif",
+  "w": 26,
+  "h": 31
+ },
+ "Kolar Bear": {
+  "family": "Ursine",
+  "pic": "KolarBear.gif",
+  "w": 46,
+  "h": 42
+ },
+ "Komodo Drakewyrm": {
+  "family": "Wyrm",
+  "pic": "KomodoDrakewyrm.gif",
+  "w": 39,
+  "h": 39
+ },
+ "Krimppin": {
+  "family": "Fairy",
+  "pic": "Krimppin.gif",
+  "w": 18,
+  "h": 17
+ },
+ "Kudzu": {
+  "family": "Plant",
+  "pic": "kudzu.gif",
+  "w": 38,
+  "h": 38
+ },
+ "Lair Guardian": {
+  "family": "Meshra",
+  "pic": "elderlairmottlednew.png",
+  "w": 37,
+  "h": 43
+ },
+ "Landew": {
+  "family": "Fungus",
+  "pic": "landew.gif",
+  "w": 37,
+  "h": 38
+ },
+ "Large Cereb Vermine": {
+  "family": "Vermine",
+  "pic": "largecerebvermine.png",
+  "w": 34,
+  "h": 40
+ },
+ "Large Death Vermine": {
+  "family": "Vermine",
+  "pic": "largedeathvermine.png",
+  "w": 38,
+  "h": 34
+ },
+ "Large Eukaryid": {
+  "family": "Eukaryid",
+  "pic": "LargeEukaryid.gif",
+  "w": 32,
+  "h": 32
+ },
+ "Large Feral": {
+  "family": "Canine",
+  "pic": "largeferal.gif",
+  "w": 35,
+  "h": 33
+ },
+ "Large Gloaming Wendecka": {
+  "family": "Wendecka",
+  "pic": "largegloamingwendecka.gif",
+  "w": 37,
+  "h": 41
+ },
+ "Large Midnight Wendecka": {
+  "family": "Wendecka",
+  "pic": "largemidnightwendecka.gif",
+  "w": 53,
+  "h": 50
+ },
+ "Large Sand Wurm": {
+  "family": "Wurm",
+  "pic": "largesandwurm.gif",
+  "w": 82,
+  "h": 82
+ },
+ "Large Tahxis Wurm": {
+  "family": "Worm",
+  "pic": "largetahxiswurm.gif",
+  "w": 37,
+  "h": 42
+ },
+ "Large Twilight Wendecka": {
+  "family": "Wendecka",
+  "pic": "largetwilightwendecka.gif",
+  "w": 42,
+  "h": 40
+ },
+ "Large Vermine": {
+  "family": "Vermine",
+  "pic": "largevermine.png",
+  "w": 17,
+  "h": 33
+ },
+ "Lava Beetle": {
+  "family": "Insect",
+  "pic": "lavabeetle.gif",
+  "w": 48,
+  "h": 43
+ },
+ "Lava Elemental": {
+  "family": "Fire Elemental",
+  "pic": "LavaElemental.gif",
+  "w": 28,
+  "h": 37
+ },
+ "Lava Vermine": {
+  "family": "Extinct",
+  "pic": "demonicvermine.png",
+  "w": 31,
+  "h": 30
+ },
+ "Lava Walker": {
+  "family": "Fire Elemental",
+  "pic": "firewalker.gif",
+  "w": 26,
+  "h": 37
+ },
+ "Lava Wurm": {
+  "family": "Worm",
+  "pic": "LavaWurm.gif",
+  "w": 29,
+  "h": 26
+ },
+ "Leafcutter Myrm": {
+  "family": "Insect",
+  "pic": "LeafcutterMyrm.gif",
+  "w": 45,
+  "h": 39
+ },
+ "Leech": {
+  "family": "Annelida",
+  "pic": "leech.gif",
+  "w": 10,
+  "h": 14
+ },
+ "Lesser Astral Drake": {
+  "family": "Drake",
+  "pic": "lesserastraldrake.gif",
+  "w": 62,
+  "h": 54
+ },
+ "Lesser Penumbryx": {
+  "family": "Shadow",
+  "pic": "LesserPenumbryx.gif",
+  "w": 53,
+  "h": 50
+ },
+ "Lesser Sand Wurm": {
+  "family": "Wurm",
+  "pic": "largesandwurm.gif",
+  "w": 82,
+  "h": 82
+ },
+ "Lesser Sarra'don": {
+  "family": "Wyrm",
+  "pic": "lessersarradon.gif",
+  "w": 60,
+  "h": 62
+ },
+ "Lesser Sarra'yrm": {
+  "family": "Wyrm",
+  "pic": "lessersarrayrm.gif",
+  "w": 60,
+  "h": 53
+ },
+ "Lesser Spectre": {
+  "family": "Insubstantial Undine",
+  "pic": "lesserspectre.gif",
+  "w": 28,
+  "h": 32
+ },
+ "Lesser Stitchling": {
+  "family": "Stitchling",
+  "pic": "LesserStitchling.gif",
+  "w": 23,
+  "h": 33
+ },
+ "Library Dweller": {
+  "family": "Substantial Undine",
+  "pic": "RottingCorpse.gif",
+  "w": 31,
+  "h": 35
+ },
+ "Library Horus": {
+  "family": "Insubstantial Undine",
+  "pic": "LibraryHorus.gif",
+  "w": 23,
+  "h": 29
+ },
+ "Lil' Gnashy": {
+  "family": "Lizard",
+  "pic": "adultrockodile.gif",
+  "w": 32,
+  "h": 32
+ },
+ "Lime Tok'Han": {
+  "family": "Serpent",
+  "pic": "limetokhan.gif",
+  "w": 56,
+  "h": 59
+ },
+ "Lith Bat": {
+  "family": "Vermine",
+  "pic": "LithBat.gif",
+  "w": 21,
+  "h": 25
+ },
+ "Longwalker": {
+  "family": "Shadow",
+  "pic": "Longwalker.gif",
+  "w": 29,
+  "h": 60
+ },
+ "Lord Pumpkin": {
+  "family": "Uncategorized",
+  "pic": "LordPumpkin.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Lord of the Undermarsh": {
+  "family": "Meshra",
+  "pic": "LordoftheUndermarsh.png",
+  "w": 47,
+  "h": 59
+ },
+ "Lost Bear": {
+  "family": "Ursine",
+  "pic": "LostBear.gif",
+  "w": 46,
+  "h": 49
+ },
+ "Lost Dream": {
+  "family": "Uncategorized",
+  "pic": "LostDream.gif",
+  "w": 28,
+  "h": 32
+ },
+ "Lost Exile": {
+  "family": "Insubstantial Undine",
+  "pic": "BlightShade.gif",
+  "w": 22,
+  "h": 32
+ },
+ "Lowland Hawk": {
+  "family": "Avian",
+  "pic": "LowlandHawk.png",
+  "w": 31,
+  "h": 22
+ },
+ "Lowland Panther": {
+  "family": "Feline",
+  "pic": "LowlandPanther.gif",
+  "w": 32,
+  "h": 20
+ },
+ "Lunar Bear Guardian": {
+  "family": "Ursine",
+  "pic": "LunarBearGuardian.gif",
+  "w": 46,
+  "h": 46
+ },
+ "Madzume Andvari": {
+  "family": "Lizard",
+  "pic": "MadzumeAndvari.png",
+  "w": 40,
+  "h": 41
+ },
+ "Madzume Yorilla": {
+  "family": "Yorilla",
+  "pic": "MadzumeYorilla.gif",
+  "w": 43,
+  "h": 61
+ },
+ "Magmyr": {
+  "family": "Earth Elemental",
+  "pic": "Magmyr.gif",
+  "w": 50,
+  "h": 64
+ },
+ "Magnum Herpetid": {
+  "family": "Lizard",
+  "pic": "magnumherpetid.gif",
+  "w": 31,
+  "h": 29
+ },
+ "Maha Ruknee": {
+  "family": "Feline",
+  "pic": "maharuknee.gif",
+  "w": 31,
+  "h": 27
+ },
+ "Mako Mouth": {
+  "family": "Oceanic",
+  "pic": "MakoMouth.gif",
+  "w": 79,
+  "h": 85
+ },
+ "Malachite Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "malachitearachnoid.gif",
+  "w": 59,
+  "h": 60
+ },
+ "Male Myrm": {
+  "family": "Insect",
+  "pic": "malemyrm.gif",
+  "w": 35,
+  "h": 31
+ },
+ "Malevolent Milkman": {
+  "family": "Uncategorized",
+  "pic": "MalevolentMilkman.gif",
+  "w": 37,
+  "h": 42
+ },
+ "Mama Night Wendecka": {
+  "family": "Wendecka",
+  "pic": "nightwendecka.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Mama Wendecka": {
+  "family": "Wendecka",
+  "pic": "wendecka.gif",
+  "w": 29,
+  "h": 33
+ },
+ "Mammoth Arachne": {
+  "family": "Arachne",
+  "pic": "mammotharachne.gif",
+  "w": 59,
+  "h": 59
+ },
+ "Mammoth Banana Arachne": {
+  "family": "Arachne",
+  "pic": "MammothBananaArachne.gif",
+  "w": 59,
+  "h": 55
+ },
+ "Mammoth Org": {
+  "family": "Org",
+  "pic": "MammothOrg.gif",
+  "w": 60,
+  "h": 61
+ },
+ "Mammoth Recluse Arachne": {
+  "family": "Arachne",
+  "pic": "mammothreclusearachne.gif",
+  "w": 54,
+  "h": 59
+ },
+ "Mammoth Stone Arachne": {
+  "family": "Arachne",
+  "pic": "mammothstonearachne.gif",
+  "w": 62,
+  "h": 61
+ },
+ "Mammoth Violène Arachne": {
+  "family": "Arachne",
+  "pic": "MammothVioleneArachne.gif",
+  "w": 61,
+  "h": 53
+ },
+ "Mange Feral": {
+  "family": "Canine",
+  "pic": "MangeFeral.gif",
+  "w": 56,
+  "h": 57
+ },
+ "Manifold Meshra": {
+  "family": "Extinct",
+  "pic": "ManifoldMeshra.gif",
+  "w": 31,
+  "h": 43
+ },
+ "Mantuan": {
+  "family": "Bovidae",
+  "pic": "mantuan.gif",
+  "w": 91,
+  "h": 91
+ },
+ "Massed Ethereal Spume": {
+  "family": "Ethereal",
+  "pic": "MassedEtherealSpume.gif",
+  "w": 33,
+  "h": 27
+ },
+ "Mauling Spirit": {
+  "family": "Ursine",
+  "pic": "MaulingSpirit.gif",
+  "w": 49,
+  "h": 54
+ },
+ "Mazarine Crawler": {
+  "family": "Crustacean",
+  "pic": "MazarineCrawler.png",
+  "w": 38,
+  "h": 38
+ },
+ "Mazemind Meshra": {
+  "family": "Extinct",
+  "pic": "MazemindMeshra.gif",
+  "w": 34,
+  "h": 42
+ },
+ "Megabite": {
+  "family": "Crustacean",
+  "pic": "Megabite.png",
+  "w": 29,
+  "h": 29
+ },
+ "Megamouth": {
+  "family": "Oceanic",
+  "pic": "megamouth.gif",
+  "w": 89,
+  "h": 69
+ },
+ "Miasmic Myotis": {
+  "family": "Vermine",
+  "pic": "DarkMyotis.gif",
+  "w": 30,
+  "h": 35
+ },
+ "Midnight Wendecka": {
+  "family": "Wendecka",
+  "pic": "midnightwendecka.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Midsummer Maha Ruknee": {
+  "family": "Feline",
+  "pic": "MidsummerMaha.gif",
+  "w": 34,
+  "h": 33
+ },
+ "Migrating Myrm Matriarch": {
+  "family": "Insect",
+  "pic": "MigratingMyrmMatriarch.gif",
+  "w": 106,
+  "h": 128
+ },
+ "Mild Mander": {
+  "family": "Salamander",
+  "pic": "MildMander.gif",
+  "w": 22,
+  "h": 13
+ },
+ "Mildew": {
+  "family": "Fungus",
+  "pic": "mildew.gif",
+  "w": 17,
+  "h": 17
+ },
+ "Milk Golem": {
+  "family": "Uncategorized",
+  "pic": "MilkGolem.gif",
+  "w": 57,
+  "h": 146
+ },
+ "Mimic": {
+  "family": "Uncategorized",
+  "pic": "Mimic.gif",
+  "w": 52,
+  "h": 50
+ },
+ "Minor Adumbration": {
+  "family": "Shadow",
+  "pic": "MinorAdumbration.gif",
+  "w": 20,
+  "h": 18
+ },
+ "Mirkmyr Mechanic": {
+  "family": "Earth Elemental",
+  "pic": "MirkmyrMechanic.gif",
+  "w": 59,
+  "h": 73
+ },
+ "Mistral Kestrel": {
+  "family": "Avian",
+  "pic": "MistralKestrel.gif",
+  "w": 35,
+  "h": 24
+ },
+ "Mobius Scorp": {
+  "family": "Arachne",
+  "pic": "MobiusScorp.gif",
+  "w": 37,
+  "h": 43
+ },
+ "Moltenmyr": {
+  "family": "Earth Elemental",
+  "pic": "Moltenmyr.gif",
+  "w": 62,
+  "h": 72
+ },
+ "Money Balloon": {
+  "family": "Uncategorized",
+  "pic": "MoneyBalloon.gif",
+  "w": 85,
+  "h": 80
+ },
+ "Monsoon Drake": {
+  "family": "Drake",
+  "pic": "MonsoonDrake.gif",
+  "w": 86,
+  "h": 84
+ },
+ "Moolah Minion": {
+  "family": "Uncategorized",
+  "pic": "MoolahMinion.gif",
+  "w": 34,
+  "h": 32
+ },
+ "Moon-zu": {
+  "family": "Plant",
+  "pic": "moonzu.gif",
+  "w": 39,
+  "h": 41
+ },
+ "Moonlight Messenger": {
+  "family": "Avian",
+  "pic": "MoonlightMessenger.gif",
+  "w": 37,
+  "h": 51
+ },
+ "Moss Scorp": {
+  "family": "Arachne",
+  "pic": "MossScorp.gif",
+  "w": 26,
+  "h": 27
+ },
+ "Mossy Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "MossyGreymyr.gif",
+  "w": 49,
+  "h": 60
+ },
+ "Mottled Meshra": {
+  "family": "Meshra",
+  "pic": "elderlairmottlednew.png",
+  "w": 37,
+  "h": 43
+ },
+ "Mountain Bear": {
+  "family": "Ursine",
+  "pic": "MountainBear.gif",
+  "w": 48,
+  "h": 40
+ },
+ "Mountain Bear Chieftain": {
+  "family": "Ursine",
+  "pic": "MountainBearChieftain.gif",
+  "w": 51,
+  "h": 50
+ },
+ "Mountain Bear Cub": {
+  "family": "Ursine",
+  "pic": "MountainBearCub.gif",
+  "w": 26,
+  "h": 26
+ },
+ "Mountain Bear Momma": {
+  "family": "Ursine",
+  "pic": "HungryMountainBear.gif",
+  "w": 47,
+  "h": 44
+ },
+ "Mountain Bison": {
+  "family": "Bovidae",
+  "pic": "MountainBison.png",
+  "w": 33,
+  "h": 28
+ },
+ "Mountain Goat": {
+  "family": "Bovidae",
+  "pic": "MountainGoat.gif",
+  "w": 23,
+  "h": 26
+ },
+ "Mountain Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "MountainGreymyr.gif",
+  "w": 92,
+  "h": 120
+ },
+ "Mountain Grizzly Bear": {
+  "family": "Ursine",
+  "pic": "MountainGrizzlyBear.gif",
+  "w": 46,
+  "h": 46
+ },
+ "Mountain Krait": {
+  "family": "Serpent",
+  "pic": "MountainKrait.gif",
+  "w": 37,
+  "h": 41
+ },
+ "Mountain Panther": {
+  "family": "Feline",
+  "pic": "MountainPanther.gif",
+  "w": 54,
+  "h": 57
+ },
+ "Mountain Rat": {
+  "family": "Vermine",
+  "pic": "MountainRat.gif",
+  "w": 19,
+  "h": 24
+ },
+ "Mountain Wasp": {
+  "family": "Insect",
+  "pic": "MountainWasp.gif",
+  "w": 26,
+  "h": 28
+ },
+ "Mr. T": {
+  "family": "Insubstantial Undine",
+  "pic": "banshee.gif",
+  "w": 33,
+  "h": 34
+ },
+ "Mud Golem": {
+  "family": "Earth Elemental",
+  "pic": "mudgolem.gif",
+  "w": 63,
+  "h": 64
+ },
+ "Mushroom (Brown)": {
+  "family": "Mushroom",
+  "pic": "MushroomRegular.gif",
+  "w": 26,
+  "h": 30
+ },
+ "Mushroom (Purple)": {
+  "family": "Mushroom",
+  "pic": "MushroomPurple.gif",
+  "w": 25,
+  "h": 23
+ },
+ "Myrm Chevalier": {
+  "family": "Insect",
+  "pic": "MyrmChevalier.gif",
+  "w": 25,
+  "h": 31
+ },
+ "Myrm Defender": {
+  "family": "Insect",
+  "pic": "MyrmDefender.gif",
+  "w": 37,
+  "h": 39
+ },
+ "Myrm Farmer": {
+  "family": "Insect",
+  "pic": "myrmfarmer.gif",
+  "w": 24,
+  "h": 29
+ },
+ "Myrm Gatherer": {
+  "family": "Insect",
+  "pic": "MyrmGatherer.gif",
+  "w": 43,
+  "h": 40
+ },
+ "Myrm Marquis": {
+  "family": "Insect",
+  "pic": "MyrmMarquis.gif",
+  "w": 63,
+  "h": 52
+ },
+ "Myrm Matriarch": {
+  "family": "Insect",
+  "pic": "MyrmMatriarch.gif",
+  "w": 80,
+  "h": 78
+ },
+ "Myrm Patrician": {
+  "family": "Insect",
+  "pic": "MyrmPatrician.gif",
+  "w": 36,
+  "h": 36
+ },
+ "Myrm Protector": {
+  "family": "Insect",
+  "pic": "warriorprotector.gif",
+  "w": 26,
+  "h": 31
+ },
+ "Myrm Scout": {
+  "family": "Insect",
+  "pic": "myrmfarmer.gif",
+  "w": 24,
+  "h": 29
+ },
+ "Myrm Tunneler": {
+  "family": "Insect",
+  "pic": "MyrmDefender.gif",
+  "w": 37,
+  "h": 39
+ },
+ "Myrm Vagabond": {
+  "family": "Insect",
+  "pic": "MyrmVagabond.gif",
+  "w": 44,
+  "h": 33
+ },
+ "Myrm Worker": {
+  "family": "Insect",
+  "pic": "myrmworker.gif",
+  "w": 27,
+  "h": 27
+ },
+ "Na Nakika": {
+  "family": "Oceanic",
+  "pic": "Nakika.png",
+  "w": 53,
+  "h": 50
+ },
+ "Nakika": {
+  "family": "Oceanic",
+  "pic": "Nakika.png",
+  "w": 53,
+  "h": 50
+ },
+ "Necromancer": {
+  "family": "Darshak",
+  "pic": "necromancer.gif",
+  "w": 21,
+  "h": 30
+ },
+ "Neodew": {
+  "family": "Fungus",
+  "pic": "neodew.gif",
+  "w": 12,
+  "h": 12
+ },
+ "Night Wendecka": {
+  "family": "Wendecka",
+  "pic": "nightwendecka.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Nightli": {
+  "family": "Plant",
+  "pic": "nightli.gif",
+  "w": 42,
+  "h": 42
+ },
+ "Noble Myrm": {
+  "family": "Insect",
+  "pic": "noblemyrm.gif",
+  "w": 59,
+  "h": 56
+ },
+ "Nocens Winder": {
+  "family": "Serpent",
+  "pic": "NocensWinder.gif",
+  "w": 34,
+  "h": 35
+ },
+ "Nocturne Wendecka": {
+  "family": "Wendecka",
+  "pic": "NocturneWendecka.gif",
+  "w": 40,
+  "h": 41
+ },
+ "Nutritious Pumpkin": {
+  "family": "Plant",
+  "pic": "Jackolantern.gif",
+  "w": 40,
+  "h": 33
+ },
+ "Nyrm": {
+  "family": "Lizard",
+  "pic": "Nyrm.gif",
+  "w": 16,
+  "h": 16
+ },
+ "O'Gnashy": {
+  "family": "Lizard",
+  "pic": "OGnashy.gif",
+  "w": 41,
+  "h": 41
+ },
+ "Oak Giant": {
+  "family": "Tree Elemental",
+  "pic": "oakgiant.gif",
+  "w": 62,
+  "h": 60
+ },
+ "Old Orga Berserker": {
+  "family": "Extinct",
+  "pic": "orgaberserka.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Olive Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "olivearachnoid.gif",
+  "w": 56,
+  "h": 60
+ },
+ "Olive Tok'Han": {
+  "family": "Serpent",
+  "pic": "olivetokhan.gif",
+  "w": 47,
+  "h": 54
+ },
+ "Ona Berserker": {
+  "family": "Insect",
+  "pic": "OnaBerserker.gif",
+  "w": 42,
+  "h": 42
+ },
+ "Ona Chigger": {
+  "family": "Insect",
+  "pic": "onachiggernew.gif",
+  "w": 17,
+  "h": 18
+ },
+ "Ona Warrior": {
+  "family": "Insect",
+  "pic": "OnaWarrior.gif",
+  "w": 19,
+  "h": 19
+ },
+ "Oneiromantic Grub": {
+  "family": "Shadow",
+  "pic": "OneiromanticGrub.gif",
+  "w": 66,
+  "h": 46
+ },
+ "Oniska": {
+  "family": "Shadow",
+  "pic": "Oniska.gif",
+  "w": 29,
+  "h": 26
+ },
+ "Orc": {
+  "family": "Trool",
+  "pic": "troolorc.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Ore Weaver Arachne": {
+  "family": "Arachne",
+  "pic": "OreWeaverArachne.gif",
+  "w": 62,
+  "h": 57
+ },
+ "Orf'Kin": {
+  "family": "Trool",
+  "pic": "OrfKin.gif",
+  "w": 30,
+  "h": 32
+ },
+ "Org": {
+  "family": "Org",
+  "pic": "Org.gif",
+  "w": 31,
+  "h": 32
+ },
+ "Orga": {
+  "family": "Orga",
+  "pic": "orgas.gif",
+  "w": 38,
+  "h": 40
+ },
+ "Orga Anger": {
+  "family": "Orga",
+  "pic": "orgaangers.gif",
+  "w": 38,
+  "h": 40
+ },
+ "Orga Berserk": {
+  "family": "Orga",
+  "pic": "orgaberserks.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Orga Berserker": {
+  "family": "Orga",
+  "pic": "orgawarlocks.gif",
+  "w": 40,
+  "h": 40
+ },
+ "Orga Callock": {
+  "family": "Orga",
+  "pic": "orgadredlocks.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Orga Direlock": {
+  "family": "Orga",
+  "pic": "orgadredlocks.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Orga Dredlock": {
+  "family": "Orga",
+  "pic": "orgadredlock.gif",
+  "w": 32,
+  "h": 41
+ },
+ "Orga Envy": {
+  "family": "Orga",
+  "pic": "orgaenvy.gif",
+  "w": 28,
+  "h": 33
+ },
+ "Orga Frenzy": {
+  "family": "Orga",
+  "pic": "orgafurys.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Orga Fury": {
+  "family": "Orga",
+  "pic": "orgafurys.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Orga Hatred": {
+  "family": "Orga",
+  "pic": "orgafurys.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Orga Hemlock": {
+  "family": "Orga",
+  "pic": "orgahemlocks.gif",
+  "w": 40,
+  "h": 40
+ },
+ "Orga Loathing": {
+  "family": "Orga",
+  "pic": "orgaloathing.gif",
+  "w": 51,
+  "h": 62
+ },
+ "Orga Magician": {
+  "family": "Orga",
+  "pic": "orgamagicians.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Orga Malice": {
+  "family": "Orga",
+  "pic": "orgamalice.gif",
+  "w": 36,
+  "h": 42
+ },
+ "Orga Mallock": {
+  "family": "Orga",
+  "pic": "orgamallock.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Orga Mudang": {
+  "family": "Orga",
+  "pic": "orgamudang.gif",
+  "w": 29,
+  "h": 34
+ },
+ "Orga Petulant": {
+  "family": "Orga",
+  "pic": "orgazealots.gif",
+  "w": 43,
+  "h": 43
+ },
+ "Orga Rage": {
+  "family": "Orga",
+  "pic": "orgarages.gif",
+  "w": 45,
+  "h": 45
+ },
+ "Orga Razzia": {
+  "family": "Orga",
+  "pic": "orgarazzia.gif",
+  "w": 33,
+  "h": 34
+ },
+ "Orga Shaman": {
+  "family": "Orga",
+  "pic": "orgashaman.gif",
+  "w": 33,
+  "h": 34
+ },
+ "Orga Spite": {
+  "family": "Orga",
+  "pic": "orgaspites.gif",
+  "w": 40,
+  "h": 40
+ },
+ "Orga Traylock": {
+  "family": "Orga",
+  "pic": "orgatreylock.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Orga Warlock": {
+  "family": "Orga",
+  "pic": "orgawarlocks.gif",
+  "w": 40,
+  "h": 40
+ },
+ "Orga Warrior": {
+  "family": "Orga",
+  "pic": "orgawarriors.gif",
+  "w": 38,
+  "h": 40
+ },
+ "Orga Wrath": {
+  "family": "Orga",
+  "pic": "orgafurys.gif",
+  "w": 50,
+  "h": 50
+ },
+ "Orga Zealot": {
+  "family": "Orga",
+  "pic": "orgazealots.gif",
+  "w": 43,
+  "h": 43
+ },
+ "Orgaberry Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "orgaberrylyfelidae.gif",
+  "w": 40,
+  "h": 70
+ },
+ "Origami Deathhawk": {
+  "family": "Avian",
+  "pic": "OrigamiDeathhawk.gif",
+  "w": 34,
+  "h": 28
+ },
+ "Orion": {
+  "family": "Uncategorized",
+  "pic": "Orion.gif",
+  "w": 82,
+  "h": 81
+ },
+ "Otissa Snake": {
+  "family": "Serpent",
+  "pic": "OtissaSnake.gif",
+  "w": 29,
+  "h": 33
+ },
+ "Overgrown Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "OvergrownGreymyr.gif",
+  "w": 40,
+  "h": 61
+ },
+ "Pallidew": {
+  "family": "Fungus",
+  "pic": "pallidew.gif",
+  "w": 40,
+  "h": 40
+ },
+ "Pan Guardian Shadow": {
+  "family": "Insubstantial Undine",
+  "pic": "PanGuardianShadow.gif",
+  "w": 21,
+  "h": 30
+ },
+ "Pan-Dai Bear": {
+  "family": "Ursine",
+  "pic": "PanDaiBear.gif",
+  "w": 44,
+  "h": 41
+ },
+ "Paradise Butterfly": {
+  "family": "Plant",
+  "pic": "ParadiseButterfly.gif",
+  "w": 39,
+  "h": 56
+ },
+ "Parrot": {
+  "family": "Avian",
+  "pic": "Parrot.png",
+  "w": 27,
+  "h": 21
+ },
+ "Pazu-Ohwi": {
+  "family": "Wurm",
+  "pic": "PazuOhwiFIx.gif",
+  "w": 27,
+  "h": 25
+ },
+ "Penumbryx": {
+  "family": "Shadow",
+  "pic": "Penumbryx.gif",
+  "w": 52,
+  "h": 53
+ },
+ "Penumbryx Shard": {
+  "family": "Shadow",
+  "pic": "PenumbryxShard.gif",
+  "w": 29,
+  "h": 33
+ },
+ "Pink Jellyfish": {
+  "family": "Oceanic",
+  "pic": "pinkjellyfish.gif",
+  "w": 17,
+  "h": 19
+ },
+ "Pink Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "pinklyfelidae.gif",
+  "w": 33,
+  "h": 60
+ },
+ "Pir-Ta Owl": {
+  "family": "Avian",
+  "pic": "PirTaOwl.gif",
+  "w": 56,
+  "h": 40
+ },
+ "Pitch Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "pitcharachnoid.gif",
+  "w": 67,
+  "h": 61
+ },
+ "Plains Maha Ruknee": {
+  "family": "Feline",
+  "pic": "plainsmaharuknee.gif",
+  "w": 43,
+  "h": 39
+ },
+ "Poison Arrow Frog": {
+  "family": "Anura",
+  "pic": "poisonarrowfrog.gif",
+  "w": 21,
+  "h": 18
+ },
+ "Poison Dart Frog": {
+  "family": "Anura",
+  "pic": "poisondartfrog.gif",
+  "w": 20,
+  "h": 18
+ },
+ "Polar Bear": {
+  "family": "Ursine",
+  "pic": "polarbear.gif",
+  "w": 39,
+  "h": 33
+ },
+ "Possessed Amakua": {
+  "family": "Wurm",
+  "pic": "possessedamakua.gif",
+  "w": 98,
+  "h": 129
+ },
+ "Precarious Pebble": {
+  "family": "Stone Elemental",
+  "pic": "PrecariousPebble.gif",
+  "w": 108,
+  "h": 137
+ },
+ "Primal Frostlight": {
+  "family": "Ice Elemental",
+  "pic": "PrimalFrostlight.gif",
+  "w": 67,
+  "h": 80
+ },
+ "Prismatic Patrician Myrm": {
+  "family": "Insect",
+  "pic": "PrismaticPatricianMyrm.gif",
+  "w": 85,
+  "h": 127
+ },
+ "Puma": {
+  "family": "Feline",
+  "pic": "valleycougar.gif",
+  "w": 30,
+  "h": 27
+ },
+ "Pumace": {
+  "family": "Feline",
+  "pic": "valleycougar.gif",
+  "w": 30,
+  "h": 27
+ },
+ "Pumpkin": {
+  "family": "Plant",
+  "pic": "pumpkin.gif",
+  "w": 39,
+  "h": 34
+ },
+ "Pumpkin Bomb": {
+  "family": "Plant",
+  "pic": "PumpkinBomb.gif",
+  "w": 40,
+  "h": 33
+ },
+ "Purple Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "purplearachnoid.gif",
+  "w": 63,
+  "h": 66
+ },
+ "Queen Myrm": {
+  "family": "Insect",
+  "pic": "queenmyrm.gif",
+  "w": 64,
+  "h": 57
+ },
+ "Rabid Timber Feral": {
+  "family": "Canine",
+  "pic": "darshakwarhound.gif",
+  "w": 37,
+  "h": 38
+ },
+ "Rai-Koon": {
+  "family": "Raccoon",
+  "pic": "RaiKoon.gif",
+  "w": 35,
+  "h": 29
+ },
+ "Raja-Yorilla": {
+  "family": "Yorilla",
+  "pic": "RajaYorilla.gif",
+  "w": 36,
+  "h": 46
+ },
+ "Ramandu": {
+  "family": "Uncategorized",
+  "pic": "Ramandu.gif",
+  "w": 20,
+  "h": 32
+ },
+ "Rampaging Bison": {
+  "family": "Bovidae",
+  "pic": "SkyBison.png",
+  "w": 36,
+  "h": 34
+ },
+ "Rare Vulture": {
+  "family": "Avian",
+  "pic": "RareVulture.gif",
+  "w": 30,
+  "h": 27
+ },
+ "Raste Winder": {
+  "family": "Serpent",
+  "pic": "rastewinder.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Rat": {
+  "family": "Vermine",
+  "pic": "ratnew.gif",
+  "w": 18,
+  "h": 22
+ },
+ "Raven": {
+  "family": "Avian",
+  "pic": "Raven.gif",
+  "w": 45,
+  "h": 52
+ },
+ "Ravening Wind": {
+  "family": "Air Elemental",
+  "pic": "WindElemental.gif",
+  "w": 101,
+  "h": 106
+ },
+ "Razu-Ohwi": {
+  "family": "Wurm",
+  "pic": "RazuOhwi.gif",
+  "w": 30,
+  "h": 26
+ },
+ "Reaper Mander": {
+  "family": "Salamander",
+  "pic": "ReaperMander.gif",
+  "w": 21,
+  "h": 14
+ },
+ "Recluse Arachne": {
+  "family": "Arachne",
+  "pic": "reclusearachne.gif",
+  "w": 31,
+  "h": 33
+ },
+ "Red Bandit": {
+  "family": "Raccoon",
+  "pic": "RedBandit.gif",
+  "w": 27,
+  "h": 31
+ },
+ "Red Dragonfly": {
+  "family": "Insect",
+  "pic": "reddragonfly.gif",
+  "w": 30,
+  "h": 25
+ },
+ "Red Herring": {
+  "family": "Oceanic",
+  "pic": "RedHerring.gif",
+  "w": 30,
+  "h": 30
+ },
+ "Redwood Giant": {
+  "family": "Tree Elemental",
+  "pic": "redwoodgiant.gif",
+  "w": 49,
+  "h": 61
+ },
+ "Reedcat": {
+  "family": "Feline",
+  "pic": "Reedcat.gif",
+  "w": 26,
+  "h": 24
+ },
+ "Reedcat Stalker": {
+  "family": "Feline",
+  "pic": "ReedcatStalker.png",
+  "w": 23,
+  "h": 22
+ },
+ "Regressing Verminate": {
+  "family": "Vermine",
+  "pic": "RegressingVerminate.gif",
+  "w": 28,
+  "h": 33
+ },
+ "Repens Winder": {
+  "family": "Serpent",
+  "pic": "repenswinder.gif",
+  "w": 31,
+  "h": 32
+ },
+ "Revour": {
+  "family": "Skeletal Undine",
+  "pic": "revour.gif",
+  "w": 31,
+  "h": 29
+ },
+ "Rifter": {
+  "family": "Wyrm",
+  "pic": "Rifter.gif",
+  "w": 47,
+  "h": 35
+ },
+ "Rime Waspyx": {
+  "family": "Chimera",
+  "pic": "RimeWaspyx.gif",
+  "w": 32,
+  "h": 34
+ },
+ "Ripper": {
+  "family": "Wyrm",
+  "pic": "ripper.gif",
+  "w": 40,
+  "h": 42
+ },
+ "Riptide Meshra": {
+  "family": "Meshra",
+  "pic": "RiptideMeshra.png",
+  "w": 25,
+  "h": 38
+ },
+ "Riptide Reaver": {
+  "family": "Meshra",
+  "pic": "RiptideReaver.png",
+  "w": 57,
+  "h": 68
+ },
+ "River Crawler": {
+  "family": "Crustacean",
+  "pic": "RiverCrawler.gif",
+  "w": 30,
+  "h": 29
+ },
+ "River Lizard": {
+  "family": "Lizard",
+  "pic": "RiverLizard.gif",
+  "w": 30,
+  "h": 65
+ },
+ "Rocky Rai-Koon": {
+  "family": "Raccoon",
+  "pic": "RockyRaiKoon.gif",
+  "w": 34,
+  "h": 29
+ },
+ "Rodán Panther": {
+  "family": "Feline",
+  "pic": "islandpanther.gif",
+  "w": 26,
+  "h": 21
+ },
+ "Rotting Corpse": {
+  "family": "Substantial Undine",
+  "pic": "RottingCorpse.gif",
+  "w": 31,
+  "h": 35
+ },
+ "Rotting Stare": {
+  "family": "Demonic Undine",
+  "pic": "RottingStare.gif",
+  "w": 29,
+  "h": 32
+ },
+ "Royal Myrm": {
+  "family": "Insect",
+  "pic": "royalmyrm.gif",
+  "w": 61,
+  "h": 55
+ },
+ "Royal Seahorse": {
+  "family": "Oceanic",
+  "pic": "RoyalSeahorse.png",
+  "w": 18,
+  "h": 64
+ },
+ "Rudremau": {
+  "family": "Feline",
+  "pic": "rudremau.gif",
+  "w": 32,
+  "h": 32
+ },
+ "Russet Tok'Han": {
+  "family": "Serpent",
+  "pic": "russettokhan.gif",
+  "w": 48,
+  "h": 63
+ },
+ "Rust Blymoid": {
+  "family": "Blymoid",
+  "pic": "RustBlymoid.gif",
+  "w": 29,
+  "h": 29
+ },
+ "Saber Owl": {
+  "family": "Avian",
+  "pic": "sabreowl.png",
+  "w": 37,
+  "h": 30
+ },
+ "Samahee Raider": {
+  "family": "Yorilla",
+  "pic": "SamaheeRaider.gif",
+  "w": 102,
+  "h": 128
+ },
+ "Samahee Thornriders": {
+  "family": "Yorilla",
+  "pic": "SamaheeThornriders.gif",
+  "w": 98,
+  "h": 127
+ },
+ "Sand Ray": {
+  "family": "Oceanic",
+  "pic": "sandray.gif",
+  "w": 25,
+  "h": 50
+ },
+ "Sand Tiger": {
+  "family": "Feline",
+  "pic": "bolokcougar.gif",
+  "w": 32,
+  "h": 23
+ },
+ "Sand Wurm": {
+  "family": "Wurm",
+  "pic": "sandwurm.gif",
+  "w": 37,
+  "h": 31
+ },
+ "Sao-La Starfawn": {
+  "family": "Equine",
+  "pic": "SaoLaStarfawn.gif",
+  "w": 28,
+  "h": 27
+ },
+ "Sao-La Starstag": {
+  "family": "Equine",
+  "pic": "SaoLaStarstag.gif",
+  "w": 35,
+  "h": 38
+ },
+ "Sar'Noth": {
+  "family": "Noth",
+  "pic": "sar.gif",
+  "w": 26,
+  "h": 31
+ },
+ "Sarra'don": {
+  "family": "Wyrm",
+  "pic": "sarradon.gif",
+  "w": 60,
+  "h": 45
+ },
+ "Sarra'yrm": {
+  "family": "Wyrm",
+  "pic": "sarrayrm.gif",
+  "w": 70,
+  "h": 50
+ },
+ "Savannah Maha": {
+  "family": "Feline",
+  "pic": "savannahmaharuknee.gif",
+  "w": 38,
+  "h": 37
+ },
+ "Sazaja": {
+  "family": "Wyrm",
+  "pic": "sazaja.gif",
+  "w": 44,
+  "h": 43
+ },
+ "Scarab Beetle": {
+  "family": "Insect",
+  "pic": "scarabbeetle.gif",
+  "w": 42,
+  "h": 40
+ },
+ "Scarewan": {
+  "family": "Uncategorized",
+  "pic": "LordPumpkin.gif",
+  "w": 27,
+  "h": 33
+ },
+ "Scarmis Attendant": {
+  "family": "Scarmis",
+  "pic": "scarmisattendant.gif",
+  "w": 86,
+  "h": 75
+ },
+ "Scarmis Eunuch": {
+  "family": "Scarmis",
+  "pic": "scarmiseunuch.gif",
+  "w": 90,
+  "h": 76
+ },
+ "Scarmis Forager": {
+  "family": "Scarmis",
+  "pic": "scarmisforager.gif",
+  "w": 85,
+  "h": 73
+ },
+ "Scarmis Harvester": {
+  "family": "Scarmis",
+  "pic": "scarmisharvester.gif",
+  "w": 40,
+  "h": 34
+ },
+ "Scarmis Larva": {
+  "family": "Scarmis",
+  "pic": "scarmislarva.gif",
+  "w": 35,
+  "h": 31
+ },
+ "Scarmis Queen": {
+  "family": "Scarmis",
+  "pic": "scarmisqueen.gif",
+  "w": 55,
+  "h": 54
+ },
+ "Scarmis Tunneler": {
+  "family": "Scarmis",
+  "pic": "scarmistunneler.gif",
+  "w": 87,
+  "h": 74
+ },
+ "Scarmis Warrior": {
+  "family": "Scarmis",
+  "pic": "scarmiswarrior.gif",
+  "w": 82,
+  "h": 70
+ },
+ "Scary Skeletal": {
+  "family": "Skeletal Undine",
+  "pic": "skeletal.gif",
+  "w": 21,
+  "h": 29
+ },
+ "Scavenger Bird": {
+  "family": "Avian",
+  "pic": "ScavengerBird.gif",
+  "w": 22,
+  "h": 16
+ },
+ "Scavenger Wurm": {
+  "family": "Worm",
+  "pic": "scavengerwurm.gif",
+  "w": 34,
+  "h": 30
+ },
+ "Sea Snake": {
+  "family": "Oceanic",
+  "pic": "seasnake.gif",
+  "w": 18,
+  "h": 32
+ },
+ "Seasteed Automaton": {
+  "family": "Oceanic",
+  "pic": "SeahorseAutomaton.gif",
+  "w": 40,
+  "h": 38
+ },
+ "Seasylvan": {
+  "family": "Shadow",
+  "pic": "Seasylvan.gif",
+  "w": 29,
+  "h": 30
+ },
+ "Serac Wyrm": {
+  "family": "Wyrm",
+  "pic": "serac.gif",
+  "w": 45,
+  "h": 43
+ },
+ "Seta Lizard": {
+  "family": "Lizard",
+  "pic": "setalizard.png",
+  "w": 37,
+  "h": 36
+ },
+ "Sezuma Yorilla": {
+  "family": "Yorilla",
+  "pic": "SezumaYorilla.gif",
+  "w": 55,
+  "h": 60
+ },
+ "Shadow Bear": {
+  "family": "Ursine",
+  "pic": "ShadowBear.gif",
+  "w": 47,
+  "h": 39
+ },
+ "Shadow Hunter": {
+  "family": "Shadow",
+  "pic": "ShadowHunter.gif",
+  "w": 35,
+  "h": 33
+ },
+ "Shadow Mantis": {
+  "family": "Shadow",
+  "pic": "ShadowMantis.gif",
+  "w": 66,
+  "h": 80
+ },
+ "Shadow Raider": {
+  "family": "Bovidae",
+  "pic": "ShadowRaider.gif",
+  "w": 93,
+  "h": 123
+ },
+ "Shadow Spinner": {
+  "family": "Arachne",
+  "pic": "ShadowSpinner.gif",
+  "w": 60,
+  "h": 54
+ },
+ "Shadow Steed": {
+  "family": "Shadow",
+  "pic": "ShadowSteed.gif",
+  "w": 30,
+  "h": 42
+ },
+ "Shadow Strand": {
+  "family": "Shadow",
+  "pic": "ShadowStrand.gif",
+  "w": 147,
+  "h": 306
+ },
+ "Shadowbug": {
+  "family": "Shadow",
+  "pic": "Shadowbug.gif",
+  "w": 31,
+  "h": 26
+ },
+ "Shadowcat": {
+  "family": "Feline",
+  "pic": "Shadowcat.gif",
+  "w": 25,
+  "h": 23
+ },
+ "Shadowcat Huntress": {
+  "family": "Feline",
+  "pic": "ShadowcatHuntress.png",
+  "w": 20,
+  "h": 21
+ },
+ "Shadowcat Warqueen": {
+  "family": "Feline",
+  "pic": "ShadowcatWarqueen.gif",
+  "w": 23,
+  "h": 26
+ },
+ "Shadowclaw Cleric": {
+  "family": "Ursine",
+  "pic": "ShadowclawCleric.gif",
+  "w": 59,
+  "h": 57
+ },
+ "Shadowguild Executioner": {
+  "family": "Extinct",
+  "pic": "ShadowguildExecutioner.gif",
+  "w": 24,
+  "h": 32
+ },
+ "Shadowguild Garroter": {
+  "family": "Extinct",
+  "pic": "ShadowguildGarroter.gif",
+  "w": 25,
+  "h": 32
+ },
+ "Shadowguild Master Assassin": {
+  "family": "Extinct",
+  "pic": "ShadowguildMasterAssassin.gif",
+  "w": 22,
+  "h": 33
+ },
+ "Shadowguild Master Balloonist": {
+  "family": "Uncategorized",
+  "pic": "ShadowguildMasterBalloonist.gif",
+  "w": 67,
+  "h": 97
+ },
+ "Shadowguild Thief": {
+  "family": "Extinct",
+  "pic": "ShadowguildThief.gif",
+  "w": 23,
+  "h": 33
+ },
+ "Shadowmau Stalker": {
+  "family": "Shadow",
+  "pic": "ShadowmauStalker.gif",
+  "w": 69,
+  "h": 79
+ },
+ "Shadowstag": {
+  "family": "Equine",
+  "pic": "Shadowstag.gif",
+  "w": 39,
+  "h": 41
+ },
+ "Shambling Corpse": {
+  "family": "Substantial Undine",
+  "pic": "shamble.gif",
+  "w": 26,
+  "h": 32
+ },
+ "Shambling Silver": {
+  "family": "Stone Elemental",
+  "pic": "ShamblingSilver.gif",
+  "w": 74,
+  "h": 116
+ },
+ "Shambling Stone": {
+  "family": "Stone Elemental",
+  "pic": "ShamblingStone.gif",
+  "w": 76,
+  "h": 119
+ },
+ "Shattering Frost": {
+  "family": "Ice Elemental",
+  "pic": "ShatteringFrost.gif",
+  "w": 66,
+  "h": 82
+ },
+ "Shimmering Seasteed": {
+  "family": "Oceanic",
+  "pic": "ShimmeringSeasteed.gif",
+  "w": 23,
+  "h": 62
+ },
+ "Shredder": {
+  "family": "Oceanic",
+  "pic": "shredder.gif",
+  "w": 25,
+  "h": 45
+ },
+ "Silverback Night Wendecka": {
+  "family": "Wendecka",
+  "pic": "SilverbackNightWendecka.gif",
+  "w": 41,
+  "h": 42
+ },
+ "Silverback Wendecka": {
+  "family": "Wendecka",
+  "pic": "SilverbackWendecka.gif",
+  "w": 36,
+  "h": 42
+ },
+ "Silvercrag Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "SilvercragGreymyr.gif",
+  "w": 61,
+  "h": 71
+ },
+ "Silverfir Colossus": {
+  "family": "Tree Elemental",
+  "pic": "SilverFirColossus.gif",
+  "w": 96,
+  "h": 120
+ },
+ "Silverfir Scion": {
+  "family": "Tree Elemental",
+  "pic": "SilverfirScion.gif",
+  "w": 33,
+  "h": 48
+ },
+ "Skeletal": {
+  "family": "Skeletal Undine",
+  "pic": "skeletal.gif",
+  "w": 21,
+  "h": 29
+ },
+ "Skeletal Guardian": {
+  "family": "Skeletal Undine",
+  "pic": "skeletal.gif",
+  "w": 21,
+  "h": 29
+ },
+ "Skeletal Hunger": {
+  "family": "Skeletal Undine",
+  "pic": "SkeletalHunger.gif",
+  "w": 48,
+  "h": 61
+ },
+ "Skeletal Monk": {
+  "family": "Skeletal Undine",
+  "pic": "SkeletalMonk.gif",
+  "w": 23,
+  "h": 32
+ },
+ "Skeletal Rage": {
+  "family": "Skeletal Undine",
+  "pic": "skeletalrage.gif",
+  "w": 35,
+  "h": 36
+ },
+ "Sky Bison": {
+  "family": "Bovidae",
+  "pic": "SkyBison.png",
+  "w": 36,
+  "h": 34
+ },
+ "Sky Maha": {
+  "family": "Feline",
+  "pic": "skymaharuknee.gif",
+  "w": 35,
+  "h": 31
+ },
+ "Skålcrusher": {
+  "family": "Uncategorized",
+  "pic": "Skalcrusher.gif",
+  "w": 85,
+  "h": 85
+ },
+ "Slate Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "slatearachnoid.gif",
+  "w": 62,
+  "h": 69
+ },
+ "Slime Monster": {
+  "family": "Uncategorized",
+  "pic": "slimemonster.gif",
+  "w": 77,
+  "h": 63
+ },
+ "Small Arachne": {
+  "family": "Arachne",
+  "pic": "smallarachne.gif",
+  "w": 27,
+  "h": 24
+ },
+ "Small Eukaryid": {
+  "family": "Eukaryid",
+  "pic": "SmallEukaryid.gif",
+  "w": 22,
+  "h": 22
+ },
+ "Smoky Bear": {
+  "family": "Ursine",
+  "pic": "SmokyBear.gif",
+  "w": 36,
+  "h": 52
+ },
+ "Smoky Bog Amedon": {
+  "family": "Anura",
+  "pic": "smokybogamedon.gif",
+  "w": 40,
+  "h": 38
+ },
+ "Smoky Mander": {
+  "family": "Salamander",
+  "pic": "SmokyMander.png",
+  "w": 18,
+  "h": 20
+ },
+ "Snow Cougar": {
+  "family": "Feline",
+  "pic": "snowcougar.gif",
+  "w": 32,
+  "h": 25
+ },
+ "Snow Feral": {
+  "family": "Canine",
+  "pic": "snowferal.gif",
+  "w": 30,
+  "h": 29
+ },
+ "Snow Haremau Kitten": {
+  "family": "Feline",
+  "pic": "SnowHaremauKitten.gif",
+  "w": 35,
+  "h": 26
+ },
+ "Snow Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "snowlyfelidae.gif",
+  "w": 33,
+  "h": 60
+ },
+ "Snow Rudremau": {
+  "family": "Feline",
+  "pic": "SnowRudremau.gif",
+  "w": 29,
+  "h": 28
+ },
+ "Snow Vermine": {
+  "family": "Vermine",
+  "pic": "snowvermine.gif",
+  "w": 18,
+  "h": 27
+ },
+ "Snow Yorilla": {
+  "family": "Yorilla",
+  "pic": "SnowYorilla.gif",
+  "w": 32,
+  "h": 47
+ },
+ "Snowcat": {
+  "family": "Feline",
+  "pic": "Snowcat.gif",
+  "w": 21,
+  "h": 24
+ },
+ "Snowstag": {
+  "family": "Equine",
+  "pic": "Snowstag.gif",
+  "w": 32,
+  "h": 36
+ },
+ "Snowy Maiden": {
+  "family": "Uncategorized",
+  "pic": "SnowyMaiden.gif",
+  "w": 33,
+  "h": 45
+ },
+ "Solar Bear": {
+  "family": "Ursine",
+  "pic": "SolarBear.gif",
+  "w": 49,
+  "h": 53
+ },
+ "Solstimander": {
+  "family": "Salamander",
+  "pic": "Solstimander.gif",
+  "w": 21,
+  "h": 17
+ },
+ "Sortoise": {
+  "family": "Turtle",
+  "pic": "Sortoise_New.gif",
+  "w": 42,
+  "h": 38
+ },
+ "Sparse Ethereal Spume": {
+  "family": "Ethereal",
+  "pic": "SparseEtherealSpume.gif",
+  "w": 42,
+  "h": 35
+ },
+ "Spectral Amedon": {
+  "family": "Anura",
+  "pic": "SpectralAmedon.gif",
+  "w": 37,
+  "h": 37
+ },
+ "Spectral Greymyr": {
+  "family": "Earth Elemental",
+  "pic": "SpectralGreymyr.gif",
+  "w": 62,
+  "h": 73
+ },
+ "Spectral Haremau Kitten": {
+  "family": "Feline",
+  "pic": "SpectralHaremauKitten.gif",
+  "w": 31,
+  "h": 30
+ },
+ "Spectral Rudremau": {
+  "family": "Feline",
+  "pic": "SpectralRudremau.gif",
+  "w": 32,
+  "h": 32
+ },
+ "Spectral Sazaja": {
+  "family": "Wyrm",
+  "pic": "SpectralSazaja.gif",
+  "w": 33,
+  "h": 49
+ },
+ "Spectral Yorilla": {
+  "family": "Yorilla",
+  "pic": "SpectralYorilla.gif",
+  "w": 33,
+  "h": 47
+ },
+ "Spicy Mander": {
+  "family": "Salamander",
+  "pic": "SpicyMander.gif",
+  "w": 24,
+  "h": 15
+ },
+ "Spooky Pumpkin": {
+  "family": "Plant",
+  "pic": "Jackolantern.gif",
+  "w": 40,
+  "h": 33
+ },
+ "Spriggin": {
+  "family": "Fairy",
+  "pic": "spriggin.gif",
+  "w": 11,
+  "h": 16
+ },
+ "Spriggin Parasol": {
+  "family": "Orion Fungus",
+  "pic": "SprigginParasol.gif",
+  "w": 23,
+  "h": 25
+ },
+ "Starbuck": {
+  "family": "Equine",
+  "pic": "starbuck.gif",
+  "w": 36,
+  "h": 38
+ },
+ "Starbuck Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "starbucklyfelidae.gif",
+  "w": 40,
+  "h": 70
+ },
+ "Starflower": {
+  "family": "Plant",
+  "pic": "starflower.gif",
+  "w": 47,
+  "h": 35
+ },
+ "Starstag": {
+  "family": "Equine",
+  "pic": "Starstag.png",
+  "w": 40,
+  "h": 40
+ },
+ "Starved Blight Feral": {
+  "family": "Canine",
+  "pic": "BlightFeral.gif",
+  "w": 52,
+  "h": 51
+ },
+ "Stinging Beetle": {
+  "family": "Insect",
+  "pic": "stingingbeetle.gif",
+  "w": 24,
+  "h": 27
+ },
+ "Stone Arachne": {
+  "family": "Arachne",
+  "pic": "stonearachne.gif",
+  "w": 33,
+  "h": 34
+ },
+ "Storm Incarnate": {
+  "family": "Air Elemental",
+  "pic": "StormIncarnate.gif",
+  "w": 67,
+  "h": 89
+ },
+ "Striped Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "stripedarachnoid.gif",
+  "w": 66,
+  "h": 65
+ },
+ "Striped Azurite Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "stripedazuritearachnoid.gif",
+  "w": 56,
+  "h": 52
+ },
+ "Striped Jade Arachnoid": {
+  "family": "Arachnoid",
+  "pic": "StripedJadeArachnoid.gif",
+  "w": 69,
+  "h": 65
+ },
+ "Striped Seasteed": {
+  "family": "Oceanic",
+  "pic": "StripedSeasteed.png",
+  "w": 20,
+  "h": 66
+ },
+ "Sturdy Oak Giant": {
+  "family": "Tree Elemental",
+  "pic": "oakgiant.gif",
+  "w": 62,
+  "h": 60
+ },
+ "Su Monk Shadow": {
+  "family": "Insubstantial Undine",
+  "pic": "SuMonkShadow.gif",
+  "w": 32,
+  "h": 33
+ },
+ "Sulran Elite": {
+  "family": "Corrupted Guard",
+  "pic": "sulranelite.gif",
+  "w": 38,
+  "h": 37
+ },
+ "Sulran Soldier": {
+  "family": "Corrupted Guard",
+  "pic": "sulransoldier.gif",
+  "w": 34,
+  "h": 40
+ },
+ "Sulran Warrior": {
+  "family": "Corrupted Guard",
+  "pic": "sulranwarrior.gif",
+  "w": 30,
+  "h": 37
+ },
+ "Summer Artak": {
+  "family": "Feline",
+  "pic": "summerartakcougar.gif",
+  "w": 32,
+  "h": 24
+ },
+ "Sun Wyrm": {
+  "family": "Wyrm",
+  "pic": "sunwyrm.gif",
+  "w": 57,
+  "h": 47
+ },
+ "Sun-zu": {
+  "family": "Plant",
+  "pic": "sunzu.gif",
+  "w": 40,
+  "h": 39
+ },
+ "Sundering Stone": {
+  "family": "Stone Elemental",
+  "pic": "SunderingStone.gif",
+  "w": 106,
+  "h": 174
+ },
+ "Swamp Feral": {
+  "family": "Canine",
+  "pic": "swampferal.gif",
+  "w": 63,
+  "h": 61
+ },
+ "Swamp Gas": {
+  "family": "Air Elemental",
+  "pic": "swampgas.gif",
+  "w": 21,
+  "h": 21
+ },
+ "Swarm of Bees": {
+  "family": "Insect",
+  "pic": "SwarmofBees.gif",
+  "w": 37,
+  "h": 46
+ },
+ "T'rool": {
+  "family": "Trool",
+  "pic": "troolorc.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Tae-Su": {
+  "family": "Oceanic",
+  "pic": "taesu.gif",
+  "w": 34,
+  "h": 34
+ },
+ "Tae-Su Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "taesulyfelidae.gif",
+  "w": 36,
+  "h": 70
+ },
+ "Tahxis Wurm": {
+  "family": "Worm",
+  "pic": "tahxiswurm.gif",
+  "w": 34,
+  "h": 23
+ },
+ "Tamazaja": {
+  "family": "Chimera",
+  "pic": "Tamazaja.gif",
+  "w": 69,
+  "h": 60
+ },
+ "Tangleberry Colossus": {
+  "family": "Tree Elemental",
+  "pic": "TangleberryColossus.gif",
+  "w": 66,
+  "h": 90
+ },
+ "Tanglebird": {
+  "family": "Avian",
+  "pic": "Tanglebird.gif",
+  "w": 23,
+  "h": 22
+ },
+ "Tanglestrike": {
+  "family": "Shadow",
+  "pic": "Tanglestrike.gif",
+  "w": 67,
+  "h": 82
+ },
+ "Tangletree": {
+  "family": "Extinct",
+  "pic": "tangletree.gif",
+  "w": 124,
+  "h": 107
+ },
+ "Tangleweed": {
+  "family": "Extinct",
+  "pic": "tangleweednew.gif",
+  "w": 80,
+  "h": 53
+ },
+ "Tawny Yorilla": {
+  "family": "Yorilla",
+  "pic": "TawnyYorilla.gif",
+  "w": 32,
+  "h": 45
+ },
+ "Tearer": {
+  "family": "Wyrm",
+  "pic": "Tearer.gif",
+  "w": 31,
+  "h": 44
+ },
+ "Terrabite": {
+  "family": "Insect",
+  "pic": "Terrabite.gif",
+  "w": 44,
+  "h": 40
+ },
+ "Tesla": {
+  "family": "Annelida",
+  "pic": "tesla.gif",
+  "w": 36,
+  "h": 30
+ },
+ "The Curator": {
+  "family": "Insubstantial Undine",
+  "pic": "banshee.gif",
+  "w": 33,
+  "h": 34
+ },
+ "Thin Ethereal Spume": {
+  "family": "Ethereal",
+  "pic": "ThinEtherealSpume.gif",
+  "w": 34,
+  "h": 30
+ },
+ "Thirsty Knowledge": {
+  "family": "Uncategorized",
+  "pic": "ThirstyKnowledge.gif",
+  "w": 32,
+  "h": 37
+ },
+ "Thornwood Colossus": {
+  "family": "Tree Elemental",
+  "pic": "ThornwoodColossus.gif",
+  "w": 95,
+  "h": 106
+ },
+ "Thunder Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "thunderlyfelidae.gif",
+  "w": 33,
+  "h": 60
+ },
+ "Timber Feral": {
+  "family": "Canine",
+  "pic": "darshakwarhound.gif",
+  "w": 37,
+  "h": 38
+ },
+ "Tipulid": {
+  "family": "Uncategorized",
+  "pic": "tipulid.gif",
+  "w": 60,
+  "h": 62
+ },
+ "Toisicle": {
+  "family": "Turtle",
+  "pic": "Toisicle.gif",
+  "w": 45,
+  "h": 42
+ },
+ "Tok'Han Shaman": {
+  "family": "Serpent",
+  "pic": "tokhanshaman.gif",
+  "w": 49,
+  "h": 57
+ },
+ "Tok'Han Spawn": {
+  "family": "Serpent",
+  "pic": "tokhanspawn.gif",
+  "w": 29,
+  "h": 31
+ },
+ "Torched Fervor": {
+  "family": "Fire Elemental",
+  "pic": "firewalker.gif",
+  "w": 26,
+  "h": 37
+ },
+ "Tortured Soul": {
+  "family": "Insubstantial Undine",
+  "pic": "wraith.gif",
+  "w": 24,
+  "h": 30
+ },
+ "Tracer Ray": {
+  "family": "Shadow",
+  "pic": "TracerRay.gif",
+  "w": 40,
+  "h": 37
+ },
+ "Trained Barrens Feral": {
+  "family": "Canine",
+  "pic": "BarrensFeral.gif",
+  "w": 48,
+  "h": 44
+ },
+ "Trainer Spirit": {
+  "family": "Insubstantial Undine",
+  "pic": "TrainerSpirit.gif",
+  "w": 24,
+  "h": 34
+ },
+ "Tree Colossus": {
+  "family": "Tree Elemental",
+  "pic": "TreeColossus.gif",
+  "w": 75,
+  "h": 90
+ },
+ "Tree Giant": {
+  "family": "Tree Elemental",
+  "pic": "treegiant.gif",
+  "w": 56,
+  "h": 60
+ },
+ "Tree Giant Wight": {
+  "family": "Tree Elemental",
+  "pic": "TreeGiantWight.gif",
+  "w": 53,
+  "h": 62
+ },
+ "Tuder Mander": {
+  "family": "Salamander",
+  "pic": "TuderMander.gif",
+  "w": 18,
+  "h": 14
+ },
+ "Turbo Goat": {
+  "family": "Bovidae",
+  "pic": "TurboGoat.gif",
+  "w": 30,
+  "h": 30
+ },
+ "Turbulent Adumbration": {
+  "family": "Shadow",
+  "pic": "TurbulentAdumbration.gif",
+  "w": 95,
+  "h": 117
+ },
+ "Turbulent Manifestation": {
+  "family": "Shadow",
+  "pic": "TurbulentManifestation.gif",
+  "w": 86,
+  "h": 115
+ },
+ "Turmoil": {
+  "family": "Uncategorized",
+  "pic": "turmoil.gif",
+  "w": 70,
+  "h": 70
+ },
+ "Tuz'Noth": {
+  "family": "Noth",
+  "pic": "tuz.gif",
+  "w": 25,
+  "h": 28
+ },
+ "Twilight Wendecka": {
+  "family": "Wendecka",
+  "pic": "twilightwendecka.gif",
+  "w": 33,
+  "h": 36
+ },
+ "Uberbloodgossaxe": {
+  "family": "Uncategorized",
+  "pic": "Uberbloodgossaxe.gif",
+  "w": 60,
+  "h": 80
+ },
+ "Umber Foxweir": {
+  "family": "Canine",
+  "pic": "umberfoxweir.gif",
+  "w": 30,
+  "h": 29
+ },
+ "Uncommon Vulture": {
+  "family": "Avian",
+  "pic": "vulture.gif",
+  "w": 29,
+  "h": 26
+ },
+ "Underwater Corpse": {
+  "family": "Substantial Undine",
+  "pic": "hodcorpse.gif",
+  "w": 25,
+  "h": 31
+ },
+ "Unstable Stitchling": {
+  "family": "Stitchling",
+  "pic": "UnstableStitchling.gif",
+  "w": 31,
+  "h": 37
+ },
+ "Unusually Massive Vermine": {
+  "family": "Vermine",
+  "pic": "UnusuallyMassiveVermine.gif",
+  "w": 39,
+  "h": 34
+ },
+ "Utsanna Andvari": {
+  "family": "Lizard",
+  "pic": "utsannaandvari.gif",
+  "w": 40,
+  "h": 40
+ },
+ "Utsanna Haremau": {
+  "family": "Feline",
+  "pic": "utsannaharemau.gif",
+  "w": 70,
+  "h": 67
+ },
+ "Utsanna Raja-Yorilla": {
+  "family": "Yorilla",
+  "pic": "UtsannaRajaYorilla.gif",
+  "w": 53,
+  "h": 61
+ },
+ "Utsanna Shadowmau": {
+  "family": "Feline",
+  "pic": "UtsannaShadowmau.gif",
+  "w": 62,
+  "h": 69
+ },
+ "Utsanna Tawny Yorilla": {
+  "family": "Yorilla",
+  "pic": "UtsannaTawnyYorilla.gif",
+  "w": 44,
+  "h": 62
+ },
+ "Vagrant Arachne": {
+  "family": "Arachne",
+  "pic": "vagrantarachne.gif",
+  "w": 35,
+  "h": 32
+ },
+ "Valley Cougar": {
+  "family": "Feline",
+  "pic": "valleycougar.gif",
+  "w": 30,
+  "h": 27
+ },
+ "Valley Panther": {
+  "family": "Feline",
+  "pic": "valleycougar.gif",
+  "w": 30,
+  "h": 27
+ },
+ "Valley Rat": {
+  "family": "Vermine",
+  "pic": "valleyrat.png",
+  "w": 26,
+  "h": 21
+ },
+ "Vel'Noth": {
+  "family": "Noth",
+  "pic": "vel.gif",
+  "w": 33,
+  "h": 31
+ },
+ "Venomous Boma Winder": {
+  "family": "Serpent",
+  "pic": "bomawinder.gif",
+  "w": 32,
+  "h": 30
+ },
+ "Venomous Carin Viper": {
+  "family": "Serpent",
+  "pic": "snake.gif",
+  "w": 18,
+  "h": 30
+ },
+ "Venomous Cave Cobra": {
+  "family": "Serpent",
+  "pic": "cobra.gif",
+  "w": 42,
+  "h": 32
+ },
+ "Venomous Chami Cobra": {
+  "family": "Serpent",
+  "pic": "cobra.gif",
+  "w": 42,
+  "h": 32
+ },
+ "Venomous Chigger": {
+  "family": "Insect",
+  "pic": "venomousonachigger.gif",
+  "w": 16,
+  "h": 19
+ },
+ "Venomous Crota Winder": {
+  "family": "Serpent",
+  "pic": "crotawinder.gif",
+  "w": 33,
+  "h": 26
+ },
+ "Venomous Deadly Adder": {
+  "family": "Serpent",
+  "pic": "snake.gif",
+  "w": 18,
+  "h": 30
+ },
+ "Venomous Forest Cobra": {
+  "family": "Serpent",
+  "pic": "ForestCobra.gif",
+  "w": 35,
+  "h": 30
+ },
+ "Venomous Leech": {
+  "family": "Extinct",
+  "pic": "venomousleech.gif",
+  "w": 10,
+  "h": 14
+ },
+ "Venomous Raste Winder": {
+  "family": "Serpent",
+  "pic": "rastewinder.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Venomous Repens Winder": {
+  "family": "Serpent",
+  "pic": "repenswinder.gif",
+  "w": 31,
+  "h": 32
+ },
+ "Vermine": {
+  "family": "Vermine",
+  "pic": "verminenew.gif",
+  "w": 23,
+  "h": 21
+ },
+ "Vermine Arachne": {
+  "family": "Arachne",
+  "pic": "VermineArachne.gif",
+  "w": 24,
+  "h": 22
+ },
+ "Vermine King": {
+  "family": "Vermine",
+  "pic": "VermineKing.gif",
+  "w": 63,
+  "h": 63
+ },
+ "Veteran Darshak Captain": {
+  "family": "Darshak",
+  "pic": "captainnew.gif",
+  "w": 30,
+  "h": 33
+ },
+ "Vicious Starflower": {
+  "family": "Plant",
+  "pic": "viciousstarflower.gif",
+  "w": 43,
+  "h": 37
+ },
+ "Vile Cricket": {
+  "family": "Insect",
+  "pic": "vilecricket.gif",
+  "w": 26,
+  "h": 24
+ },
+ "Vile Locust": {
+  "family": "Insect",
+  "pic": "blacklocust.gif",
+  "w": 32,
+  "h": 30
+ },
+ "Violène Arachne": {
+  "family": "Arachne",
+  "pic": "violenearachne.gif",
+  "w": 31,
+  "h": 34
+ },
+ "Viper Tok'Han": {
+  "family": "Serpent",
+  "pic": "ViperTokHan.gif",
+  "w": 50,
+  "h": 57
+ },
+ "Visionary Adumbration": {
+  "family": "Shadow",
+  "pic": "VisionaryAdumbration.gif",
+  "w": 52,
+  "h": 47
+ },
+ "Vixen": {
+  "family": "Canine",
+  "pic": "vixen.gif",
+  "w": 29,
+  "h": 24
+ },
+ "Vol'Kin": {
+  "family": "Trool",
+  "pic": "volkin.gif",
+  "w": 27,
+  "h": 31
+ },
+ "Voolcon": {
+  "family": "Uncategorized",
+  "pic": "vulcan.gif",
+  "w": 22,
+  "h": 30
+ },
+ "Wailing Spirit": {
+  "family": "Insubstantial Undine",
+  "pic": "wailingspirit.gif",
+  "w": 27,
+  "h": 31
+ },
+ "Wake Me Up": {
+  "family": "Plant",
+  "pic": "wakemeup.gif",
+  "w": 35,
+  "h": 43
+ },
+ "Walking Corpse": {
+  "family": "Substantial Undine",
+  "pic": "walkingcorpse.gif",
+  "w": 34,
+  "h": 31
+ },
+ "Wall Arachne": {
+  "family": "Arachne",
+  "pic": "wallarachne.gif",
+  "w": 27,
+  "h": 31
+ },
+ "Warrior Myrm": {
+  "family": "Insect",
+  "pic": "warriorprotector.gif",
+  "w": 26,
+  "h": 31
+ },
+ "Wasted Guardian": {
+  "family": "Astral Elemental",
+  "pic": "WastedGuardian.gif",
+  "w": 34,
+  "h": 35
+ },
+ "Water Burst": {
+  "family": "Water Elemental",
+  "pic": "WaterBurst.png",
+  "w": 30,
+  "h": 31
+ },
+ "Water Lizard": {
+  "family": "Lizard",
+  "pic": "waterlizard.gif",
+  "w": 25,
+  "h": 31
+ },
+ "Watery Guardian": {
+  "family": "Water Elemental",
+  "pic": "WateryGuardian.png",
+  "w": 32,
+  "h": 39
+ },
+ "Web Arachne": {
+  "family": "Arachne",
+  "pic": "webarachne.gif",
+  "w": 34,
+  "h": 32
+ },
+ "Wendecka": {
+  "family": "Wendecka",
+  "pic": "wendecka.gif",
+  "w": 29,
+  "h": 33
+ },
+ "Whipper Wyrm": {
+  "family": "Wyrm",
+  "pic": "WhipperWyrm.gif",
+  "w": 47,
+  "h": 38
+ },
+ "Whispering Horror": {
+  "family": "Insubstantial Undine",
+  "pic": "WhisperingHorror.gif",
+  "w": 31,
+  "h": 28
+ },
+ "White Winter Foxrein": {
+  "family": "Canine",
+  "pic": "WhiteWinterFoxrein.gif",
+  "w": 30,
+  "h": 31
+ },
+ "Wickedew": {
+  "family": "Extinct",
+  "pic": "wickedew.gif",
+  "w": 40,
+  "h": 39
+ },
+ "Wild Boar": {
+  "family": "Suidae",
+  "pic": "wildboar.gif",
+  "w": 31,
+  "h": 31
+ },
+ "Wild Stallion": {
+  "family": "Equine",
+  "pic": "WildStallion.png",
+  "w": 40,
+  "h": 34
+ },
+ "Wildew": {
+  "family": "Extinct",
+  "pic": "wildew.gif",
+  "w": 26,
+  "h": 28
+ },
+ "Willow Giant": {
+  "family": "Tree Elemental",
+  "pic": "willowgiant.gif",
+  "w": 54,
+  "h": 59
+ },
+ "Wind Elemental": {
+  "family": "Air Elemental",
+  "pic": "WindElemental.gif",
+  "w": 101,
+  "h": 106
+ },
+ "Windswept Fervor": {
+  "family": "Air Elemental",
+  "pic": "WindsweptFervor.gif",
+  "w": 38,
+  "h": 42
+ },
+ "Winged Snake": {
+  "family": "Serpent",
+  "pic": "wingedsnakenew.gif",
+  "w": 34,
+  "h": 32
+ },
+ "Withering Priestess": {
+  "family": "Insubstantial Undine",
+  "pic": "WitheringPriestess.gif",
+  "w": 22,
+  "h": 34
+ },
+ "Wizard Q'vynn": {
+  "family": "Uncategorized",
+  "pic": "WizardQvynn.gif",
+  "w": 63,
+  "h": 100
+ },
+ "Wraith": {
+  "family": "Insubstantial Undine",
+  "pic": "wraith.gif",
+  "w": 24,
+  "h": 30
+ },
+ "Wuss": {
+  "family": "Extinct",
+  "pic": "wuss.gif",
+  "w": 20,
+  "h": 33
+ },
+ "Wyrm Lyfelidae": {
+  "family": "Lyfelidae",
+  "pic": "wyrmlyfelidae.gif",
+  "w": 33,
+  "h": 60
+ },
+ "Wyvern": {
+  "family": "Drake",
+  "pic": "wyvern.png",
+  "w": 31,
+  "h": 30
+ },
+ "Xar'Noth": {
+  "family": "Noth",
+  "pic": "xar.gif",
+  "w": 32,
+  "h": 32
+ },
+ "Yorilla": {
+  "family": "Yorilla",
+  "pic": "Yorilla.gif",
+  "w": 36,
+  "h": 46
+ },
+ "Young Andvari": {
+  "family": "Lizard",
+  "pic": "youngandvari.gif",
+  "w": 32,
+  "h": 30
+ },
+ "Young Org": {
+  "family": "Org",
+  "pic": "YoungOrg.gif",
+  "w": 26,
+  "h": 26
+ },
+ "Young Rockodile": {
+  "family": "Lizard",
+  "pic": "youngrockodile.gif",
+  "w": 23,
+  "h": 28
+ },
+ "Young Sasquatch": {
+  "family": "Wendecka",
+  "pic": "youngsasquatch.gif",
+  "w": 37,
+  "h": 41
+ },
+ "Zesserakh": {
+  "family": "Shadow",
+  "pic": "Zesserakh.gif",
+  "w": 48,
+  "h": 43
+ },
+ "Zol'Noth": {
+  "family": "Noth",
+  "pic": "zol.gif",
+  "w": 31,
+  "h": 30
+ },
+ "Zu Skyant": {
+  "family": "Tree Elemental",
+  "pic": "ZuSkyant.gif",
+  "w": 72,
+  "h": 115
+ },
+ "Zu'Noth": {
+  "family": "Noth",
+  "pic": "vel.gif",
+  "w": 33,
+  "h": 31
+ }
+}

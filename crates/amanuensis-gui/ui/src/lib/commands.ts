@@ -103,3 +103,15 @@ export async function importScribiusDb(
 ): Promise<ImportResult> {
   return invoke("import_scribius_db", { scribiusPath, outputPath, force });
 }
+
+export async function fetchCharacterPortrait(
+  name: string,
+): Promise<string | null> {
+  return invoke("fetch_character_portrait", { name });
+}
+
+export async function getCharacterPortraitPath(
+  name: string,
+): Promise<string | null> {
+  return invoke("get_character_portrait_path", { name });
+}
