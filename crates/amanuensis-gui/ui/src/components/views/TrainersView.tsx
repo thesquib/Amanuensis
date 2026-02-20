@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
@@ -29,11 +29,25 @@ export function TrainersView() {
   const [showZero, setShowZero] = useState(false);
   const [showEffective, setShowEffective] = useState(false);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     getTrainerDbInfo()
       .then(setTrainerDb)
       .catch(() => {});
+  }, []);
+
+  const toggleGroup = useCallback((profession: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(profession)) {
+        next.delete(profession);
+      } else {
+        next.add(profession);
+      }
+      return next;
+    });
   }, []);
 
   const columns = useMemo(
@@ -200,15 +214,22 @@ export function TrainersView() {
     });
   }, [trainers, trainerDb, showZero]);
 
+  // Filter by search query
+  const filteredTrainers = useMemo(() => {
+    if (!searchQuery.trim()) return enrichedTrainers;
+    const q = searchQuery.trim().toLowerCase();
+    return enrichedTrainers.filter((t) => t.trainer_name.toLowerCase().includes(q));
+  }, [enrichedTrainers, searchQuery]);
+
   // Group by profession
   const grouped = useMemo(() => {
-    const groups = new Map<string, typeof enrichedTrainers>();
-    for (const t of enrichedTrainers) {
+    const groups = new Map<string, typeof filteredTrainers>();
+    for (const t of filteredTrainers) {
       const prof = t.profession ?? "Other";
       if (!groups.has(prof)) groups.set(prof, []);
       groups.get(prof)!.push(t);
     }
-    const ordered: [string, typeof enrichedTrainers][] = [];
+    const ordered: [string, typeof filteredTrainers][] = [];
     for (const p of PROFESSION_ORDER) {
       if (groups.has(p)) {
         ordered.push([p, groups.get(p)!]);
@@ -219,7 +240,7 @@ export function TrainersView() {
       ordered.push([k, v]);
     }
     return ordered;
-  }, [enrichedTrainers]);
+  }, [filteredTrainers]);
 
   const totalRanks = trainers.reduce(
     (s, t) => s + t.ranks + t.modified_ranks + t.apply_learning_ranks,
@@ -267,23 +288,50 @@ export function TrainersView() {
         </div>
       </div>
 
+      <div className="mb-3">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search trainers..."
+          className="w-full max-w-xs rounded border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+        />
+        {searchQuery.trim() && (
+          <span className="ml-2 text-xs text-[var(--color-text-muted)]">
+            {filteredTrainers.length} matching
+          </span>
+        )}
+      </div>
+
       {grouped.length === 0 ? (
         <div className="py-12 text-center text-[var(--color-text-muted)]">
-          No trainer data
+          {searchQuery.trim() ? "No matching trainers" : "No trainer data"}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 space-y-4 overflow-auto">
-          {grouped.map(([profession, groupTrainers]) => (
-            <div key={profession}>
-              <div className="mb-2 flex items-center gap-2">
-                <ProfessionBadge profession={profession} />
-                <span className="text-xs text-[var(--color-text-muted)]">
-                  ({groupTrainers.length})
-                </span>
+        <div className="min-h-0 flex-1 space-y-4">
+          {grouped.map(([profession, groupTrainers]) => {
+            const isCollapsed = collapsedGroups.has(profession);
+            return (
+              <div key={profession}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(profession)}
+                  className="mb-2 flex w-full items-center gap-2 text-left"
+                >
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    {isCollapsed ? "▶" : "▼"}
+                  </span>
+                  <ProfessionBadge profession={profession} />
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    ({groupTrainers.length})
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <DataTable data={groupTrainers} columns={columns} />
+                )}
               </div>
-              <DataTable data={groupTrainers} columns={columns} />
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

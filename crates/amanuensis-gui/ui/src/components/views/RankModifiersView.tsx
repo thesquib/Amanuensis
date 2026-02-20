@@ -81,11 +81,25 @@ function ModifiedRankInput({
 export function RankModifiersView() {
   const { trainers, setTrainers, setCharacters, selectedCharacterId } = useStore();
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     getTrainerDbInfo()
       .then(setTrainerDb)
       .catch(() => {});
+  }, []);
+
+  const toggleGroup = useCallback((profession: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(profession)) {
+        next.delete(profession);
+      } else {
+        next.add(profession);
+      }
+      return next;
+    });
   }, []);
 
   // Build merged trainer rows: all known trainers with character data overlaid
@@ -111,10 +125,17 @@ export function RankModifiersView() {
     return rows;
   }, [trainers, trainerDb]);
 
+  // Filter by search query
+  const filteredRows = useMemo(() => {
+    if (!searchQuery.trim()) return trainerRows;
+    const q = searchQuery.trim().toLowerCase();
+    return trainerRows.filter((t) => t.name.toLowerCase().includes(q));
+  }, [trainerRows, searchQuery]);
+
   // Group by profession in standard order
   const grouped = useMemo(() => {
     const groups = new Map<string, TrainerRow[]>();
-    for (const t of trainerRows) {
+    for (const t of filteredRows) {
       if (!groups.has(t.profession)) groups.set(t.profession, []);
       groups.get(t.profession)!.push(t);
     }
@@ -129,7 +150,7 @@ export function RankModifiersView() {
       ordered.push([k, v]);
     }
     return ordered;
-  }, [trainerRows]);
+  }, [filteredRows]);
 
   const handleSave = useCallback(
     async (trainerName: string, value: number) => {
@@ -149,7 +170,7 @@ export function RankModifiersView() {
     [selectedCharacterId, setTrainers, setCharacters],
   );
 
-  // Summary stats
+  // Summary stats (use unfiltered rows for totals)
   const totalTrainers = trainerRows.length;
   const logRanks = trainerRows.reduce((s, t) => s + t.ranks, 0);
   const modifiedRanks = trainerRows.reduce((s, t) => s + t.modified_ranks, 0);
@@ -169,92 +190,119 @@ export function RankModifiersView() {
           modified) | {effectiveRounded} effective
         </div>
       </div>
-      <div className="mb-4 text-xs text-[var(--color-text-muted)]">
+      <div className="mb-3 text-xs text-[var(--color-text-muted)]">
         Add ranks that don't appear in logs for whatever reason
+      </div>
+
+      <div className="mb-3">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search trainers..."
+          className="w-full max-w-xs rounded border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+        />
+        {searchQuery.trim() && (
+          <span className="ml-2 text-xs text-[var(--color-text-muted)]">
+            {filteredRows.length} matching
+          </span>
+        )}
       </div>
 
       {grouped.length === 0 ? (
         <div className="py-12 text-center text-[var(--color-text-muted)]">
-          No trainer data
+          {searchQuery.trim() ? "No matching trainers" : "No trainer data"}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 space-y-4 overflow-auto">
-          {grouped.map(([profession, groupTrainers]) => (
-            <div key={profession}>
-              <div className="mb-2 flex items-center gap-2">
-                <ProfessionBadge profession={profession} />
-                <span className="text-xs text-[var(--color-text-muted)]">
-                  ({groupTrainers.length})
-                </span>
+        <div className="min-h-0 flex-1 space-y-4">
+          {grouped.map(([profession, groupTrainers]) => {
+            const isCollapsed = collapsedGroups.has(profession);
+            return (
+              <div key={profession}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(profession)}
+                  className="mb-2 flex w-full items-center gap-2 text-left"
+                >
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    {isCollapsed ? "▶" : "▼"}
+                  </span>
+                  <ProfessionBadge profession={profession} />
+                  <span className="text-xs text-[var(--color-text-muted)]">
+                    ({groupTrainers.length})
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[var(--color-border)] bg-[var(--color-card)]">
+                          <th className="px-3 py-2 text-left font-medium">
+                            Trainer
+                          </th>
+                          <th className="w-24 px-3 py-2 text-right font-medium">
+                            Log Ranks
+                          </th>
+                          <th className="w-28 px-3 py-2 text-right font-medium">
+                            Modified
+                          </th>
+                          <th className="w-24 px-3 py-2 text-right font-medium">
+                            Total
+                          </th>
+                          <th className="w-24 px-3 py-2 text-right font-medium">
+                            Effective
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupTrainers.map((t) => (
+                          <tr
+                            key={t.name}
+                            className="border-b border-[var(--color-border)] last:border-b-0"
+                          >
+                            <td className="px-3 py-1.5">
+                              {t.name}
+                              {t.is_combo && (
+                                <span
+                                  className="ml-1 cursor-help text-[var(--color-accent)]"
+                                  title={`Combo trainer: includes ${t.combo_components.join(", ")}`}
+                                >
+                                  *
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
+                              {t.ranks}
+                            </td>
+                            <td className="px-3 py-1.5 text-right">
+                              <ModifiedRankInput
+                                value={t.modified_ranks}
+                                onSave={(val) => handleSave(t.name, val)}
+                              />
+                            </td>
+                            <td className="px-3 py-1.5 text-right font-medium">
+                              {t.ranks + t.modified_ranks}
+                            </td>
+                            <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
+                              {(() => {
+                                const eff =
+                                  Math.round(
+                                    (t.ranks + t.modified_ranks) *
+                                      t.multiplier *
+                                      10,
+                                  ) / 10;
+                                return eff % 1 === 0 ? eff : eff.toFixed(1);
+                              })()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--color-border)] bg-[var(--color-card)]">
-                      <th className="px-3 py-2 text-left font-medium">
-                        Trainer
-                      </th>
-                      <th className="w-24 px-3 py-2 text-right font-medium">
-                        Log Ranks
-                      </th>
-                      <th className="w-28 px-3 py-2 text-right font-medium">
-                        Modified
-                      </th>
-                      <th className="w-24 px-3 py-2 text-right font-medium">
-                        Total
-                      </th>
-                      <th className="w-24 px-3 py-2 text-right font-medium">
-                        Effective
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groupTrainers.map((t) => (
-                      <tr
-                        key={t.name}
-                        className="border-b border-[var(--color-border)] last:border-b-0"
-                      >
-                        <td className="px-3 py-1.5">
-                          {t.name}
-                          {t.is_combo && (
-                            <span
-                              className="ml-1 cursor-help text-[var(--color-accent)]"
-                              title={`Combo trainer: includes ${t.combo_components.join(", ")}`}
-                            >
-                              *
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
-                          {t.ranks}
-                        </td>
-                        <td className="px-3 py-1.5 text-right">
-                          <ModifiedRankInput
-                            value={t.modified_ranks}
-                            onSave={(val) => handleSave(t.name, val)}
-                          />
-                        </td>
-                        <td className="px-3 py-1.5 text-right font-medium">
-                          {t.ranks + t.modified_ranks}
-                        </td>
-                        <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
-                          {(() => {
-                            const eff =
-                              Math.round(
-                                (t.ranks + t.modified_ranks) *
-                                  t.multiplier *
-                                  10,
-                              ) / 10;
-                            return eff % 1 === 0 ? eff : eff.toFixed(1);
-                          })()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
