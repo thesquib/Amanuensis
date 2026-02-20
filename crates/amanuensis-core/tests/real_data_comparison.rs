@@ -368,10 +368,10 @@ fn scan_ruuk_lastys() {
     let ruuk = db.get_character("Ruuk").unwrap().expect("Ruuk should exist");
     let lastys = db.get_lastys(ruuk.id.unwrap()).unwrap();
 
-    // 29 active lastys, all Movements type
+    // 29 lastys, all Movements type
+    // Some may be finished (if "You learn to fight X more effectively" messages exist)
     assert_eq!(lastys.len(), 29);
     assert!(lastys.iter().all(|l| l.lasty_type == "Movements"));
-    assert!(lastys.iter().all(|l| !l.finished));
 }
 
 #[test]
@@ -866,4 +866,69 @@ fn compare_tu_whawha_import_vs_scan() {
     assert_eq!(import_tu.good_karma, scan_tu.good_karma, "good_karma");
     assert_eq!(import_tu.bad_karma, scan_tu.bad_karma, "bad_karma");
     assert_eq!(import_tu.chains_used, scan_tu.chains_used, "chains_used");
+}
+
+// ===========================================================================
+// AJAHN TEST DATA
+// Requires: /Users/thesquib/Downloads/ajahnlogs_extracted/ajahnlogs/Ajahn/
+// Ranger with completed Movements studies (Island Panther, Artak Cougar)
+// ===========================================================================
+
+fn ajahn_logs_path() -> PathBuf {
+    PathBuf::from("/Users/thesquib/Downloads/ajahnlogs_extracted/ajahnlogs")
+}
+
+#[test]
+#[ignore]
+fn scan_ajahn_lastys() {
+    if skip_if_missing(&ajahn_logs_path()) {
+        return;
+    }
+
+    let tmp = tempfile::NamedTempFile::new().unwrap();
+    let tmp_path = tmp.path().to_str().unwrap();
+
+    let db = Database::open(tmp_path).unwrap();
+    let parser = LogParser::new(db).unwrap();
+    let result = parser.scan_folder(&ajahn_logs_path(), false).unwrap();
+    parser.finalize_characters().unwrap();
+
+    assert!(result.files_scanned > 0, "Should scan some files");
+    assert_eq!(result.characters, 1, "Should find 1 character (Ajahn)");
+
+    let db = parser.into_db();
+    let ajahn = db.get_character("Ajahn").unwrap().expect("Ajahn should exist");
+    let lastys = db.get_lastys(ajahn.id.unwrap()).unwrap();
+
+    // Expect at least 2 finished Movements lastys
+    let finished_movements: Vec<_> = lastys
+        .iter()
+        .filter(|l| l.finished && l.lasty_type == "Movements")
+        .collect();
+    assert!(
+        finished_movements.len() >= 2,
+        "Expected at least 2 finished Movements lastys, got {}",
+        finished_movements.len()
+    );
+
+    // Island Panther and Artak Cougar should be finished
+    let island_panther = lastys
+        .iter()
+        .find(|l| l.creature_name == "Island Panther");
+    assert!(island_panther.is_some(), "Island Panther lasty should exist");
+    assert!(island_panther.unwrap().finished, "Island Panther should be finished");
+    assert!(
+        island_panther.unwrap().completed_date.is_some(),
+        "Island Panther should have a completed_date"
+    );
+
+    let artak_cougar = lastys
+        .iter()
+        .find(|l| l.creature_name == "Artak Cougar");
+    assert!(artak_cougar.is_some(), "Artak Cougar lasty should exist");
+    assert!(artak_cougar.unwrap().finished, "Artak Cougar should be finished");
+    assert!(
+        artak_cougar.unwrap().completed_date.is_some(),
+        "Artak Cougar should have a completed_date"
+    );
 }

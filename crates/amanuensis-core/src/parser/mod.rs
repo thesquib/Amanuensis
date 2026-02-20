@@ -3,7 +3,9 @@ pub mod line_classifier;
 pub mod patterns;
 pub mod timestamp;
 
+use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
@@ -24,6 +26,9 @@ pub struct LogParser {
     creature_db: CreatureDb,
     trainer_db: TrainerDb,
     db: Database,
+    /// Tracks abandoned studies per character: char_id → set of creature names.
+    /// Progress messages for abandoned creatures are skipped until "begin studying" re-enables them.
+    abandoned_studies: RefCell<HashMap<i64, HashSet<String>>>,
 }
 
 impl LogParser {
@@ -34,6 +39,7 @@ impl LogParser {
             creature_db,
             trainer_db,
             db,
+            abandoned_studies: RefCell::new(HashMap::new()),
         })
     }
 
@@ -215,7 +221,6 @@ impl LogParser {
                 | LogEvent::ClanningChange { .. }
                 | LogEvent::Disconnect
                 | LogEvent::StudyProgress { .. }
-                | LogEvent::StudyAbandon { .. }
                 | LogEvent::Recovered { .. } => {}
 
                 LogEvent::Login { .. } | LogEvent::Reconnect { .. } => {
@@ -359,11 +364,56 @@ impl LogParser {
                     file_result.events_found += 1;
                 }
 
+                LogEvent::StudyAbandon { creature } => {
+                    self.abandoned_studies
+                        .borrow_mut()
+                        .entry(char_id)
+                        .or_default()
+                        .insert(creature.clone());
+                    self.db.abandon_lasty(char_id, &creature, &date_str)?;
+                    file_result.events_found += 1;
+                }
+                LogEvent::LastyBeginStudy {
+                    creature,
+                    lasty_type,
+                } => {
+                    // Re-enable tracking if creature was abandoned
+                    self.abandoned_studies
+                        .borrow_mut()
+                        .entry(char_id)
+                        .or_default()
+                        .remove(&creature);
+                    self.db.clear_lasty_abandon(char_id, &creature)?;
+                    self.db.upsert_lasty(char_id, &creature, &lasty_type, &date_str)?;
+                    file_result.events_found += 1;
+                }
                 LogEvent::LastyProgress {
                     creature,
                     lasty_type,
                 } => {
-                    self.db.upsert_lasty(char_id, &creature, &lasty_type)?;
+                    // Skip progress for abandoned studies
+                    let is_abandoned = self
+                        .abandoned_studies
+                        .borrow()
+                        .get(&char_id)
+                        .map(|set| set.contains(&creature))
+                        .unwrap_or(false);
+                    if !is_abandoned {
+                        self.db.upsert_lasty(char_id, &creature, &lasty_type, &date_str)?;
+                        file_result.events_found += 1;
+                    }
+                }
+                LogEvent::LastyFinished {
+                    creature,
+                    lasty_type,
+                } => {
+                    // Clear abandoned state if applicable
+                    self.abandoned_studies
+                        .borrow_mut()
+                        .entry(char_id)
+                        .or_default()
+                        .remove(&creature);
+                    self.db.finish_lasty(char_id, &creature, &lasty_type, &date_str)?;
                     file_result.events_found += 1;
                 }
                 LogEvent::LastyCompleted { trainer } => {
@@ -1205,21 +1255,28 @@ mod tests {
         let maha = lastys.iter().find(|l| l.creature_name == "Maha Ruknee").unwrap();
         assert_eq!(maha.lasty_type, "Befriend");
         assert_eq!(maha.message_count, 2);
+        assert!(maha.finished);
+        assert!(maha.completed_date.is_some());
 
         let orga = lastys.iter().find(|l| l.creature_name == "Orga Anger").unwrap();
         assert_eq!(orga.lasty_type, "Morph");
         assert_eq!(orga.message_count, 1);
+        assert!(orga.finished);
+        assert!(orga.completed_date.is_some());
 
         let vermine = lastys.iter().find(|l| l.creature_name == "Large Vermine").unwrap();
         assert_eq!(vermine.lasty_type, "Movements");
+        assert!(vermine.finished);
+        assert!(vermine.completed_date.is_some());
 
         // Befriend does NOT create pets (only healers get pets via adoption)
         let pets = parser.db().get_pets(char_id).unwrap();
         assert_eq!(pets.len(), 0);
 
-        // One lasty should be completed (the most recent unfinished one — Large Vermine)
+        // All three lastys should be completed (they are all "You learn to..." = LastyFinished)
+        // Plus the LastyCompleted (trainer) which marks the most recent unfinished one
         let finished: Vec<_> = lastys.iter().filter(|l| l.finished).collect();
-        assert_eq!(finished.len(), 1);
+        assert_eq!(finished.len(), 3);
     }
 
     /// Helper: build a log file with the given ¥-prefixed rank messages (as raw bytes).
@@ -1931,5 +1988,95 @@ mod tests {
         assert_eq!(char.logins, 1);
         // Start date should come from first timestamp in file
         assert_eq!(char.start_date, Some("2024-01-01 13:00:00".to_string()));
+    }
+
+    #[test]
+    fn test_study_abandon_skips_progress() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        // Build log: begin studying, progress, abandon, more progress (should be skipped)
+        let mut bytes = Vec::new();
+        // Begin studying movements of Rat
+        bytes.extend_from_slice(b"1/1/24 1:00:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You begin studying the movements of the Rat.\n");
+        // Progress message
+        bytes.extend_from_slice(b"1/1/24 1:01:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b" You have almost nothing left to learn about the movements of the Rat.\n");
+        // Abandon
+        bytes.extend_from_slice(b"1/1/24 1:02:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You abandon your study of the Rat.\n");
+        // Another progress message (should be skipped because abandoned)
+        bytes.extend_from_slice(b"1/1/24 1:03:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b" You have almost nothing left to learn about the movements of the Rat.\n");
+
+        fs::write(
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
+            &bytes,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char_id = parser.db().get_or_create_character("TestChar").unwrap();
+        let lastys = parser.db().get_lastys(char_id).unwrap();
+        assert_eq!(lastys.len(), 1);
+        let rat = &lastys[0];
+        assert_eq!(rat.creature_name, "Rat");
+        // message_count = 1 (begin) + 1 (progress) = 2, the post-abandon progress is skipped
+        assert_eq!(rat.message_count, 2);
+        assert!(rat.abandoned_date.is_some());
+    }
+
+    #[test]
+    fn test_study_abandon_then_resume() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let mut bytes = Vec::new();
+        // Begin studying
+        bytes.extend_from_slice(b"1/1/24 1:00:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You begin studying the movements of the Rat.\n");
+        // Abandon
+        bytes.extend_from_slice(b"1/1/24 1:01:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You abandon your study of the Rat.\n");
+        // Begin again (resume)
+        bytes.extend_from_slice(b"1/1/24 1:02:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You begin studying the movements of the Rat.\n");
+        // Progress (should count now)
+        bytes.extend_from_slice(b"1/1/24 1:03:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b" You have almost nothing left to learn about the movements of the Rat.\n");
+        // Complete
+        bytes.extend_from_slice(b"1/1/24 1:04:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You learn to fight the Rat more effectively.\n");
+
+        fs::write(
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
+            &bytes,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char_id = parser.db().get_or_create_character("TestChar").unwrap();
+        let lastys = parser.db().get_lastys(char_id).unwrap();
+        assert_eq!(lastys.len(), 1);
+        let rat = &lastys[0];
+        assert_eq!(rat.creature_name, "Rat");
+        assert!(rat.finished);
+        // abandoned_date cleared after resume
+        assert!(rat.abandoned_date.is_none());
+        assert!(rat.completed_date.is_some());
     }
 }

@@ -82,6 +82,10 @@ export interface Lasty {
   lasty_type: string;
   finished: boolean;
   message_count: number;
+  first_seen_date: string | null;
+  last_seen_date: string | null;
+  completed_date: string | null;
+  abandoned_date: string | null;
 }
 
 /** Mirrors Rust `ScanResult` struct */

@@ -78,6 +78,10 @@ pub enum LogEvent {
     StudyCharge { amount: i64 },
     /// Lasty progress: learning to befriend/morph/fight a creature
     LastyProgress { creature: String, lasty_type: String },
+    /// Lasty finished: completed learning to befriend/morph/fight a creature
+    LastyFinished { creature: String, lasty_type: String },
+    /// Lasty begin study: started studying a creature
+    LastyBeginStudy { creature: String, lasty_type: String },
     /// Lasty completed: finished training with a trainer
     LastyCompleted { trainer: String },
     /// Study abandon: player abandoned creature study
