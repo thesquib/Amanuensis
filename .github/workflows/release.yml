@@ -80,6 +80,38 @@ jobs:
           releaseDraft: false
           prerelease: true
 
+      - name: Ad-hoc sign and re-package macOS app
+        if: matrix.platform == 'macos-latest'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUNDLE_DIR="target/${{ matrix.target }}/release/bundle"
+          APP_PATH="$BUNDLE_DIR/macos/Amanuensis.app"
+
+          # Ad-hoc sign the .app bundle
+          codesign --force --deep -s - "$APP_PATH"
+          codesign -vv "$APP_PATH"
+
+          # Determine arch suffix for filenames
+          if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
+            ARCH="aarch64"
+          else
+            ARCH="x64"
+          fi
+
+          # Rebuild the tar.gz with the signed app
+          tar czf "Amanuensis_${ARCH}.app.tar.gz" -C "$BUNDLE_DIR/macos" "Amanuensis.app"
+          gh release upload ${{ github.ref_name }} "Amanuensis_${ARCH}.app.tar.gz" --clobber
+
+          # Rebuild the DMG with the signed app
+          DMG_NAME=$(ls $BUNDLE_DIR/dmg/*.dmg 2>/dev/null | head -1)
+          if [ -n "$DMG_NAME" ]; then
+            DMG_BASENAME=$(basename "$DMG_NAME")
+            rm -f "$DMG_NAME"
+            hdiutil create -volname "Amanuensis" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
+            gh release upload ${{ github.ref_name }} "$DMG_NAME" --clobber
+          fi
+
       - name: Create portable Windows zip
         if: matrix.platform == 'windows-latest'
         shell: pwsh
