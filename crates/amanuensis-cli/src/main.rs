@@ -59,6 +59,19 @@ enum Commands {
         /// Character name
         name: String,
     },
+    /// Merge characters (rename consolidation)
+    Merge {
+        /// Name of the primary character (whose name is kept)
+        target: String,
+        /// Names of the source characters to merge into the primary
+        #[arg(required = true)]
+        sources: Vec<String>,
+    },
+    /// Unmerge a previously merged character
+    Unmerge {
+        /// Name of the character to unmerge
+        name: String,
+    },
     /// Import data from a Scribius (Core Data) database
     Import {
         /// Path to the Scribius Model.sqlite file
@@ -91,8 +104,25 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Trainers { name } => cmd_trainers(&cli.db, &name),
         Commands::Pets { name } => cmd_pets(&cli.db, &name),
         Commands::Lastys { name } => cmd_lastys(&cli.db, &name),
+        Commands::Merge { target, sources } => cmd_merge(&cli.db, &target, &sources),
+        Commands::Unmerge { name } => cmd_unmerge(&cli.db, &name),
         Commands::Import { source, output, force } => cmd_import(&source, &output, force),
     }
+}
+
+/// Look up a character by name, erroring if it's been merged into another.
+fn resolve_character(db: &Database, name: &str) -> amanuensis_core::Result<amanuensis_core::models::Character> {
+    let char = db
+        .get_character(name)?
+        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
+    let char_id = char.id.unwrap();
+    if let Some(target_name) = db.get_merged_into_name(char_id)? {
+        return Err(amanuensis_core::AmanuensisError::Data(format!(
+            "Character '{}' is merged into '{}'. Use '{}' instead, or run 'amanuensis unmerge {}' first.",
+            name, target_name, target_name, name
+        )));
+    }
+    Ok(char)
 }
 
 fn cmd_scan(db_path: &str, folder: &Path, force: bool) -> amanuensis_core::Result<()> {
@@ -151,15 +181,14 @@ fn cmd_characters(db_path: &str) -> amanuensis_core::Result<()> {
 
 fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
-    let char = db
-        .get_character(name)?
-        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
+    let base_char = resolve_character(&db, name)?;
 
-    let char_id = char.id.unwrap();
-    let kills = db.get_kills(char_id)?;
-    let trainers = db.get_trainers(char_id)?;
-    let lastys = db.get_lastys(char_id)?;
-    let pets = db.get_pets(char_id)?;
+    let char_id = base_char.id.unwrap();
+    let char = db.get_character_merged(char_id)?.unwrap_or(base_char);
+    let kills = db.get_kills_merged(char_id)?;
+    let trainers = db.get_trainers_merged(char_id)?;
+    let lastys = db.get_lastys_merged(char_id)?;
+    let pets = db.get_pets_merged(char_id)?;
 
     let total_solo: i64 = kills.iter().map(|k| k.total_solo()).sum();
     let total_assisted: i64 = kills.iter().map(|k| k.total_assisted()).sum();
@@ -172,7 +201,13 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
         .filter(|k| k.total_all() > 0)
         .max_by_key(|k| k.total_all());
 
+    let merge_sources = db.get_merge_sources(char_id)?;
+
     println!("=== {} ===", char.name);
+    if !merge_sources.is_empty() {
+        let names: Vec<&str> = merge_sources.iter().map(|s| s.name.as_str()).collect();
+        println!("Merged from:    {}", names.join(", "));
+    }
     println!("Profession:     {}", char.profession);
     if char.coin_level > 0 {
         println!("Coin Level:     {}", char.coin_level);
@@ -245,12 +280,10 @@ fn cmd_kills(
     limit: Option<usize>,
 ) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
-    let char = db
-        .get_character(name)?
-        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
+    let char = resolve_character(&db, name)?;
 
     let char_id = char.id.unwrap();
-    let mut kills = db.get_kills(char_id)?;
+    let mut kills = db.get_kills_merged(char_id)?;
 
     // Sort
     match sort {
@@ -299,12 +332,10 @@ fn cmd_kills(
 
 fn cmd_trainers(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
-    let char = db
-        .get_character(name)?
-        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
+    let char = resolve_character(&db, name)?;
 
     let char_id = char.id.unwrap();
-    let trainers = db.get_trainers(char_id)?;
+    let trainers = db.get_trainers_merged(char_id)?;
 
     if trainers.is_empty() {
         println!("No trainer ranks found for {}.", name);
@@ -334,12 +365,10 @@ fn cmd_trainers(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
 
 fn cmd_lastys(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
-    let char = db
-        .get_character(name)?
-        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
+    let char = resolve_character(&db, name)?;
 
     let char_id = char.id.unwrap();
-    let lastys = db.get_lastys(char_id)?;
+    let lastys = db.get_lastys_merged(char_id)?;
 
     if lastys.is_empty() {
         println!("No lastys found for {}.", name);
@@ -394,14 +423,53 @@ fn cmd_import(source: &Path, output: &str, force: bool) -> amanuensis_core::Resu
     Ok(())
 }
 
-fn cmd_pets(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
+fn cmd_merge(db_path: &str, target: &str, sources: &[String]) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
+    let target_char = db
+        .get_character(target)?
+        .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Target character '{}' not found", target)))?;
+    let target_id = target_char.id.unwrap();
+
+    let mut source_ids = Vec::new();
+    for name in sources {
+        let source_char = db
+            .get_character(name)?
+            .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Source character '{}' not found", name)))?;
+        source_ids.push(source_char.id.unwrap());
+    }
+
+    db.merge_characters(&source_ids, target_id)?;
+
+    println!("Merged {} into {}:", sources.join(", "), target);
+    println!("  {} is now the primary character", target);
+    println!("  {} source(s) hidden from character list", sources.len());
+    println!();
+    println!("To undo, run: amanuensis unmerge <name>");
+
+    Ok(())
+}
+
+fn cmd_unmerge(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+
+    // The character might be hidden (merged), so use the variant that doesn't filter.
     let char = db
-        .get_character(name)?
+        .get_character_including_merged(name)?
         .ok_or_else(|| amanuensis_core::AmanuensisError::Data(format!("Character '{}' not found", name)))?;
 
+    db.unmerge_character(char.id.unwrap())?;
+
+    println!("Unmerged '{}' — it is now a separate character again.", name);
+
+    Ok(())
+}
+
+fn cmd_pets(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let char = resolve_character(&db, name)?;
+
     let char_id = char.id.unwrap();
-    let pets = db.get_pets(char_id)?;
+    let pets = db.get_pets_merged(char_id)?;
 
     if pets.is_empty() {
         println!("No pets found for {}.", name);

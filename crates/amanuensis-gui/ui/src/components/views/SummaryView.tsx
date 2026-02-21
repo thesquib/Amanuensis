@@ -1,15 +1,37 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useStore } from "../../lib/store";
 import { StatCard } from "../shared/StatCard";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { CreatureImage } from "../shared/CreatureImage";
 import { CharacterPortrait } from "../shared/CharacterPortrait";
-import { getTrainerDbInfo } from "../../lib/commands";
-import type { TrainerInfo } from "../../types";
+import {
+  getTrainerDbInfo,
+  getMergeSources,
+  unmergeCharacter,
+  listCharacters,
+  getCharacterMerged,
+  getKills,
+  getTrainers,
+  getPets,
+  getLastys,
+} from "../../lib/commands";
+import type { Character, TrainerInfo } from "../../types";
 
 export function SummaryView() {
-  const { characters, selectedCharacterId, kills, trainers } = useStore();
+  const {
+    characters,
+    selectedCharacterId,
+    kills,
+    trainers,
+    setCharacters,
+    setKills,
+    setTrainers,
+    setPets,
+    setLastys,
+  } = useStore();
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
+  const [mergeSources, setMergeSources] = useState<Character[]>([]);
+  const [mergedChar, setMergedChar] = useState<Character | null>(null);
 
   useEffect(() => {
     getTrainerDbInfo()
@@ -17,8 +39,55 @@ export function SummaryView() {
       .catch(() => {});
   }, []);
 
-  const char = characters.find((c) => c.id === selectedCharacterId);
-  if (!char) return null;
+  useEffect(() => {
+    if (selectedCharacterId !== null) {
+      getMergeSources(selectedCharacterId)
+        .then(setMergeSources)
+        .catch(() => setMergeSources([]));
+      getCharacterMerged(selectedCharacterId)
+        .then(setMergedChar)
+        .catch(() => setMergedChar(null));
+    } else {
+      setMergeSources([]);
+      setMergedChar(null);
+    }
+  }, [selectedCharacterId]);
+
+  const handleUnmerge = useCallback(
+    async (sourceId: number) => {
+      try {
+        await unmergeCharacter(sourceId);
+        // Refresh everything
+        const chars = await listCharacters();
+        setCharacters(chars);
+        if (selectedCharacterId !== null) {
+          // Reload merge sources and merged character stats
+          const [sources, mc, k, t, p, l] = await Promise.all([
+            getMergeSources(selectedCharacterId),
+            getCharacterMerged(selectedCharacterId),
+            getKills(selectedCharacterId),
+            getTrainers(selectedCharacterId),
+            getPets(selectedCharacterId),
+            getLastys(selectedCharacterId),
+          ]);
+          setMergeSources(sources);
+          setMergedChar(mc);
+          setKills(k);
+          setTrainers(t);
+          setPets(p);
+          setLastys(l);
+        }
+      } catch (e) {
+        console.error("Unmerge failed:", e);
+      }
+    },
+    [selectedCharacterId, setCharacters, setKills, setTrainers, setPets, setLastys],
+  );
+
+  const baseChar = characters.find((c) => c.id === selectedCharacterId);
+  if (!baseChar) return null;
+  // Use merged stats when available (aggregated logins, deaths, etc.)
+  const char = mergedChar ?? baseChar;
 
   const totalKills = kills.reduce(
     (sum, k) =>
@@ -116,6 +185,31 @@ export function SummaryView() {
           )}
         </div>
       </div>
+
+      {mergeSources.length > 0 && (
+        <div className="mb-4 rounded border border-[var(--color-border)] bg-[var(--color-card)]/30 px-3 py-2">
+          <div className="mb-1 text-xs font-medium text-[var(--color-text-muted)]">
+            Merged from:
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {mergeSources.map((source) => (
+              <span
+                key={source.id}
+                className="inline-flex items-center gap-1.5 rounded bg-[var(--color-card)] px-2 py-1 text-xs"
+              >
+                {source.name}
+                <button
+                  onClick={() => source.id !== null && handleUnmerge(source.id)}
+                  className="rounded px-1 text-[var(--color-text-muted)] hover:bg-[var(--color-danger-bg)] hover:text-[var(--color-danger)]"
+                  title={`Unmerge ${source.name}`}
+                >
+                  &times;
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard label="Coin Level" value={char.coin_level.toLocaleString()} />
