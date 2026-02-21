@@ -20,7 +20,11 @@ const columns = [
   }),
   columnHelper.accessor("finished", {
     header: "Completed",
-    cell: (info) => (info.getValue() ? "Yes" : "No"),
+    cell: (info) => {
+      if (!info.getValue()) return "No";
+      const type = info.row.original.lasty_type;
+      return type || "Yes";
+    },
   }),
   columnHelper.accessor("first_seen_date", {
     header: "First Seen",
