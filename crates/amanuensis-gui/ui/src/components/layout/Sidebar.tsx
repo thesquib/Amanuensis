@@ -1,6 +1,6 @@
 import { open, save, confirm, message } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useStore } from "../../lib/store";
 import {
   openDatabase,
@@ -20,6 +20,7 @@ import {
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { ProgressBar } from "../shared/ProgressBar";
+import { MergeDialog } from "../shared/MergeDialog";
 import type { ScanProgress } from "../../types";
 import type { Theme } from "../../lib/store";
 
@@ -55,6 +56,8 @@ export function Sidebar() {
     theme,
     setTheme,
   } = useStore();
+
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
 
   // Listen for scan progress events
   useEffect(() => {
@@ -412,6 +415,15 @@ export function Sidebar() {
             />
             Exclude Unknown
           </label>
+          {characters.length >= 2 && (
+            <button
+              onClick={() => setShowMergeDialog(true)}
+              disabled={isScanning}
+              className="mt-1 rounded border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)] disabled:opacity-50"
+            >
+              Merge Characters...
+            </button>
+          )}
         </div>
       )}
 
@@ -457,6 +469,21 @@ export function Sidebar() {
           </div>
         )}
       </div>
+
+      {showMergeDialog && (
+        <MergeDialog
+          characters={characters}
+          onClose={() => setShowMergeDialog(false)}
+          onMerged={async () => {
+            setShowMergeDialog(false);
+            const chars = await listCharacters();
+            setCharacters(chars);
+            if (chars.length > 0 && chars[0].id !== null) {
+              await handleSelectCharacter(chars[0].id);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

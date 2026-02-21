@@ -15,6 +15,7 @@ fn main() {
             commands::open_database,
             commands::list_characters,
             commands::get_character,
+            commands::get_character_merged,
             commands::get_kills,
             commands::get_trainers,
             commands::set_modified_ranks,
@@ -30,6 +31,9 @@ fn main() {
             commands::reset_database,
             commands::search_logs,
             commands::get_log_line_count,
+            commands::merge_characters,
+            commands::unmerge_character,
+            commands::get_merge_sources,
             commands::fetch_character_portrait,
             commands::get_character_portrait_path,
         ])

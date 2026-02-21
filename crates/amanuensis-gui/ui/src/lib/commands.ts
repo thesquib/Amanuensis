@@ -104,6 +104,25 @@ export async function importScribiusDb(
   return invoke("import_scribius_db", { scribiusPath, outputPath, force });
 }
 
+export async function getCharacterMerged(charId: number): Promise<Character | null> {
+  return invoke("get_character_merged", { charId });
+}
+
+export async function mergeCharacters(
+  sourceIds: number[],
+  targetId: number,
+): Promise<void> {
+  return invoke("merge_characters", { sourceIds, targetId });
+}
+
+export async function unmergeCharacter(sourceId: number): Promise<void> {
+  return invoke("unmerge_character", { sourceId });
+}
+
+export async function getMergeSources(targetId: number): Promise<Character[]> {
+  return invoke("get_merge_sources", { targetId });
+}
+
 export async function fetchCharacterPortrait(
   name: string,
 ): Promise<string | null> {

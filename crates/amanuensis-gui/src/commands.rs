@@ -54,20 +54,28 @@ pub fn get_character(name: String, state: State<'_, AppState>) -> Result<Option<
     db.get_character(&name).map_err(|e| e.to_string())
 }
 
-/// Get kills for a character.
+/// Get a single character by ID with merged aggregated stats.
+#[tauri::command]
+pub fn get_character_merged(char_id: i64, state: State<'_, AppState>) -> Result<Option<Character>, String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.get_character_merged(char_id).map_err(|e| e.to_string())
+}
+
+/// Get kills for a character (includes merged sources).
 #[tauri::command]
 pub fn get_kills(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Kill>, String> {
     let guard = state.db.lock().unwrap();
     let db = guard.as_ref().ok_or("No database open")?;
-    db.get_kills(char_id).map_err(|e| e.to_string())
+    db.get_kills_merged(char_id).map_err(|e| e.to_string())
 }
 
-/// Get trainers for a character.
+/// Get trainers for a character (includes merged sources).
 #[tauri::command]
 pub fn get_trainers(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Trainer>, String> {
     let guard = state.db.lock().unwrap();
     let db = guard.as_ref().ok_or("No database open")?;
-    db.get_trainers(char_id).map_err(|e| e.to_string())
+    db.get_trainers_merged(char_id).map_err(|e| e.to_string())
 }
 
 /// Set modified ranks for a trainer (user-specified baseline).
@@ -84,20 +92,20 @@ pub fn set_modified_ranks(
         .map_err(|e| e.to_string())
 }
 
-/// Get pets for a character.
+/// Get pets for a character (includes merged sources).
 #[tauri::command]
 pub fn get_pets(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Pet>, String> {
     let guard = state.db.lock().unwrap();
     let db = guard.as_ref().ok_or("No database open")?;
-    db.get_pets(char_id).map_err(|e| e.to_string())
+    db.get_pets_merged(char_id).map_err(|e| e.to_string())
 }
 
-/// Get lastys for a character.
+/// Get lastys for a character (includes merged sources).
 #[tauri::command]
 pub fn get_lastys(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Lasty>, String> {
     let guard = state.db.lock().unwrap();
     let db = guard.as_ref().ok_or("No database open")?;
-    db.get_lastys(char_id).map_err(|e| e.to_string())
+    db.get_lastys_merged(char_id).map_err(|e| e.to_string())
 }
 
 /// Get total scanned log file count.
@@ -326,6 +334,42 @@ pub fn reset_database(state: State<'_, AppState>) -> Result<(), String> {
     *state.db.lock().unwrap() = Some(db);
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Character merge commands
+// ---------------------------------------------------------------------------
+
+/// Merge source characters into a target character.
+#[tauri::command]
+pub fn merge_characters(
+    source_ids: Vec<i64>,
+    target_id: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.merge_characters(&source_ids, target_id)
+        .map_err(|e| e.to_string())
+}
+
+/// Unmerge a character (restore it from a merged state).
+#[tauri::command]
+pub fn unmerge_character(source_id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.unmerge_character(source_id).map_err(|e| e.to_string())
+}
+
+/// Get all characters that have been merged into the given target.
+#[tauri::command]
+pub fn get_merge_sources(
+    target_id: i64,
+    state: State<'_, AppState>,
+) -> Result<Vec<Character>, String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.get_merge_sources(target_id).map_err(|e| e.to_string())
 }
 
 // ---------------------------------------------------------------------------

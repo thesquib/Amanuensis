@@ -130,6 +130,7 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE lastys ADD COLUMN last_seen_date TEXT",
         "ALTER TABLE lastys ADD COLUMN completed_date TEXT",
         "ALTER TABLE lastys ADD COLUMN abandoned_date TEXT",
+        "ALTER TABLE characters ADD COLUMN merged_into INTEGER REFERENCES characters(id)",
     ];
 
     for sql in &migrations {
