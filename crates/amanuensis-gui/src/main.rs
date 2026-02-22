@@ -36,6 +36,7 @@ fn main() {
             commands::get_merge_sources,
             commands::fetch_character_portrait,
             commands::get_character_portrait_path,
+            commands::check_for_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

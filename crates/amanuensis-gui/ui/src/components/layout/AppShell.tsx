@@ -1,5 +1,8 @@
+import { useEffect, useState } from "react";
 import { useStore } from "../../lib/store";
+import { checkForUpdate, type UpdateInfo } from "../../lib/commands";
 import { Sidebar } from "./Sidebar";
+import { UpdateBanner } from "../shared/UpdateBanner";
 import { SummaryView } from "../views/SummaryView";
 import { KillsView } from "../views/KillsView";
 import { TrainersView } from "../views/TrainersView";
@@ -54,6 +57,13 @@ export function AppShell() {
   const { activeView, setActiveView, selectedCharacterId, characters, dbPath } =
     useStore();
 
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
+
+  useEffect(() => {
+    checkForUpdate().then((info) => setUpdateInfo(info)).catch(() => {});
+  }, []);
+
   const selectedCharacter = characters.find(
     (c) => c.id === selectedCharacterId,
   );
@@ -71,6 +81,9 @@ export function AppShell() {
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
+        {updateInfo && !updateDismissed && (
+          <UpdateBanner update={updateInfo} onDismiss={() => setUpdateDismissed(true)} />
+        )}
         {selectedCharacter ? (
           <>
             {/* Tab bar */}
