@@ -1,18 +1,48 @@
 use encoding_rs::WINDOWS_1252;
 
-/// Patch bytes that are undefined in Windows-1252 but valid in Mac Roman.
+/// Remap Mac Roman bytes in the 0x80–0x9F range to their W1252 equivalents.
 ///
-/// Clan Lord is a classic Mac game, so log files may contain Mac Roman byte values
-/// for accented characters (e.g., 0x8F = è in "Violène"). These 5 bytes are undefined
-/// in W1252, so we remap them to the W1252 byte that produces the same Unicode character.
+/// Clan Lord is a classic Mac game, so log files contain Mac Roman byte values for
+/// accented characters (e.g., 0x87 = á in "Rodán", 0x8F = è in "Violène"). In W1252,
+/// the 0x80–0x9F range holds typography symbols (smart quotes, dashes, etc.) rather than
+/// accented letters. We remap each Mac Roman byte to the W1252 byte that produces the
+/// same Unicode character, so W1252 decoding yields correct accented output.
+/// Bytes 0xA0–0xFF are left alone (0xA5 = ¥ for trainer message prefixes).
 fn patch_mac_roman_bytes(line: &[u8]) -> Vec<u8> {
     line.iter()
         .map(|&b| match b {
+            0x80 => 0xC4, // Ä
             0x81 => 0xC5, // Å
+            0x82 => 0xC7, // Ç
+            0x83 => 0xC9, // É
+            0x84 => 0xD1, // Ñ
+            0x85 => 0xD6, // Ö
+            0x86 => 0xDC, // Ü
+            0x87 => 0xE1, // á
+            0x88 => 0xE0, // à
+            0x89 => 0xE2, // â
+            0x8A => 0xE4, // ä
+            0x8B => 0xE3, // ã
+            0x8C => 0xE5, // å
             0x8D => 0xE7, // ç
+            0x8E => 0xE9, // é
             0x8F => 0xE8, // è
             0x90 => 0xEA, // ê
+            0x91 => 0xEB, // ë
+            0x92 => 0xED, // í
+            0x93 => 0xEC, // ì
+            0x94 => 0xEE, // î
+            0x95 => 0xEF, // ï
+            0x96 => 0xF1, // ñ
+            0x97 => 0xF3, // ó
+            0x98 => 0xF2, // ò
+            0x99 => 0xF4, // ô
+            0x9A => 0xF6, // ö
+            0x9B => 0xF5, // õ
+            0x9C => 0xFA, // ú
             0x9D => 0xF9, // ù
+            0x9E => 0xFB, // û
+            0x9F => 0xFC, // ü
             _ => b,
         })
         .collect()
@@ -121,8 +151,7 @@ mod tests {
 
     #[test]
     fn test_mac_roman_0x8f_becomes_e_grave() {
-        // Clan Lord logs may contain Mac Roman byte 0x8F for è (e.g., "Violène Arachne").
-        // 0x8F is undefined in W1252, so without patching it renders as a control char (□).
+        // Mac Roman 0x8F = è (e.g., "Violène Arachne")
         let mut bytes = Vec::new();
         bytes.extend_from_slice(b"You slaughtered a Viol");
         bytes.push(0x8F); // Mac Roman è
@@ -132,18 +161,34 @@ mod tests {
     }
 
     #[test]
+    fn test_mac_roman_0x87_becomes_a_acute() {
+        // Mac Roman 0x87 = á (e.g., "Rodán Panther")
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"You slaughtered a Rod");
+        bytes.push(0x87); // Mac Roman á
+        bytes.extend_from_slice(b"n Panther.");
+        let result = decode_log_bytes(&bytes);
+        assert!(result.contains("Rodán Panther"), "Expected á, got: {}", result);
+    }
+
+    #[test]
     fn test_mac_roman_bytes_with_yen_prefix() {
-        // A file with both 0xA5 (¥ in W1252) and 0x8F (è in Mac Roman)
+        // A file with both 0xA5 (¥ in W1252) and Mac Roman accented chars
         let mut bytes = Vec::new();
         // Line 1: trainer message with ¥
         bytes.push(0xA5);
         bytes.extend_from_slice(b"Your combat ability improves.\n");
-        // Line 2: kill with Mac Roman è
+        // Line 2: kill with Mac Roman è (0x8F)
         bytes.extend_from_slice(b"You slaughtered a Viol");
         bytes.push(0x8F);
-        bytes.extend_from_slice(b"ne Arachne.");
+        bytes.extend_from_slice(b"ne Arachne.\n");
+        // Line 3: kill with Mac Roman á (0x87)
+        bytes.extend_from_slice(b"You slaughtered a Rod");
+        bytes.push(0x87);
+        bytes.extend_from_slice(b"n Panther.");
         let result = decode_log_bytes(&bytes);
         assert!(result.contains("¥Your combat ability"), "¥ prefix broken: {}", result);
         assert!(result.contains("Violène Arachne"), "Mac Roman è broken: {}", result);
+        assert!(result.contains("Rodán Panther"), "Mac Roman á broken: {}", result);
     }
 }
