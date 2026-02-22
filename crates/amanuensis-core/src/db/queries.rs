@@ -288,17 +288,38 @@ impl Database {
             .map(|c| format!(", {c} = excluded.{c}"))
             .unwrap_or_default();
 
-        let sql = format!(
-            "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert})
-             VALUES (?1, ?2, 1, ?3, ?4, ?4{date_col_value})
-             ON CONFLICT(character_id, creature_name) DO UPDATE SET
-                {field} = {field} + 1,
-                date_last = excluded.date_last{date_col_update}",
-        );
-        self.conn.execute(
-            &sql,
-            params![char_id, creature_name, creature_value, date],
-        )?;
+        let is_death = field == "killed_by_count";
+
+        if is_death {
+            // Death events: insert NULL for date_first/date_last (these track kills only)
+            let sql = format!(
+                "INSERT INTO kills (character_id, creature_name, {field}, creature_value)
+                 VALUES (?1, ?2, 1, ?3)
+                 ON CONFLICT(character_id, creature_name) DO UPDATE SET
+                    {field} = {field} + 1,
+                    creature_value = MAX(kills.creature_value, excluded.creature_value)",
+            );
+            self.conn.execute(
+                &sql,
+                params![char_id, creature_name, creature_value],
+            )?;
+        } else {
+            // Kill events: set dates, backfill date_first if NULL (first encounter was a death)
+            let date_update =
+                ", date_first = COALESCE(kills.date_first, excluded.date_first), date_last = excluded.date_last";
+
+            let sql = format!(
+                "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert})
+                 VALUES (?1, ?2, 1, ?3, ?4, ?4{date_col_value})
+                 ON CONFLICT(character_id, creature_name) DO UPDATE SET
+                    {field} = {field} + 1,
+                    creature_value = MAX(kills.creature_value, excluded.creature_value){date_update}{date_col_update}",
+            );
+            self.conn.execute(
+                &sql,
+                params![char_id, creature_name, creature_value, date],
+            )?;
+        }
         Ok(())
     }
 
@@ -1411,6 +1432,49 @@ mod tests {
         assert_eq!(kills[0].killed_count, 1);
         assert_eq!(kills[0].date_first, Some("2024-01-01".to_string()));
         assert_eq!(kills[0].date_last, Some("2024-01-03".to_string()));
+    }
+
+    #[test]
+    fn test_death_does_not_set_dates() {
+        // date_first/date_last should only reflect kill events, not deaths
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+
+        // First encounter is a death — dates should be NULL
+        db.upsert_kill(id, "Orga Fury", "killed_by_count", 10, "2024-01-01")
+            .unwrap();
+        let kills = db.get_kills(id).unwrap();
+        let orga = kills.iter().find(|k| k.creature_name == "Orga Fury").unwrap();
+        assert_eq!(orga.killed_by_count, 1);
+        assert_eq!(orga.date_first, None, "Death should not set date_first");
+        assert_eq!(orga.date_last, None, "Death should not set date_last");
+
+        // Now kill the creature — dates should be set
+        db.upsert_kill(id, "Orga Fury", "killed_count", 10, "2024-02-15")
+            .unwrap();
+        let kills = db.get_kills(id).unwrap();
+        let orga = kills.iter().find(|k| k.creature_name == "Orga Fury").unwrap();
+        assert_eq!(orga.killed_count, 1);
+        assert_eq!(orga.killed_by_count, 1);
+        assert_eq!(orga.date_first, Some("2024-02-15".to_string()), "First kill should backfill date_first");
+        assert_eq!(orga.date_last, Some("2024-02-15".to_string()));
+
+        // Another death — dates should NOT change
+        db.upsert_kill(id, "Orga Fury", "killed_by_count", 10, "2024-03-01")
+            .unwrap();
+        let kills = db.get_kills(id).unwrap();
+        let orga = kills.iter().find(|k| k.creature_name == "Orga Fury").unwrap();
+        assert_eq!(orga.killed_by_count, 2);
+        assert_eq!(orga.date_first, Some("2024-02-15".to_string()), "Death should not change date_first");
+        assert_eq!(orga.date_last, Some("2024-02-15".to_string()), "Death should not change date_last");
+
+        // Another kill — date_last should update but date_first stays
+        db.upsert_kill(id, "Orga Fury", "slaughtered_count", 10, "2024-04-01")
+            .unwrap();
+        let kills = db.get_kills(id).unwrap();
+        let orga = kills.iter().find(|k| k.creature_name == "Orga Fury").unwrap();
+        assert_eq!(orga.date_first, Some("2024-02-15".to_string()), "date_first should stay at first kill");
+        assert_eq!(orga.date_last, Some("2024-04-01".to_string()), "date_last should update to latest kill");
     }
 
     #[test]

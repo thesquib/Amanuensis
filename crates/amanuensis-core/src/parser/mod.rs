@@ -248,8 +248,9 @@ impl LogParser {
 
                 LogEvent::Fallen { name, cause } => {
                     if name.eq_ignore_ascii_case(char_name) {
+                        let value = self.creature_db.get_value(&cause).unwrap_or(0);
                         self.db
-                            .upsert_kill(char_id, &cause, "killed_by_count", 0, &date_str)?;
+                            .upsert_kill(char_id, &cause, "killed_by_count", value, &date_str)?;
                         self.db.increment_character_field(char_id, "deaths", 1)?;
                         file_result.events_found += 1;
                     }

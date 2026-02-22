@@ -1,51 +1,51 @@
 use encoding_rs::WINDOWS_1252;
 
-/// Detect whether bytes are valid UTF-8 or need legacy encoding decoding.
-/// Returns the decoded string.
+/// Patch bytes that are undefined in Windows-1252 but valid in Mac Roman.
 ///
-/// Strategy: try UTF-8 first. If it fails, decode as Windows-1252 (superset of ISO-8859-1).
-/// The key byte is 0xA5 which is ¥ (U+00A5) in ISO-8859-1/Windows-1252.
-/// Note: despite the CLAUDE.md saying "Mac Roman", the actual encoding for 0xA5→¥
-/// is ISO-8859-1, not Mac Roman (which maps 0xA5 to bullet •).
-pub fn decode_log_bytes(bytes: &[u8]) -> String {
-    // Check if the file contains a Windows-1252 ¥ marker (0xA5 that isn't part of
-    // a valid UTF-8 sequence). If found, decode the entire file as Windows-1252.
-    // Otherwise, use lossy UTF-8 decoding to handle files that are mostly UTF-8
-    // but may have truncated bytes at the end (e.g., file cut mid-character).
-    if has_windows1252_yen(bytes) {
-        let (cow, _encoding, _had_errors) = WINDOWS_1252.decode(bytes);
-        cow.into_owned()
-    } else {
-        String::from_utf8_lossy(bytes).into_owned()
-    }
+/// Clan Lord is a classic Mac game, so log files may contain Mac Roman byte values
+/// for accented characters (e.g., 0x8F = è in "Violène"). These 5 bytes are undefined
+/// in W1252, so we remap them to the W1252 byte that produces the same Unicode character.
+fn patch_mac_roman_bytes(line: &[u8]) -> Vec<u8> {
+    line.iter()
+        .map(|&b| match b {
+            0x81 => 0xC5, // Å
+            0x8D => 0xE7, // ç
+            0x8F => 0xE8, // è
+            0x90 => 0xEA, // ê
+            0x9D => 0xF9, // ù
+            _ => b,
+        })
+        .collect()
 }
 
-/// Check if bytes contain a 0xA5 byte that is NOT part of a valid UTF-8 sequence.
-/// In Windows-1252, 0xA5 = ¥. In UTF-8, 0xA5 is only valid as part of the
-/// 2-byte sequence C2 A5 (which also encodes ¥).
-fn has_windows1252_yen(bytes: &[u8]) -> bool {
-    let mut i = 0;
-    while i < bytes.len() {
-        let b = bytes[i];
-        if b < 0x80 {
-            i += 1;
-        } else if b == 0xA5 {
-            // 0xA5 as a standalone byte (not preceded by 0xC2) indicates Windows-1252
-            if i == 0 || bytes[i - 1] != 0xC2 {
-                return true;
+/// Decode log file bytes, handling mixed encoding (some lines UTF-8, some Windows-1252).
+///
+/// Strategy:
+/// 1. Fast path: if the entire file is valid UTF-8, use it directly.
+/// 2. Mixed encoding: decode line-by-line — try UTF-8 first for each line, fall back to W1252
+///    with Mac Roman patching for the 5 bytes that W1252 leaves undefined.
+pub fn decode_log_bytes(bytes: &[u8]) -> String {
+    // Fast path: if entire file is valid UTF-8, use it directly
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return s.to_string();
+    }
+
+    // Mixed encoding: decode line-by-line
+    let mut result = String::new();
+    for line in bytes.split(|&b| b == b'\n') {
+        if !result.is_empty() {
+            result.push('\n');
+        }
+        match std::str::from_utf8(line) {
+            Ok(s) => result.push_str(s),
+            Err(_) => {
+                let patched = patch_mac_roman_bytes(line);
+                let (cow, _, _) = WINDOWS_1252.decode(&patched);
+                result.push_str(&cow);
             }
-            i += 1;
-        } else if b & 0xE0 == 0xC0 {
-            i += 2; // 2-byte UTF-8
-        } else if b & 0xF0 == 0xE0 {
-            i += 3; // 3-byte UTF-8
-        } else if b & 0xF8 == 0xF0 {
-            i += 4; // 4-byte UTF-8
-        } else {
-            i += 1; // Invalid byte, skip
         }
     }
-    false
+    result
 }
 
 #[cfg(test)]
@@ -97,5 +97,53 @@ mod tests {
         let result = decode_log_bytes(&bytes);
         // The first line's • should be preserved, not mangled to â€¢
         assert!(result.contains('\u{2022}'), "Bullet should be preserved, got: {}", result);
+    }
+
+    #[test]
+    fn test_mixed_encoding_utf8_and_w1252() {
+        // Simulate a file with W1252 ¥ trainer lines AND UTF-8 accented creature names
+        let mut bytes = Vec::new();
+        // Line 1: W1252 trainer message (0xA5 = ¥)
+        bytes.extend_from_slice(b"1/1/24 1:00:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"Your combat ability improves.");
+        bytes.push(b'\n');
+        // Line 2: UTF-8 kill message with è (C3 A8)
+        bytes.extend_from_slice("1/1/24 1:01:00p You slaughtered a Violène Arachne.\n".as_bytes());
+
+        let result = decode_log_bytes(&bytes);
+        // The trainer line should decode 0xA5 as ¥
+        assert!(result.contains("¥Your combat ability improves."), "Trainer line wrong: {}", result);
+        // The kill line should preserve è (not produce mojibake Ã¨)
+        assert!(result.contains("Violène"), "Accented name should be preserved, got: {}", result);
+        assert!(!result.contains("ViolÃ"), "Should not have mojibake, got: {}", result);
+    }
+
+    #[test]
+    fn test_mac_roman_0x8f_becomes_e_grave() {
+        // Clan Lord logs may contain Mac Roman byte 0x8F for è (e.g., "Violène Arachne").
+        // 0x8F is undefined in W1252, so without patching it renders as a control char (□).
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"You slaughtered a Viol");
+        bytes.push(0x8F); // Mac Roman è
+        bytes.extend_from_slice(b"ne Arachne.");
+        let result = decode_log_bytes(&bytes);
+        assert!(result.contains("Violène Arachne"), "Expected è, got: {}", result);
+    }
+
+    #[test]
+    fn test_mac_roman_bytes_with_yen_prefix() {
+        // A file with both 0xA5 (¥ in W1252) and 0x8F (è in Mac Roman)
+        let mut bytes = Vec::new();
+        // Line 1: trainer message with ¥
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"Your combat ability improves.\n");
+        // Line 2: kill with Mac Roman è
+        bytes.extend_from_slice(b"You slaughtered a Viol");
+        bytes.push(0x8F);
+        bytes.extend_from_slice(b"ne Arachne.");
+        let result = decode_log_bytes(&bytes);
+        assert!(result.contains("¥Your combat ability"), "¥ prefix broken: {}", result);
+        assert!(result.contains("Violène Arachne"), "Mac Roman è broken: {}", result);
     }
 }

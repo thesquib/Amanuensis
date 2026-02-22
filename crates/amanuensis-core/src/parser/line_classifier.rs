@@ -84,7 +84,7 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
             _ => unreachable!(),
         };
         return LogEvent::SoloKill {
-            creature: caps[2].to_string(),
+            creature: strip_article(&caps[2]),
             verb,
         };
     }
@@ -97,7 +97,7 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
             _ => unreachable!(),
         };
         return LogEvent::AssistedKill {
-            creature: caps[2].to_string(),
+            creature: strip_article(&caps[2]),
             verb,
         };
     }
@@ -225,6 +225,17 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     }
 
     LogEvent::Ignored
+}
+
+/// Strip grammatical articles ("a ", "an ") from creature names but preserve "the " (boss creatures).
+fn strip_article(name: &str) -> String {
+    if let Some(rest) = name.strip_prefix("an ") {
+        rest.to_string()
+    } else if let Some(rest) = name.strip_prefix("a ") {
+        rest.to_string()
+    } else {
+        name.to_string()
+    }
 }
 
 /// Normalize a profession name from log text to canonical form.
@@ -853,6 +864,45 @@ mod tests {
         );
         // Should be ignored (filtered as speech since we don't act on the offer)
         assert!(matches!(event, LogEvent::Ignored));
+    }
+
+    #[test]
+    fn test_solo_kill_the_ramandu() {
+        let db = test_db();
+        let event = classify_line("You killed the Ramandu.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::SoloKill {
+                ref creature,
+                verb: KillVerb::Killed
+            } if creature == "the Ramandu"
+        ));
+    }
+
+    #[test]
+    fn test_assisted_kill_the_ramandu() {
+        let db = test_db();
+        let event = classify_line("You helped vanquish the Ramandu.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::AssistedKill {
+                ref creature,
+                verb: KillVerb::Vanquished
+            } if creature == "the Ramandu"
+        ));
+    }
+
+    #[test]
+    fn test_solo_kill_strips_a_article() {
+        let db = test_db();
+        let event = classify_line("You slaughtered a Ramandu.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::SoloKill {
+                ref creature,
+                verb: KillVerb::Slaughtered
+            } if creature == "Ramandu"
+        ));
     }
 
     #[test]

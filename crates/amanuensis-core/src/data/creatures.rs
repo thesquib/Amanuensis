@@ -41,8 +41,12 @@ impl CreatureDb {
     }
 
     /// Look up a creature's value by name.
+    /// Falls back to stripping "the " prefix for boss creatures (e.g., "the Ramandu").
     pub fn get_value(&self, name: &str) -> Option<i32> {
-        self.creatures.get(name).copied()
+        self.creatures.get(name).copied().or_else(|| {
+            name.strip_prefix("the ")
+                .and_then(|bare| self.creatures.get(bare).copied())
+        })
     }
 
     /// Get all creature names.
@@ -82,6 +86,24 @@ mod tests {
     fn test_unknown_creature() {
         let db = CreatureDb::bundled().unwrap();
         assert_eq!(db.get_value("Nonexistent Creature XYZ"), None);
+    }
+
+    #[test]
+    fn test_the_ramandu_boss_value() {
+        let db = CreatureDb::bundled().unwrap();
+        // "the Ramandu" is the boss with value 2620
+        assert_eq!(db.get_value("the Ramandu"), Some(2620));
+        // "Ramandu" (clone) has value 666
+        assert_eq!(db.get_value("Ramandu"), Some(666));
+    }
+
+    #[test]
+    fn test_the_prefix_fallback() {
+        // For creatures that only have a base entry, "the X" should fall back to "X"
+        let csv = b"Dragon,500\n";
+        let db = CreatureDb::from_csv_bytes(csv).unwrap();
+        assert_eq!(db.get_value("Dragon"), Some(500));
+        assert_eq!(db.get_value("the Dragon"), Some(500)); // fallback
     }
 
     #[test]

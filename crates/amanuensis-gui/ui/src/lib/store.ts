@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { SortingState } from "@tanstack/react-table";
 import type {
   Character,
   Kill,
@@ -10,6 +11,23 @@ import type {
 } from "../types";
 
 export type Theme = "dark" | "light" | "midnight";
+
+interface DataTableViewState {
+  sorting: SortingState;
+  globalFilter: string;
+}
+
+interface TrainersViewState {
+  showZero: boolean;
+  showEffective: boolean;
+  searchQuery: string;
+  collapsedGroups: string[];
+}
+
+interface RankModifiersViewState {
+  searchQuery: string;
+  collapsedGroups: string[];
+}
 
 interface AppStore {
   // Database
@@ -75,6 +93,17 @@ interface AppStore {
   // Loading
   isLoading: boolean;
   setIsLoading: (loading: boolean) => void;
+
+  // Per-view persisted state (survives tab switches)
+  viewStates: Record<string, DataTableViewState>;
+  setViewSorting: (view: string, sorting: SortingState) => void;
+  setViewFilter: (view: string, filter: string) => void;
+
+  trainersViewState: TrainersViewState;
+  setTrainersViewState: (patch: Partial<TrainersViewState>) => void;
+
+  rankModifiersViewState: RankModifiersViewState;
+  setRankModifiersViewState: (patch: Partial<RankModifiersViewState>) => void;
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -87,7 +116,13 @@ export const useStore = create<AppStore>((set) => ({
   characters: [],
   setCharacters: (chars) => set({ characters: chars }),
   selectedCharacterId: null,
-  selectCharacter: (id) => set({ selectedCharacterId: id }),
+  selectCharacter: (id) =>
+    set({
+      selectedCharacterId: id,
+      viewStates: {},
+      trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: [] },
+      rankModifiersViewState: { searchQuery: "", collapsedGroups: [] },
+    }),
 
   activeView: "summary",
   setActiveView: (view) => set({ activeView: view }),
@@ -139,4 +174,32 @@ export const useStore = create<AppStore>((set) => ({
 
   isLoading: false,
   setIsLoading: (loading) => set({ isLoading: loading }),
+
+  viewStates: {},
+  setViewSorting: (view, sorting) =>
+    set((state) => ({
+      viewStates: {
+        ...state.viewStates,
+        [view]: { ...state.viewStates[view], sorting, globalFilter: state.viewStates[view]?.globalFilter ?? "" },
+      },
+    })),
+  setViewFilter: (view, globalFilter) =>
+    set((state) => ({
+      viewStates: {
+        ...state.viewStates,
+        [view]: { ...state.viewStates[view], globalFilter, sorting: state.viewStates[view]?.sorting ?? [] },
+      },
+    })),
+
+  trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: [] },
+  setTrainersViewState: (patch) =>
+    set((state) => ({
+      trainersViewState: { ...state.trainersViewState, ...patch },
+    })),
+
+  rankModifiersViewState: { searchQuery: "", collapsedGroups: [] },
+  setRankModifiersViewState: (patch) =>
+    set((state) => ({
+      rankModifiersViewState: { ...state.rankModifiersViewState, ...patch },
+    })),
 }));

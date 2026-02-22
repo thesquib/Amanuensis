@@ -8,12 +8,12 @@ pub static WELCOME_BACK: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^Welcome back, (.+)!$").unwrap());
 
 // === Kill patterns ===
-// Solo: "You slaughtered a/an {creature}."
+// Solo: "You slaughtered a/an/the {creature}."
 pub static SOLO_KILL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You (killed|slaughtered|vanquished|dispatched) an? (.+)\.$").unwrap());
-// Assisted: "You helped kill/slaughter/vanquish/dispatch a/an {creature}."
+    Lazy::new(|| Regex::new(r"^You (killed|slaughtered|vanquished|dispatched) ((?:an?|the) .+)\.$").unwrap());
+// Assisted: "You helped kill/slaughter/vanquish/dispatch a/an/the {creature}."
 pub static ASSISTED_KILL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You helped (kill|slaughter|vanquish|dispatch) an? (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You helped (kill|slaughter|vanquish|dispatch) ((?:an?|the) .+)\.$").unwrap());
 
 // === Death/fall patterns ===
 // "X has fallen to [a/an] Y." — cause may or may not have an article
@@ -172,20 +172,34 @@ mod tests {
     fn test_solo_kill_slaughtered() {
         let caps = SOLO_KILL.captures("You slaughtered a Rat.").unwrap();
         assert_eq!(&caps[1], "slaughtered");
-        assert_eq!(&caps[2], "Rat");
+        assert_eq!(&caps[2], "a Rat");
     }
 
     #[test]
     fn test_solo_kill_with_an() {
         let caps = SOLO_KILL.captures("You slaughtered an Orga Anger.").unwrap();
-        assert_eq!(&caps[2], "Orga Anger");
+        assert_eq!(&caps[2], "an Orga Anger");
+    }
+
+    #[test]
+    fn test_solo_kill_with_the() {
+        let caps = SOLO_KILL.captures("You slaughtered the Ramandu.").unwrap();
+        assert_eq!(&caps[1], "slaughtered");
+        assert_eq!(&caps[2], "the Ramandu");
     }
 
     #[test]
     fn test_assisted_kill() {
         let caps = ASSISTED_KILL.captures("You helped vanquish a Greater Death.").unwrap();
         assert_eq!(&caps[1], "vanquish");
-        assert_eq!(&caps[2], "Greater Death");
+        assert_eq!(&caps[2], "a Greater Death");
+    }
+
+    #[test]
+    fn test_assisted_kill_with_the() {
+        let caps = ASSISTED_KILL.captures("You helped vanquish the Ramandu.").unwrap();
+        assert_eq!(&caps[1], "vanquish");
+        assert_eq!(&caps[2], "the Ramandu");
     }
 
     #[test]
