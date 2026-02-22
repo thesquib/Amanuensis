@@ -79,10 +79,11 @@ function ModifiedRankInput({
 }
 
 export function RankModifiersView() {
-  const { trainers, setTrainers, setCharacters, selectedCharacterId } = useStore();
+  const { trainers, setTrainers, setCharacters, selectedCharacterId, rankModifiersViewState, setRankModifiersViewState } = useStore();
+  const { searchQuery, collapsedGroups: collapsedArr } = rankModifiersViewState;
+  const collapsedGroups = useMemo(() => new Set(collapsedArr), [collapsedArr]);
+  const setSearchQuery = useCallback((v: string) => setRankModifiersViewState({ searchQuery: v }), [setRankModifiersViewState]);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     getTrainerDbInfo()
@@ -91,16 +92,14 @@ export function RankModifiersView() {
   }, []);
 
   const toggleGroup = useCallback((profession: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(profession)) {
-        next.delete(profession);
-      } else {
-        next.add(profession);
-      }
-      return next;
-    });
-  }, []);
+    const next = new Set(collapsedGroups);
+    if (next.has(profession)) {
+      next.delete(profession);
+    } else {
+      next.add(profession);
+    }
+    setRankModifiersViewState({ collapsedGroups: [...next] });
+  }, [collapsedGroups, setRankModifiersViewState]);
 
   // Build merged trainer rows: all known trainers with character data overlaid
   const trainerRows = useMemo(() => {

@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { createColumnHelper } from "@tanstack/react-table";
+import { useMemo, useCallback } from "react";
+import { createColumnHelper, type SortingState } from "@tanstack/react-table";
 import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
 import { StatCard } from "../shared/StatCard";
@@ -115,7 +115,18 @@ const columns = [
 ];
 
 export function KillsView() {
-  const { kills } = useStore();
+  const { kills, viewStates, setViewSorting, setViewFilter } = useStore();
+  const viewState = viewStates["kills"];
+  const sorting = viewState?.sorting ?? [];
+  const globalFilter = viewState?.globalFilter ?? "";
+  const onSortingChange = useCallback(
+    (s: SortingState) => setViewSorting("kills", s),
+    [setViewSorting],
+  );
+  const onGlobalFilterChange = useCallback(
+    (f: string) => setViewFilter("kills", f),
+    [setViewFilter],
+  );
 
   const stats = useMemo(() => {
     const totalSolo = kills.reduce(
@@ -182,6 +193,10 @@ export function KillsView() {
           columns={columns}
           enableSearch
           searchPlaceholder="Search creatures..."
+          sorting={sorting}
+          onSortingChange={onSortingChange}
+          globalFilter={globalFilter}
+          onGlobalFilterChange={onGlobalFilterChange}
         />
       </div>
     </div>

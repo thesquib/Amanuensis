@@ -25,12 +25,13 @@ const PROFESSION_ORDER = [
 ];
 
 export function TrainersView() {
-  const { trainers } = useStore();
-  const [showZero, setShowZero] = useState(false);
-  const [showEffective, setShowEffective] = useState(false);
+  const { trainers, trainersViewState, setTrainersViewState } = useStore();
+  const { showZero, showEffective, searchQuery, collapsedGroups: collapsedArr } = trainersViewState;
+  const collapsedGroups = useMemo(() => new Set(collapsedArr), [collapsedArr]);
+  const setShowZero = useCallback((v: boolean) => setTrainersViewState({ showZero: v }), [setTrainersViewState]);
+  const setShowEffective = useCallback((v: boolean) => setTrainersViewState({ showEffective: v }), [setTrainersViewState]);
+  const setSearchQuery = useCallback((v: string) => setTrainersViewState({ searchQuery: v }), [setTrainersViewState]);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     getTrainerDbInfo()
@@ -39,16 +40,14 @@ export function TrainersView() {
   }, []);
 
   const toggleGroup = useCallback((profession: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(profession)) {
-        next.delete(profession);
-      } else {
-        next.add(profession);
-      }
-      return next;
-    });
-  }, []);
+    const next = new Set(collapsedGroups);
+    if (next.has(profession)) {
+      next.delete(profession);
+    } else {
+      next.add(profession);
+    }
+    setTrainersViewState({ collapsedGroups: [...next] });
+  }, [collapsedGroups, setTrainersViewState]);
 
   const columns = useMemo(
     () => [

@@ -15,6 +15,10 @@ interface DataTableProps<T> {
   columns: ColumnDef<T, any>[];
   searchPlaceholder?: string;
   enableSearch?: boolean;
+  sorting?: SortingState;
+  onSortingChange?: (sorting: SortingState) => void;
+  globalFilter?: string;
+  onGlobalFilterChange?: (filter: string) => void;
 }
 
 export function DataTable<T>({
@@ -22,16 +26,31 @@ export function DataTable<T>({
   columns,
   searchPlaceholder = "Search...",
   enableSearch = false,
+  sorting: externalSorting,
+  onSortingChange: externalOnSortingChange,
+  globalFilter: externalGlobalFilter,
+  onGlobalFilterChange: externalOnGlobalFilterChange,
 }: DataTableProps<T>) {
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [internalSorting, setInternalSorting] = useState<SortingState>([]);
+  const [internalGlobalFilter, setInternalGlobalFilter] = useState("");
+
+  const sorting = externalSorting ?? internalSorting;
+  const globalFilter = externalGlobalFilter ?? internalGlobalFilter;
+  const onSortingChange = externalOnSortingChange ?? setInternalSorting;
+  const onGlobalFilterChange = externalOnGlobalFilterChange ?? setInternalGlobalFilter;
 
   const table = useReactTable({
     data,
     columns,
     state: { sorting, globalFilter },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
+    onSortingChange: (updater) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      onSortingChange(next);
+    },
+    onGlobalFilterChange: (updater) => {
+      const next = typeof updater === "function" ? updater(globalFilter) : updater;
+      onGlobalFilterChange(next);
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -44,7 +63,7 @@ export function DataTable<T>({
           <input
             type="text"
             value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
+            onChange={(e) => onGlobalFilterChange(e.target.value)}
             placeholder={searchPlaceholder}
             className="w-64 rounded border border-[var(--color-border)] bg-[var(--color-sidebar)] px-3 py-1.5 text-sm text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
           />
