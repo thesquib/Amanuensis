@@ -134,3 +134,12 @@ export async function getCharacterPortraitPath(
 ): Promise<string | null> {
   return invoke("get_character_portrait_path", { name });
 }
+
+export interface UpdateInfo {
+  version: string;
+  url: string;
+}
+
+export async function checkForUpdate(): Promise<UpdateInfo | null> {
+  return invoke("check_for_update");
+}
