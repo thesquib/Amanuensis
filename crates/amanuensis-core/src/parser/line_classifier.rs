@@ -47,6 +47,11 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
+    // Untrainus completion (NPC speech — check before speech filter)
+    if patterns::UNTRAINED.is_match(message) {
+        return LogEvent::Untrained;
+    }
+
     // Skip speech and emotes early (very common)
     if patterns::SPEECH.is_match(message) || patterns::EMOTE.is_match(message) {
         return LogEvent::Ignored;
@@ -911,6 +916,36 @@ mod tests {
             LogEvent::ProfessionAnnouncement { ref name, ref profession }
             if name == "Kargan" && profession == "Bloodmage"
         ));
+    }
+
+    #[test]
+    fn test_untrained() {
+        let db = test_db();
+        let event = classify_line(
+            r#"Untrainus says, "Squib, your mind is less cluttered now.""#,
+            &db,
+        );
+        assert!(matches!(event, LogEvent::Untrained));
+    }
+
+    #[test]
+    fn test_untrained_greeting_ignored() {
+        let db = test_db();
+        let event = classify_line(
+            r#"Untrainus says, "Greetings, Lord Squib.""#,
+            &db,
+        );
+        assert!(matches!(event, LogEvent::Ignored));
+    }
+
+    #[test]
+    fn test_untrained_question_ignored() {
+        let db = test_db();
+        let event = classify_line(
+            r#"Untrainus asks, "Squib, are you certain you wish to undertake this irrevocable step?""#,
+            &db,
+        );
+        assert!(matches!(event, LogEvent::Ignored));
     }
 
     #[test]

@@ -84,6 +84,8 @@ pub struct Character {
     pub blood_worth: i64,
     // Ethereal Portal Stone broken (separate from portals opened)
     pub eps_broken: i64,
+    // Untrainus visits
+    pub untraining_count: i64,
 }
 
 impl Character {
@@ -122,6 +124,7 @@ impl Character {
             mandible_worth: 0,
             blood_worth: 0,
             eps_broken: 0,
+            untraining_count: 0,
         }
     }
 }

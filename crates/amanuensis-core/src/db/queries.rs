@@ -115,7 +115,7 @@ impl Database {
                     bells_used, bells_broken, chains_used, chains_broken,
                     shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
                     coin_level, good_karma, bad_karma, start_date,
-                    fur_worth, mandible_worth, blood_worth, eps_broken
+                    fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count
              FROM characters WHERE name = ?1",
             params![name],
             |row| {
@@ -153,6 +153,7 @@ impl Database {
                     mandible_worth: row.get(30)?,
                     blood_worth: row.get(31)?,
                     eps_broken: row.get(32)?,
+                    untraining_count: row.get(33)?,
                 })
             },
         );
@@ -173,7 +174,7 @@ impl Database {
                     bells_used, bells_broken, chains_used, chains_broken,
                     shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
                     coin_level, good_karma, bad_karma, start_date,
-                    fur_worth, mandible_worth, blood_worth, eps_broken
+                    fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count
              FROM characters WHERE merged_into IS NULL ORDER BY name",
         )?;
 
@@ -212,6 +213,7 @@ impl Database {
                 mandible_worth: row.get(30)?,
                 blood_worth: row.get(31)?,
                 eps_broken: row.get(32)?,
+                untraining_count: row.get(33)?,
             })
         })?;
 
@@ -230,6 +232,7 @@ impl Database {
             "darkstone", "purgatory_pendant", "coin_level",
             "good_karma", "bad_karma",
             "fur_worth", "mandible_worth", "blood_worth", "eps_broken",
+            "untraining_count",
         ];
         if !allowed.contains(&field) {
             return Err(crate::error::AmanuensisError::Data(format!(
@@ -270,12 +273,27 @@ impl Database {
             )));
         }
 
+        // Determine the per-type date column to update (solo kill types only)
+        let date_col = match field {
+            "killed_count" => Some("date_last_killed"),
+            "slaughtered_count" => Some("date_last_slaughtered"),
+            "vanquished_count" => Some("date_last_vanquished"),
+            "dispatched_count" => Some("date_last_dispatched"),
+            _ => None,
+        };
+
+        let date_col_insert = date_col.map(|c| format!(", {c}")).unwrap_or_default();
+        let date_col_value = if date_col.is_some() { ", ?4" } else { "" };
+        let date_col_update = date_col
+            .map(|c| format!(", {c} = excluded.{c}"))
+            .unwrap_or_default();
+
         let sql = format!(
-            "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last)
-             VALUES (?1, ?2, 1, ?3, ?4, ?4)
+            "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert})
+             VALUES (?1, ?2, 1, ?3, ?4, ?4{date_col_value})
              ON CONFLICT(character_id, creature_name) DO UPDATE SET
                 {field} = {field} + 1,
-                date_last = excluded.date_last",
+                date_last = excluded.date_last{date_col_update}",
         );
         self.conn.execute(
             &sql,
@@ -290,7 +308,8 @@ impl Database {
             "SELECT id, character_id, creature_name,
                     killed_count, slaughtered_count, vanquished_count, dispatched_count,
                     assisted_kill_count, assisted_slaughter_count, assisted_vanquish_count, assisted_dispatch_count,
-                    killed_by_count, date_first, date_last, creature_value
+                    killed_by_count, date_first, date_last, creature_value,
+                    date_last_killed, date_last_slaughtered, date_last_vanquished, date_last_dispatched
              FROM kills WHERE character_id = ?1
              ORDER BY (killed_count + slaughtered_count + vanquished_count + dispatched_count +
                        assisted_kill_count + assisted_slaughter_count + assisted_vanquish_count + assisted_dispatch_count) DESC",
@@ -313,6 +332,10 @@ impl Database {
                 date_first: row.get(12)?,
                 date_last: row.get(13)?,
                 creature_value: row.get(14)?,
+                date_last_killed: row.get(15)?,
+                date_last_slaughtered: row.get(16)?,
+                date_last_vanquished: row.get(17)?,
+                date_last_dispatched: row.get(18)?,
             })
         })?;
 
@@ -778,7 +801,7 @@ impl Database {
                     bells_used, bells_broken, chains_used, chains_broken,
                     shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
                     coin_level, good_karma, bad_karma, start_date,
-                    fur_worth, mandible_worth, blood_worth, eps_broken
+                    fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count
              FROM characters WHERE merged_into = ?1 ORDER BY name",
         )?;
 
@@ -817,6 +840,7 @@ impl Database {
                 mandible_worth: row.get(30)?,
                 blood_worth: row.get(31)?,
                 eps_broken: row.get(32)?,
+                untraining_count: row.get(33)?,
             })
         })?;
 
@@ -857,7 +881,8 @@ impl Database {
             "SELECT NULL, {}, creature_name,
                     SUM(killed_count), SUM(slaughtered_count), SUM(vanquished_count), SUM(dispatched_count),
                     SUM(assisted_kill_count), SUM(assisted_slaughter_count), SUM(assisted_vanquish_count), SUM(assisted_dispatch_count),
-                    SUM(killed_by_count), MIN(date_first), MAX(date_last), MAX(creature_value)
+                    SUM(killed_by_count), MIN(date_first), MAX(date_last), MAX(creature_value),
+                    MAX(date_last_killed), MAX(date_last_slaughtered), MAX(date_last_vanquished), MAX(date_last_dispatched)
              FROM kills WHERE character_id IN ({})
              GROUP BY creature_name
              ORDER BY (SUM(killed_count) + SUM(slaughtered_count) + SUM(vanquished_count) + SUM(dispatched_count) +
@@ -882,6 +907,10 @@ impl Database {
                 date_first: row.get(12)?,
                 date_last: row.get(13)?,
                 creature_value: row.get(14)?,
+                date_last_killed: row.get(15)?,
+                date_last_slaughtered: row.get(16)?,
+                date_last_vanquished: row.get(17)?,
+                date_last_dispatched: row.get(18)?,
             })
         })?;
         Ok(kills.filter_map(|r| r.ok()).collect())
@@ -1027,6 +1056,7 @@ impl Database {
                 merged.mandible_worth += source.mandible_worth;
                 merged.blood_worth += source.blood_worth;
                 merged.eps_broken += source.eps_broken;
+                merged.untraining_count += source.untraining_count;
                 // Take earlier start_date
                 if let Some(ref source_date) = source.start_date {
                     if merged.start_date.is_none() || merged.start_date.as_ref().unwrap() > source_date {
@@ -1063,7 +1093,7 @@ impl Database {
                     bells_used, bells_broken, chains_used, chains_broken,
                     shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
                     coin_level, good_karma, bad_karma, start_date,
-                    fur_worth, mandible_worth, blood_worth, eps_broken
+                    fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count
              FROM characters WHERE id = ?1",
             params![char_id],
             |row| {
@@ -1101,6 +1131,7 @@ impl Database {
                     mandible_worth: row.get(30)?,
                     blood_worth: row.get(31)?,
                     eps_broken: row.get(32)?,
+                    untraining_count: row.get(33)?,
                 })
             },
         );
@@ -1138,7 +1169,7 @@ impl Database {
                     bells_used, bells_broken, chains_used, chains_broken,
                     shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
                     coin_level, good_karma, bad_karma, start_date,
-                    fur_worth, mandible_worth, blood_worth, eps_broken
+                    fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count
              FROM characters WHERE name = ?1",
             params![name],
             |row| {
@@ -1176,6 +1207,7 @@ impl Database {
                     mandible_worth: row.get(30)?,
                     blood_worth: row.get(31)?,
                     eps_broken: row.get(32)?,
+                    untraining_count: row.get(33)?,
                 })
             },
         );

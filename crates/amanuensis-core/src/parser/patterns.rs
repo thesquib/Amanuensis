@@ -71,6 +71,10 @@ pub static KARMA_RECEIVED: Lazy<Regex> =
 pub static ESTEEM_GAIN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\* You gain (?:experience and )?esteem\.$").unwrap());
 
+// === Untrainus ===
+pub static UNTRAINED: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"^Untrainus says, ".+, your mind is less cluttered now\."$"#).unwrap());
+
 // === Speech/emote patterns to skip ===
 pub static SPEECH: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^.+ (says|exclaims|yells|ponders|thinks|asks), ""#).unwrap());

@@ -17,6 +17,11 @@ pub struct Kill {
     pub date_first: Option<String>,
     pub date_last: Option<String>,
     pub creature_value: i32,
+    // Per-type last dates
+    pub date_last_killed: Option<String>,
+    pub date_last_slaughtered: Option<String>,
+    pub date_last_vanquished: Option<String>,
+    pub date_last_dispatched: Option<String>,
 }
 
 impl Kill {
@@ -37,6 +42,10 @@ impl Kill {
             date_first: None,
             date_last: None,
             creature_value,
+            date_last_killed: None,
+            date_last_slaughtered: None,
+            date_last_vanquished: None,
+            date_last_dispatched: None,
         }
     }
 

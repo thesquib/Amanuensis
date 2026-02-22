@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { useState, useEffect, useRef } from "react";
 import {
   getCharacterPortraitPath,
   fetchCharacterPortrait,
@@ -7,27 +6,35 @@ import {
 
 interface CharacterPortraitProps {
   name: string;
+  className?: string;
 }
 
-export function CharacterPortrait({ name }: CharacterPortraitProps) {
+export function CharacterPortrait({ name, className }: CharacterPortraitProps) {
   const [src, setSrc] = useState<string | null>(null);
+  const fetchedRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      // Check cache first
-      let path = await getCharacterPortraitPath(name);
-      if (!path) {
-        // Try fetching from Rank Tracker
-        path = await fetchCharacterPortrait(name);
+      // Show cached version immediately if available
+      const cached = await getCharacterPortraitPath(name);
+      if (!cancelled && cached) {
+        setSrc(cached);
       }
-      if (!cancelled && path) {
-        setSrc(convertFileSrc(path));
+
+      // Always fetch fresh from server once per character load
+      if (fetchedRef.current === name) return;
+      fetchedRef.current = name;
+
+      const fresh = await fetchCharacterPortrait(name);
+      if (!cancelled && fresh) {
+        setSrc(fresh);
       }
     }
 
     setSrc(null);
+    fetchedRef.current = null;
     load().catch(() => {});
 
     return () => {
@@ -41,7 +48,7 @@ export function CharacterPortrait({ name }: CharacterPortraitProps) {
     <img
       src={src}
       alt={`${name} portrait`}
-      className="h-16 w-auto rounded-lg"
+      className={className ?? "h-16 w-auto rounded-lg"}
       style={{ imageRendering: "auto" }}
     />
   );

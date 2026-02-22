@@ -370,6 +370,9 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     println!("Total ranks:    {}", total_ranks);
     println!("Effective ranks: {}", effective_ranks);
     println!("Trainers visited: {}", trainers.len());
+    if char.untraining_count > 0 {
+        println!("Untrained:      {}x", char.untraining_count);
+    }
     println!();
 
     // Survival stats
