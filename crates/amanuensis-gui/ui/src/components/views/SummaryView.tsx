@@ -115,26 +115,59 @@ export function SummaryView() {
     null as (typeof kills)[0] | null,
   );
 
-  // Find highest kill (highest total solo kills * creature_value)
+  // Find highest value creature killed (solo + assisted)
   const highestKill = kills.reduce(
     (best, k) => {
-      const score =
-        (k.killed_count +
-          k.slaughtered_count +
-          k.vanquished_count +
-          k.dispatched_count) *
-        k.creature_value;
-      const bestScore = best
-        ? (best.killed_count +
-            best.slaughtered_count +
-            best.vanquished_count +
-            best.dispatched_count) *
-          best.creature_value
-        : 0;
-      return score > bestScore ? k : best;
+      const total = k.killed_count + k.slaughtered_count + k.vanquished_count + k.dispatched_count +
+        k.assisted_kill_count + k.assisted_slaughter_count + k.assisted_vanquish_count + k.assisted_dispatch_count;
+      if (total === 0) return best;
+      return k.creature_value > (best?.creature_value ?? 0) ? k : best;
     },
     null as (typeof kills)[0] | null,
   );
+
+  // Find most killed creature (solo + assisted)
+  const mostKilled = kills.reduce(
+    (best, k) => {
+      const total = k.killed_count + k.slaughtered_count + k.vanquished_count + k.dispatched_count +
+        k.assisted_kill_count + k.assisted_slaughter_count + k.assisted_vanquish_count + k.assisted_dispatch_count;
+      const bestTotal = best
+        ? best.killed_count + best.slaughtered_count + best.vanquished_count + best.dispatched_count +
+          best.assisted_kill_count + best.assisted_slaughter_count + best.assisted_vanquish_count + best.assisted_dispatch_count
+        : 0;
+      return total > bestTotal ? k : best;
+    },
+    null as (typeof kills)[0] | null,
+  );
+  const mostKilledTotal = mostKilled
+    ? mostKilled.killed_count + mostKilled.slaughtered_count + mostKilled.vanquished_count + mostKilled.dispatched_count +
+      mostKilled.assisted_kill_count + mostKilled.assisted_slaughter_count + mostKilled.assisted_vanquish_count + mostKilled.assisted_dispatch_count
+    : 0;
+
+  // Find highest value creature solo-killed
+  const highestSoloKill = kills.reduce(
+    (best, k) => {
+      const solo = k.killed_count + k.slaughtered_count + k.vanquished_count + k.dispatched_count;
+      if (solo === 0) return best;
+      return k.creature_value > (best?.creature_value ?? 0) ? k : best;
+    },
+    null as (typeof kills)[0] | null,
+  );
+
+  // Find most solo-killed creature
+  const mostSoloKilled = kills.reduce(
+    (best, k) => {
+      const solo = k.killed_count + k.slaughtered_count + k.vanquished_count + k.dispatched_count;
+      const bestSolo = best
+        ? best.killed_count + best.slaughtered_count + best.vanquished_count + best.dispatched_count
+        : 0;
+      return solo > bestSolo ? k : best;
+    },
+    null as (typeof kills)[0] | null,
+  );
+  const mostSoloKilledTotal = mostSoloKilled
+    ? mostSoloKilled.killed_count + mostSoloKilled.slaughtered_count + mostSoloKilled.vanquished_count + mostSoloKilled.dispatched_count
+    : 0;
 
   const totalRanks = trainers.reduce(
     (sum, t) => sum + t.ranks + t.modified_ranks,
@@ -172,7 +205,6 @@ export function SummaryView() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-4">
-        <CharacterPortrait name={char.name} />
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold">{char.name}</h2>
@@ -212,6 +244,12 @@ export function SummaryView() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="row-span-2 flex items-center justify-center rounded-lg bg-[var(--color-card)] p-4">
+          <CharacterPortrait
+            name={char.name}
+            className="h-full max-h-40 w-auto rounded-lg"
+          />
+        </div>
         <StatCard label="Coin Level" value={char.coin_level.toLocaleString()} />
         <StatCard label="Logins" value={char.logins.toLocaleString()} />
         <StatCard label="Deaths" value={char.deaths.toLocaleString()} />
@@ -226,7 +264,7 @@ export function SummaryView() {
           value={totalAssisted.toLocaleString()}
         />
         <StatCard
-          label="Highest Kill"
+          label="Highest Value Kill"
           value={highestKill?.creature_name ?? "None"}
           sub={
             highestKill
@@ -237,6 +275,57 @@ export function SummaryView() {
             highestKill ? (
               <CreatureImage
                 creatureName={highestKill.creature_name}
+                className="h-12 w-auto"
+              />
+            ) : undefined
+          }
+        />
+        <StatCard
+          label="Most Killed"
+          value={mostKilled?.creature_name ?? "None"}
+          sub={
+            mostKilled
+              ? `${mostKilledTotal.toLocaleString()} times`
+              : undefined
+          }
+          image={
+            mostKilled ? (
+              <CreatureImage
+                creatureName={mostKilled.creature_name}
+                className="h-12 w-auto"
+              />
+            ) : undefined
+          }
+        />
+        <StatCard
+          label="Highest Solo Kill"
+          value={highestSoloKill?.creature_name ?? "None"}
+          sub={
+            highestSoloKill
+              ? `Value: ${highestSoloKill.creature_value}`
+              : undefined
+          }
+          image={
+            highestSoloKill ? (
+              <CreatureImage
+                creatureName={highestSoloKill.creature_name}
+                className="h-12 w-auto"
+              />
+            ) : undefined
+          }
+        />
+        <StatCard
+          label="Most Solo Killed"
+          value={mostSoloKilled?.creature_name ?? "None"}
+          sub={
+            mostSoloKilled
+              ? `${mostSoloKilledTotal.toLocaleString()} times`
+              : undefined
+          }
+          image={
+            mostSoloKilled ? (
+              <CreatureImage
+                creatureName={mostSoloKilled.creature_name}
                 className="h-12 w-auto"
               />
             ) : undefined
@@ -271,6 +360,12 @@ export function SummaryView() {
               : undefined
           }
         />
+        {char.untraining_count > 0 && (
+          <StatCard
+            label="Untrained"
+            value={`${char.untraining_count}x`}
+          />
+        )}
         <StatCard
           label="Good Karma"
           value={char.good_karma.toLocaleString()}

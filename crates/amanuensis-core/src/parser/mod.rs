@@ -420,6 +420,10 @@ impl LogParser {
                     self.db.complete_lasty(char_id, &trainer)?;
                     file_result.events_found += 1;
                 }
+                LogEvent::Untrained => {
+                    self.db.increment_character_field(char_id, "untraining_count", 1)?;
+                    file_result.events_found += 1;
+                }
                 LogEvent::ApplyLearningRank { character_name, trainer_name, is_full } => {
                     // Only count apply-learning ranks for the current character
                     // (other characters' ranks can appear in our logs)
@@ -2031,6 +2035,28 @@ mod tests {
         // message_count = 1 (begin) + 1 (progress) = 2, the post-abandon progress is skipped
         assert_eq!(rat.message_count, 2);
         assert!(rat.abandoned_date.is_some());
+    }
+
+    #[test]
+    fn test_untraining_count() {
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p Welcome to Clan Lord, Squib!
+1/1/24 1:01:00p Untrainus says, \"Squib, your mind is less cluttered now.\"
+";
+        fs::write(
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("Squib").unwrap().unwrap();
+        assert_eq!(char.untraining_count, 1);
     }
 
     #[test]

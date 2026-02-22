@@ -38,7 +38,8 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             fur_worth INTEGER NOT NULL DEFAULT 0,
             mandible_worth INTEGER NOT NULL DEFAULT 0,
             blood_worth INTEGER NOT NULL DEFAULT 0,
-            eps_broken INTEGER NOT NULL DEFAULT 0
+            eps_broken INTEGER NOT NULL DEFAULT 0,
+            untraining_count INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS kills (
@@ -131,6 +132,11 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE lastys ADD COLUMN completed_date TEXT",
         "ALTER TABLE lastys ADD COLUMN abandoned_date TEXT",
         "ALTER TABLE characters ADD COLUMN merged_into INTEGER REFERENCES characters(id)",
+        "ALTER TABLE characters ADD COLUMN untraining_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE kills ADD COLUMN date_last_killed TEXT",
+        "ALTER TABLE kills ADD COLUMN date_last_slaughtered TEXT",
+        "ALTER TABLE kills ADD COLUMN date_last_vanquished TEXT",
+        "ALTER TABLE kills ADD COLUMN date_last_dispatched TEXT",
     ];
 
     for sql in &migrations {

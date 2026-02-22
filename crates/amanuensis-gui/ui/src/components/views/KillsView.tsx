@@ -7,49 +7,93 @@ import type { Kill } from "../../types";
 
 const columnHelper = createColumnHelper<Kill>();
 
+function formatDate(val: string | null) {
+  return val ? val.split(" ")[0] : "";
+}
+
 const columns = [
   columnHelper.accessor("creature_name", {
     header: "Creature",
     cell: (info) => info.getValue(),
   }),
   columnHelper.accessor(
-    (row) =>
-      row.killed_count +
-      row.slaughtered_count +
-      row.vanquished_count +
-      row.dispatched_count,
+    (row) => row.vanquished_count + row.assisted_vanquish_count,
     {
-      id: "solo",
-      header: "Solo",
-      cell: (info) => info.getValue().toLocaleString(),
+      id: "vanquished",
+      header: "Vanquished",
+      cell: (info) => {
+        const row = info.row.original;
+        const total = row.vanquished_count + row.assisted_vanquish_count;
+        const date = row.date_last_vanquished;
+        return (
+          <span title={date ? `Last vanquish: ${formatDate(date)}` : undefined}>
+            {total.toLocaleString()}
+            {row.vanquished_count > 0 && (
+              <span className="text-[var(--color-text-muted)]"> ({row.vanquished_count})</span>
+            )}
+          </span>
+        );
+      },
     },
   ),
   columnHelper.accessor(
-    (row) =>
-      row.assisted_kill_count +
-      row.assisted_slaughter_count +
-      row.assisted_vanquish_count +
-      row.assisted_dispatch_count,
+    (row) => row.slaughtered_count + row.assisted_slaughter_count,
     {
-      id: "assisted",
-      header: "Assisted",
-      cell: (info) => info.getValue().toLocaleString(),
+      id: "slaughtered",
+      header: "Slaughtered",
+      cell: (info) => {
+        const row = info.row.original;
+        const total = row.slaughtered_count + row.assisted_slaughter_count;
+        const date = row.date_last_slaughtered;
+        return (
+          <span title={date ? `Last slaughter: ${formatDate(date)}` : undefined}>
+            {total.toLocaleString()}
+            {row.slaughtered_count > 0 && total !== row.slaughtered_count && (
+              <span className="text-[var(--color-text-muted)]"> ({row.slaughtered_count})</span>
+            )}
+          </span>
+        );
+      },
     },
   ),
   columnHelper.accessor(
-    (row) =>
-      row.killed_count +
-      row.slaughtered_count +
-      row.vanquished_count +
-      row.dispatched_count +
-      row.assisted_kill_count +
-      row.assisted_slaughter_count +
-      row.assisted_vanquish_count +
-      row.assisted_dispatch_count,
+    (row) => row.killed_count + row.assisted_kill_count,
     {
-      id: "total",
-      header: "Total",
-      cell: (info) => info.getValue().toLocaleString(),
+      id: "killed",
+      header: "Killed",
+      cell: (info) => {
+        const row = info.row.original;
+        const total = row.killed_count + row.assisted_kill_count;
+        const date = row.date_last_killed;
+        return (
+          <span title={date ? `Last kill: ${formatDate(date)}` : undefined}>
+            {total.toLocaleString()}
+            {row.killed_count > 0 && total !== row.killed_count && (
+              <span className="text-[var(--color-text-muted)]"> ({row.killed_count})</span>
+            )}
+          </span>
+        );
+      },
+    },
+  ),
+  columnHelper.accessor(
+    (row) => row.dispatched_count + row.assisted_dispatch_count,
+    {
+      id: "dispatched",
+      header: "Dispatched",
+      cell: (info) => {
+        const row = info.row.original;
+        const total = row.dispatched_count + row.assisted_dispatch_count;
+        const date = row.date_last_dispatched;
+        return (
+          <span title={date ? `Last dispatch: ${formatDate(date)}` : undefined}>
+            {total.toLocaleString()}
+            {row.dispatched_count > 0 && total !== row.dispatched_count && (
+              <span className="text-[var(--color-text-muted)]"> ({row.dispatched_count})</span>
+            )}
+          </span>
+        );
+      },
     },
   ),
   columnHelper.accessor("killed_by_count", {
@@ -61,18 +105,12 @@ const columns = [
     cell: (info) => info.getValue(),
   }),
   columnHelper.accessor("date_first", {
-    header: "First",
-    cell: (info) => {
-      const val = info.getValue();
-      return val ? val.split(" ")[0] : "";
-    },
+    header: "First Seen",
+    cell: (info) => formatDate(info.getValue()),
   }),
   columnHelper.accessor("date_last", {
-    header: "Last",
-    cell: (info) => {
-      const val = info.getValue();
-      return val ? val.split(" ")[0] : "";
-    },
+    header: "Last Seen",
+    cell: (info) => formatDate(info.getValue()),
   }),
 ];
 
@@ -99,24 +137,11 @@ export function KillsView() {
       0,
     );
     const totalKilledBy = kills.reduce((s, k) => s + k.killed_by_count, 0);
-    const highest = kills.reduce(
-      (best, k) => {
-        const total =
-          k.killed_count +
-          k.slaughtered_count +
-          k.vanquished_count +
-          k.dispatched_count +
-          k.assisted_kill_count +
-          k.assisted_slaughter_count +
-          k.assisted_vanquish_count +
-          k.assisted_dispatch_count;
-        return total > best.count
-          ? { name: k.creature_name, count: total }
-          : best;
-      },
-      { name: "None", count: 0 },
-    );
-    return { totalSolo, totalAssisted, totalKilledBy, highest };
+    const totalVanquished = kills.reduce((s, k) => s + k.vanquished_count + k.assisted_vanquish_count, 0);
+    const totalSlaughtered = kills.reduce((s, k) => s + k.slaughtered_count + k.assisted_slaughter_count, 0);
+    const totalKilled = kills.reduce((s, k) => s + k.killed_count + k.assisted_kill_count, 0);
+    const totalDispatched = kills.reduce((s, k) => s + k.dispatched_count + k.assisted_dispatch_count, 0);
+    return { totalSolo, totalAssisted, totalKilledBy, totalVanquished, totalSlaughtered, totalKilled, totalDispatched };
   }, [kills]);
 
   return (
@@ -131,13 +156,24 @@ export function KillsView() {
           value={stats.totalAssisted.toLocaleString()}
         />
         <StatCard
-          label="Killed By"
-          value={stats.totalKilledBy.toLocaleString()}
+          label="Vanquished"
+          value={stats.totalVanquished.toLocaleString()}
         />
         <StatCard
-          label="Top Creature"
-          value={stats.highest.name}
-          sub={`${stats.highest.count} kills`}
+          label="Slaughtered"
+          value={stats.totalSlaughtered.toLocaleString()}
+        />
+        <StatCard
+          label="Killed"
+          value={stats.totalKilled.toLocaleString()}
+        />
+        <StatCard
+          label="Dispatched"
+          value={stats.totalDispatched.toLocaleString()}
+        />
+        <StatCard
+          label="Killed By"
+          value={stats.totalKilledBy.toLocaleString()}
         />
       </div>
       <div className="min-h-0 flex-1">

@@ -395,8 +395,10 @@ fn portraits_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir.join("portraits"))
 }
 
-/// Fetch a character portrait from Rank Tracker mirror, cache it locally.
-/// Returns the local file path on success, or None if not found / error.
+/// Fetch a character portrait from Rank Tracker, cache it locally.
+/// Always fetches from the server (to pick up new avatars), but returns
+/// quickly if the server is unreachable and a cached copy exists.
+/// Returns base64-encoded PNG data on success, or None if not found.
 #[tauri::command]
 pub async fn fetch_character_portrait(
     name: String,
@@ -408,54 +410,43 @@ pub async fn fetch_character_portrait(
 
     let dest = dir.join(format!("{sanitized}.png"));
 
-    // If already cached, return immediately
-    if dest.exists() {
-        return Ok(Some(dest.to_string_lossy().into_owned()));
-    }
-
     let encoded_name = urlencoding::encode(&name);
-    let url = format!("https://ranktracker.squib.co.nz/mirror/{encoded_name}/");
+    let url = format!("https://ranktracker.squib.co.nz/avatar/{encoded_name}");
 
+    let dest_clone = dest.clone();
     let result = tauri::async_runtime::spawn(async move {
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| e.to_string())?;
+
         let resp = match client.get(&url).send().await {
             Ok(r) => r,
-            Err(_) => return Ok(None),
+            Err(_) => {
+                return read_cached_as_base64(&dest_clone);
+            }
         };
 
         if !resp.status().is_success() {
-            return Ok(None);
+            return read_cached_as_base64(&dest_clone);
         }
 
-        let html = match resp.text().await {
-            Ok(t) => t,
-            Err(_) => return Ok(None),
-        };
-
-        // Find the first base64-encoded PNG image in the HTML
-        let marker = "data:image/png;base64,";
-        let start = match html.find(marker) {
-            Some(pos) => pos + marker.len(),
-            None => return Ok(None),
-        };
-
-        let remaining = &html[start..];
-        let end = match remaining.find('"') {
-            Some(pos) => pos,
-            None => return Ok(None),
-        };
-
-        let b64_data = &remaining[..end];
-
-        use base64::Engine;
-        let bytes = match base64::engine::general_purpose::STANDARD.decode(b64_data) {
+        let bytes = match resp.bytes().await {
             Ok(b) => b,
-            Err(_) => return Ok(None),
+            Err(_) => {
+                return read_cached_as_base64(&dest_clone);
+            }
         };
 
-        std::fs::write(&dest, &bytes).map_err(|e| e.to_string())?;
+        // Only write if we got actual image data
+        if bytes.len() > 100 {
+            std::fs::write(&dest_clone, &bytes).map_err(|e| e.to_string())?;
+            use base64::Engine;
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            return Ok(Some(format!("data:image/png;base64,{b64}")));
+        }
 
-        Ok::<Option<String>, String>(Some(dest.to_string_lossy().into_owned()))
+        read_cached_as_base64(&dest_clone)
     })
     .await
     .map_err(|e| e.to_string())?;
@@ -463,7 +454,7 @@ pub async fn fetch_character_portrait(
     result
 }
 
-/// Get the cached portrait path if it exists.
+/// Get the cached portrait as a base64 data URL if it exists.
 #[tauri::command]
 pub fn get_character_portrait_path(
     name: String,
@@ -472,8 +463,16 @@ pub fn get_character_portrait_path(
     let sanitized = sanitize_portrait_name(&name);
     let dir = portraits_dir(&app)?;
     let path = dir.join(format!("{sanitized}.png"));
+    read_cached_as_base64(&path)
+}
+
+/// Read a cached portrait file and return it as a base64 data URL.
+fn read_cached_as_base64(path: &Path) -> Result<Option<String>, String> {
     if path.exists() {
-        Ok(Some(path.to_string_lossy().into_owned()))
+        let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        Ok(Some(format!("data:image/png;base64,{b64}")))
     } else {
         Ok(None)
     }

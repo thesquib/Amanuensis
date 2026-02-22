@@ -33,6 +33,7 @@ export interface Character {
   mandible_worth: number;
   blood_worth: number;
   eps_broken: number;
+  untraining_count: number;
 }
 
 /** Mirrors Rust `Kill` struct */
@@ -52,6 +53,10 @@ export interface Kill {
   date_first: string | null;
   date_last: string | null;
   creature_value: number;
+  date_last_killed: string | null;
+  date_last_slaughtered: string | null;
+  date_last_vanquished: string | null;
+  date_last_dispatched: string | null;
 }
 
 /** Mirrors Rust `Trainer` struct */
