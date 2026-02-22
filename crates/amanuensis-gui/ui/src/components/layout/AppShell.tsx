@@ -112,7 +112,7 @@ export function AppShell() {
                     Getting Started
                   </div>
                   <p className="text-sm leading-relaxed">
-                    Click <span className="font-medium text-[var(--color-accent)]">Scan Log Folder</span> in
+                    Click <span className="font-medium text-[var(--color-accent)]">Scan Log Folder(s)</span> in
                     the sidebar and select your Clan Lord log folder. A database will be created automatically.
                   </p>
                   <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-muted)]">

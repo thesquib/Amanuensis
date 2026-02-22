@@ -292,7 +292,7 @@ export function Sidebar() {
         <button
           onClick={handleOpenDb}
           disabled={isScanning}
-          className="rounded bg-[var(--color-card)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--color-card)]/80 disabled:opacity-50"
+          className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50"
         >
           Open Database
         </button>
@@ -301,19 +301,19 @@ export function Sidebar() {
           disabled={isScanning}
           className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/80 disabled:opacity-50"
         >
-          {isScanning ? "Scanning..." : "Scan Log Folder"}
+          {isScanning ? "Scanning..." : "Scan Log Folder(s)"}
         </button>
         <button
           onClick={handleScanFiles}
           disabled={isScanning}
           className="rounded bg-[var(--color-accent)]/80 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/60 disabled:opacity-50"
         >
-          Scan Log Files
+          Scan Specific Log Files
         </button>
         <button
           onClick={handleImportScribius}
           disabled={isScanning}
-          className="rounded bg-[var(--color-card)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--color-card)]/80 disabled:opacity-50"
+          className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50"
         >
           Import Scribius DB
         </button>
