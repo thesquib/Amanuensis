@@ -8,6 +8,7 @@
   --color-text: #eaeaea;
   --color-text-muted: #a0a0b0;
   --color-border: #2a2a4a;
+  --color-btn-secondary: #0f3460;
   --color-danger: #fca5a5;
   --color-danger-bg: rgba(127, 29, 29, 0.3);
   --color-danger-bg-hover: rgba(127, 29, 29, 0.5);
@@ -21,6 +22,7 @@
   --color-text: #1a1a2e;
   --color-text-muted: #6b7280;
   --color-border: #e5e7eb;
+  --color-btn-secondary: #e5e7eb;
   --color-danger: #b91c1c;
   --color-danger-bg: rgba(254, 202, 202, 0.5);
   --color-danger-bg-hover: rgba(254, 202, 202, 0.8);
@@ -34,6 +36,7 @@
   --color-text: #c9d1d9;
   --color-text-muted: #8b949e;
   --color-border: #30363d;
+  --color-btn-secondary: #21262d;
   --color-danger: #fca5a5;
   --color-danger-bg: rgba(127, 29, 29, 0.3);
   --color-danger-bg-hover: rgba(127, 29, 29, 0.5);
