@@ -35,10 +35,10 @@ Grab the latest build from [GitHub Actions](https://github.com/thesquib/Amanuens
 
 1. Launch Amanuensis
 2. Click **Open Database** (or it auto-opens the last one)
-3. Click **Scan Logs** and select your Clan Lord `Text Logs` folder
-4. Browse characters and stats via the sidebar
+3. Click **Scan Log Folder** and select your Clan Lord `Text Logs` folder
+4. Browse characters and stats via the tabs
 
-The GUI auto-detects character subdirectories and handles recursive folder discovery.
+The recommended way to import logs is **Scan Log Folder**, which recursively discovers character subdirectories and all `CL Log *.txt` files within them. You can also use **Scan Log Files** to select individual files, but scanning the whole folder is easier and handles dedup automatically.
 
 ## Usage - CLI
 
