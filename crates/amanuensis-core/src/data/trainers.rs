@@ -220,6 +220,7 @@ mod tests {
         assert_eq!(db.get_profession("Knox"), Some("Fighter"));
         assert_eq!(db.get_profession("Regia"), Some("Fighter"));
         assert_eq!(db.get_profession("Swengus"), Some("Fighter"));
+        assert_eq!(db.get_profession("Aktur"), Some("Fighter"));
 
         // Healer trainers
         assert_eq!(db.get_profession("Eva"), Some("Healer"));
@@ -255,9 +256,9 @@ mod tests {
         assert_eq!(db.get_profession("Disabla"), Some("Bloodmage"));
         assert_eq!(db.get_profession("Cryptus"), Some("Bloodmage"));
         assert_eq!(db.get_profession("Dantus"), Some("Bloodmage"));
-        assert_eq!(db.get_profession("Aktur"), Some("Bloodmage"));
 
         // Champion
+        assert_eq!(db.get_profession("Forvyola"), Some("Champion"));
         assert_eq!(db.get_profession("Channel Master"), Some("Champion"));
         assert_eq!(db.get_profession("Corsetta"), Some("Champion"));
         assert_eq!(db.get_profession("Ittum"), Some("Champion"));
