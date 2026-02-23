@@ -20,6 +20,15 @@ use crate::parser::events::{KillVerb, LogEvent, LootType};
 use crate::parser::line_classifier::classify_line;
 use crate::parser::timestamp::parse_timestamp;
 
+/// Override configuration for a character's trainers, loaded before scanning.
+struct OverrideConfig {
+    /// Trainers in "override" mode — skip all rank counting for these.
+    override_trainers: HashSet<String>,
+    /// Trainers in "override_until_date" mode — only count ranks after this date.
+    /// Maps trainer_name → cutoff date string (M/D/YY format from DB).
+    override_until_date: HashMap<String, String>,
+}
+
 /// Main log parser orchestrator.
 /// Walks character subdirectories, scans log files, and stores events in the database.
 pub struct LogParser {
@@ -29,6 +38,8 @@ pub struct LogParser {
     /// Tracks abandoned studies per character: char_id → set of creature names.
     /// Progress messages for abandoned creatures are skipped until "begin studying" re-enables them.
     abandoned_studies: RefCell<HashMap<i64, HashSet<String>>>,
+    /// Rank override config per character, loaded before scanning.
+    override_configs: RefCell<HashMap<i64, OverrideConfig>>,
 }
 
 impl LogParser {
@@ -40,7 +51,56 @@ impl LogParser {
             trainer_db,
             db,
             abandoned_studies: RefCell::new(HashMap::new()),
+            override_configs: RefCell::new(HashMap::new()),
         })
+    }
+
+    /// Load override config for a character from the database.
+    /// Called before scanning a character's log files.
+    fn load_override_config(&self, char_id: i64) -> Result<()> {
+        let trainers = self.db.get_trainers(char_id)?;
+        let mut override_trainers = HashSet::new();
+        let mut override_until_date = HashMap::new();
+
+        for t in &trainers {
+            match t.rank_mode.as_str() {
+                "override" => {
+                    override_trainers.insert(t.trainer_name.clone());
+                }
+                "override_until_date" => {
+                    if let Some(ref date) = t.override_date {
+                        override_until_date.insert(t.trainer_name.clone(), date.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        self.override_configs.borrow_mut().insert(char_id, OverrideConfig {
+            override_trainers,
+            override_until_date,
+        });
+        Ok(())
+    }
+
+    /// Check if a trainer rank event should be counted based on override config.
+    /// Returns true if the rank should be counted, false if it should be skipped.
+    fn should_count_rank(&self, char_id: i64, trainer_name: &str, date_str: &str) -> bool {
+        let configs = self.override_configs.borrow();
+        let config = match configs.get(&char_id) {
+            Some(c) => c,
+            None => return true,
+        };
+
+        if config.override_trainers.contains(trainer_name) {
+            return false;
+        }
+
+        if let Some(cutoff) = config.override_until_date.get(trainer_name) {
+            return date_after(date_str, cutoff);
+        }
+
+        true
     }
 
     pub fn db(&self) -> &Database {
@@ -120,6 +180,7 @@ impl LogParser {
 
             log::info!("Processing character: {}", char_name);
             let char_id = self.db.get_or_create_character(&char_name)?;
+            self.load_override_config(char_id)?;
 
             for log_path in &log_files {
                 let path_str = log_path.to_string_lossy().to_string();
@@ -269,9 +330,11 @@ impl LogParser {
                 }
 
                 LogEvent::TrainerRank { trainer_name, .. } => {
-                    self.db
-                        .upsert_trainer_rank(char_id, &trainer_name, &date_str)?;
-                    file_result.events_found += 1;
+                    if self.should_count_rank(char_id, &trainer_name, &date_str) {
+                        self.db
+                            .upsert_trainer_rank(char_id, &trainer_name, &date_str)?;
+                        file_result.events_found += 1;
+                    }
                 }
 
                 LogEvent::CoinsPickedUp { amount } => {
@@ -428,7 +491,9 @@ impl LogParser {
                 LogEvent::ApplyLearningRank { character_name, trainer_name, is_full } => {
                     // Only count apply-learning ranks for the current character
                     // (other characters' ranks can appear in our logs)
-                    if character_name.eq_ignore_ascii_case(char_name) {
+                    if character_name.eq_ignore_ascii_case(char_name)
+                        && self.should_count_rank(char_id, &trainer_name, &date_str)
+                    {
                         if is_full {
                             // "much more" = exactly 10 confirmed bonus ranks
                             self.db
@@ -530,14 +595,9 @@ impl LogParser {
     }
 
     /// Compute coin level based on total trainer ranks.
-    /// The original app computes this from rank data — it appears to be the sum
-    /// of all effective ranks divided by a factor.
+    /// Uses effective_ranks() for mode-aware computation.
     pub fn compute_coin_level(&self, char_id: i64) -> Result<i64> {
-        let trainers = self.db.get_trainers(char_id)?;
-        let total_ranks: i64 = trainers.iter().map(|t| t.ranks + t.modified_ranks + t.apply_learning_ranks).sum();
-        // Coin level is approximately total ranks (effective + modified)
-        // The original app has a more complex formula, but this is a reasonable approximation
-        Ok(total_ranks)
+        self.db.compute_effective_coin_level(char_id)
     }
 
     /// Scan a log folder with a progress callback.
@@ -634,6 +694,7 @@ impl LogParser {
         for (_char_dir, char_name, log_files) in &all_work {
             log::info!("Processing character: {}", char_name);
             let char_id = self.db.get_or_create_character(char_name)?;
+            self.load_override_config(char_id)?;
 
             for log_path in log_files {
                 current_file += 1;
@@ -778,6 +839,7 @@ impl LogParser {
             let char_id = self.db.get_or_create_character(&char_name)?;
             if seen_characters.insert(char_name.clone()) {
                 result.characters += 1;
+                self.load_override_config(char_id)?;
             }
 
             match self.scan_bytes(&bytes, char_id, &char_name, &path_str, index_lines) {
@@ -923,6 +985,39 @@ fn hash_bytes(bytes: &[u8]) -> String {
     let mut hasher = DefaultHasher::new();
     bytes.hash(&mut hasher);
     format!("{:016x}", hasher.finish())
+}
+
+/// Compare two dates, returning true if `log_date` is strictly after `cutoff`.
+/// Supports two formats:
+/// - ISO-ish from the DB date_str: "YYYY-MM-DD HH:MM:SS"
+/// - CL Log format: "M/D/YY" (e.g. "1/15/24")
+///
+/// Falls back to string comparison if parsing fails.
+fn date_after(log_date: &str, cutoff: &str) -> bool {
+    fn parse_date(s: &str) -> Option<(i32, u32, u32)> {
+        // Try ISO format first: "YYYY-MM-DD ..."
+        if s.len() >= 10 && s.as_bytes().get(4) == Some(&b'-') {
+            let year: i32 = s[0..4].parse().ok()?;
+            let month: u32 = s[5..7].parse().ok()?;
+            let day: u32 = s[8..10].parse().ok()?;
+            return Some((year, month, day));
+        }
+        // Try CL Log format: "M/D/YY"
+        let parts: Vec<&str> = s.split('/').collect();
+        if parts.len() >= 3 {
+            let month: u32 = parts[0].parse().ok()?;
+            let day: u32 = parts[1].parse().ok()?;
+            let year_short: i32 = parts[2].parse().ok()?;
+            let year = if year_short >= 90 { 1900 + year_short } else { 2000 + year_short };
+            return Some((year, month, day));
+        }
+        None
+    }
+
+    match (parse_date(log_date), parse_date(cutoff)) {
+        (Some(log), Some(cut)) => log > cut,
+        _ => log_date > cutoff,
+    }
 }
 
 fn kill_verb_to_field(verb: &KillVerb, assisted: bool) -> &'static str {

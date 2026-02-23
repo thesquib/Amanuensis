@@ -55,6 +55,22 @@ export async function setModifiedRanks(
   return invoke("set_modified_ranks", { charId, trainerName, modifiedRanks });
 }
 
+export async function setRankOverride(
+  charId: number,
+  trainerName: string,
+  rankMode: string,
+  modifiedRanks: number,
+  overrideDate?: string | null,
+): Promise<void> {
+  return invoke("set_rank_override", {
+    charId,
+    trainerName,
+    rankMode,
+    modifiedRanks,
+    overrideDate: overrideDate ?? null,
+  });
+}
+
 export async function scanLogs(
   folder: string,
   force: boolean,

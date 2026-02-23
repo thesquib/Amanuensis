@@ -137,6 +137,8 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE kills ADD COLUMN date_last_slaughtered TEXT",
         "ALTER TABLE kills ADD COLUMN date_last_vanquished TEXT",
         "ALTER TABLE kills ADD COLUMN date_last_dispatched TEXT",
+        "ALTER TABLE trainers ADD COLUMN rank_mode TEXT NOT NULL DEFAULT 'modifier'",
+        "ALTER TABLE trainers ADD COLUMN override_date TEXT",
     ];
 
     for sql in &migrations {

@@ -69,6 +69,8 @@ export interface Trainer {
   date_of_last_rank: string | null;
   apply_learning_ranks: number;
   apply_learning_unknown_count: number;
+  rank_mode: "modifier" | "override" | "override_until_date";
+  override_date: string | null;
 }
 
 /** Mirrors Rust `Pet` struct */

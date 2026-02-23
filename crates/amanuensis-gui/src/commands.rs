@@ -92,6 +92,28 @@ pub fn set_modified_ranks(
         .map_err(|e| e.to_string())
 }
 
+/// Set rank override mode for a trainer.
+#[tauri::command]
+pub fn set_rank_override(
+    char_id: i64,
+    trainer_name: String,
+    rank_mode: String,
+    modified_ranks: i64,
+    override_date: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.set_rank_override(
+        char_id,
+        &trainer_name,
+        &rank_mode,
+        modified_ranks,
+        override_date.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
 /// Get pets for a character (includes merged sources).
 #[tauri::command]
 pub fn get_pets(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Pet>, String> {

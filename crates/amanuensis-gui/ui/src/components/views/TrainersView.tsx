@@ -4,6 +4,7 @@ import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { getTrainerDbInfo } from "../../lib/commands";
+import { effectiveRanks } from "../../lib/trainerUtils";
 import type { Trainer, TrainerInfo } from "../../types";
 
 type EnrichedTrainer = Trainer & {
@@ -55,20 +56,32 @@ export function TrainersView() {
         header: "Trainer",
         cell: (info) => {
           const row = info.row.original;
-          if (showEffective && row.is_combo) {
-            return (
-              <span className="flex items-center gap-1">
-                {info.getValue()}
+          const isNonModifier = row.rank_mode && row.rank_mode !== "modifier";
+          return (
+            <span className="flex items-center gap-1">
+              {info.getValue()}
+              {showEffective && row.is_combo && (
                 <span
                   className="cursor-help text-[var(--color-accent)]"
                   title={`Combo trainer: includes ${row.combo_components.join(", ")}`}
                 >
                   *
                 </span>
-              </span>
-            );
-          }
-          return info.getValue();
+              )}
+              {isNonModifier && (
+                <span
+                  className={`ml-1 rounded px-1 py-0.5 text-[10px] font-medium leading-none ${
+                    row.rank_mode === "override"
+                      ? "bg-amber-500/20 text-amber-400"
+                      : "bg-blue-500/20 text-blue-400"
+                  }`}
+                  title={row.rank_mode === "override" ? "Override: manual ranks only" : `Override until date: baseline + log ranks after ${row.override_date ?? "?"}`}
+                >
+                  OVR
+                </span>
+              )}
+            </span>
+          );
         },
       }),
       columnHelper.accessor("profession", {
@@ -111,7 +124,7 @@ export function TrainersView() {
         },
       }),
       columnHelper.accessor(
-        (row) => row.ranks + row.modified_ranks + row.apply_learning_ranks,
+        (row) => effectiveRanks(row),
         {
           id: "total",
           header: "Total",
@@ -123,7 +136,7 @@ export function TrainersView() {
             columnHelper.accessor(
               (row: EnrichedTrainer) =>
                 Math.round(
-                  (row.ranks + row.modified_ranks + row.apply_learning_ranks) * row.multiplier * 10,
+                  effectiveRanks(row) * row.multiplier * 10,
                 ) / 10,
               {
                 id: "effective",
@@ -191,6 +204,8 @@ export function TrainersView() {
             date_of_last_rank: null,
             apply_learning_ranks: 0,
             apply_learning_unknown_count: 0,
+            rank_mode: "modifier",
+            override_date: null,
             profession: dbTrainer.profession,
             multiplier: dbTrainer.multiplier,
             is_combo: dbTrainer.is_combo,
@@ -242,13 +257,13 @@ export function TrainersView() {
   }, [filteredTrainers]);
 
   const totalRanks = trainers.reduce(
-    (s, t) => s + t.ranks + t.modified_ranks + t.apply_learning_ranks,
+    (s, t) => s + effectiveRanks(t),
     0,
   );
 
   const effectiveTotal = useMemo(() => {
     return enrichedTrainers.reduce(
-      (s, t) => s + (t.ranks + t.modified_ranks + t.apply_learning_ranks) * t.multiplier,
+      (s, t) => s + effectiveRanks(t) * t.multiplier,
       0,
     );
   }, [enrichedTrainers]);
