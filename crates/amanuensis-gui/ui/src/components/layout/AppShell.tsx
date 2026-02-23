@@ -8,7 +8,7 @@ import { KillsView } from "../views/KillsView";
 import { TrainersView } from "../views/TrainersView";
 import { CoinsView } from "../views/CoinsView";
 import { PetsView } from "../views/PetsView";
-import { LastysView } from "../views/LastysView";
+import { RangerStatsView } from "../views/RangerStatsView";
 import { EquipmentView } from "../views/EquipmentView";
 import { RankModifiersView } from "../views/RankModifiersView";
 import { FighterStatsView } from "../views/FighterStatsView";
@@ -22,7 +22,7 @@ const TABS: { id: ViewType; label: string; visibleFor?: string[] }[] = [
   { id: "rank-modifiers", label: "Rank Modifiers" },
   { id: "coins", label: "Coins" },
   { id: "pets", label: "Pets", visibleFor: ["Healer"] },
-  { id: "lastys", label: "Lastys", visibleFor: ["Ranger"] },
+  { id: "lastys", label: "Ranger Stats", visibleFor: ["Ranger"] },
   { id: "equipment", label: "Equipment" },
   { id: "fighter-stats", label: "Stats" },
   { id: "log-search", label: "Log Search" },
@@ -43,7 +43,7 @@ function ViewContent({ view }: { view: ViewType }) {
     case "pets":
       return <PetsView />;
     case "lastys":
-      return <LastysView />;
+      return <RangerStatsView />;
     case "equipment":
       return <EquipmentView />;
     case "fighter-stats":
