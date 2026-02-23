@@ -5,6 +5,10 @@ const PROFESSION_COLORS: Record<string, string> = {
   Ranger: "bg-amber-600",
   Bloodmage: "bg-rose-800",
   Champion: "bg-blue-600",
+  Language: "bg-cyan-600",
+  Arts: "bg-pink-600",
+  Trades: "bg-orange-600",
+  Other: "bg-gray-600",
   Unknown: "bg-gray-600",
 };
 

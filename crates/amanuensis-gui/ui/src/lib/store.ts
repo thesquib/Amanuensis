@@ -114,6 +114,21 @@ interface AppStore {
   setRangerStatsViewState: (patch: Partial<RangerStatsViewState>) => void;
 }
 
+function loadCollapsedGroups(key: string): string[] | null {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) return JSON.parse(stored);
+  } catch { /* ignore */ }
+  return null;
+}
+
+function saveCollapsedGroups(key: string, groups: string[]) {
+  localStorage.setItem(key, JSON.stringify(groups));
+}
+
+const TRAINERS_COLLAPSED_KEY = "amanuensis_collapsed_trainers";
+const RANK_MODIFIERS_COLLAPSED_KEY = "amanuensis_collapsed_rankModifiers";
+
 export const useStore = create<AppStore>((set) => ({
   dbPath: null,
   setDbPath: (path) => set({ dbPath: path }),
@@ -125,13 +140,13 @@ export const useStore = create<AppStore>((set) => ({
   setCharacters: (chars) => set({ characters: chars }),
   selectedCharacterId: null,
   selectCharacter: (id) =>
-    set({
+    set((state) => ({
       selectedCharacterId: id,
       viewStates: {},
-      trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: [] },
-      rankModifiersViewState: { searchQuery: "", collapsedGroups: [] },
+      trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: state.trainersViewState.collapsedGroups },
+      rankModifiersViewState: { searchQuery: "", collapsedGroups: state.rankModifiersViewState.collapsedGroups },
       rangerStatsViewState: { activePanel: "studies", searchQuery: "" },
-    }),
+    })),
 
   activeView: "summary",
   setActiveView: (view) => set({ activeView: view }),
@@ -200,17 +215,25 @@ export const useStore = create<AppStore>((set) => ({
       },
     })),
 
-  trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: [] },
-  setTrainersViewState: (patch) =>
+  trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: loadCollapsedGroups(TRAINERS_COLLAPSED_KEY) ?? [] },
+  setTrainersViewState: (patch) => {
+    if (patch.collapsedGroups) {
+      saveCollapsedGroups(TRAINERS_COLLAPSED_KEY, patch.collapsedGroups);
+    }
     set((state) => ({
       trainersViewState: { ...state.trainersViewState, ...patch },
-    })),
+    }));
+  },
 
-  rankModifiersViewState: { searchQuery: "", collapsedGroups: [] },
-  setRankModifiersViewState: (patch) =>
+  rankModifiersViewState: { searchQuery: "", collapsedGroups: loadCollapsedGroups(RANK_MODIFIERS_COLLAPSED_KEY) ?? [] },
+  setRankModifiersViewState: (patch) => {
+    if (patch.collapsedGroups) {
+      saveCollapsedGroups(RANK_MODIFIERS_COLLAPSED_KEY, patch.collapsedGroups);
+    }
     set((state) => ({
       rankModifiersViewState: { ...state.rankModifiersViewState, ...patch },
-    })),
+    }));
+  },
 
   rangerStatsViewState: { activePanel: "studies", searchQuery: "" },
   setRangerStatsViewState: (patch) =>
