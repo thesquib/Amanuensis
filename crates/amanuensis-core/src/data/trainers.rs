@@ -265,9 +265,29 @@ mod tests {
         assert_eq!(db.get_profession("Toomeria"), Some("Champion"));
         assert_eq!(db.get_profession("Vala Loack"), Some("Champion"));
 
-        // Trainers without profession (language, craft, etc.)
-        assert_eq!(db.get_profession("ParTroon"), None);
-        assert_eq!(db.get_profession("Zeucros"), None);
+        // General trainers now categorized
+        assert_eq!(db.get_profession("Histia"), Some("Fighter"));
+        assert_eq!(db.get_profession("Balthus"), Some("Fighter"));
+        assert_eq!(db.get_profession("Darktur"), Some("Fighter"));
+        assert_eq!(db.get_profession("Angilsa"), Some("Fighter"));
+        assert_eq!(db.get_profession("Atkia"), Some("Fighter"));
+        assert_eq!(db.get_profession("Master Bodrus"), Some("Fighter"));
+        assert_eq!(db.get_profession("Rodnus"), Some("Healer"));
+        assert_eq!(db.get_profession("Master Spirtus"), Some("Healer"));
+        assert_eq!(db.get_profession("Master Mentus"), Some("Mystic"));
+        assert_eq!(db.get_profession("Gossamer"), Some("Ranger"));
+
+        // Language trainers
+        assert_eq!(db.get_profession("ParTroon"), Some("Language"));
+        assert_eq!(db.get_profession("Sylvan"), Some("Language"));
+
+        // Arts trainers
+        assert_eq!(db.get_profession("Dark Blue Paint"), Some("Arts"));
+
+        // Trades trainers
+        assert_eq!(db.get_profession("Zeucros"), Some("Trades"));
+        assert_eq!(db.get_profession("Forgus"), Some("Trades"));
+        assert_eq!(db.get_profession("Sartorio"), Some("Trades"));
     }
 
     #[test]
@@ -318,8 +338,9 @@ mod tests {
         assert!(evus.is_combo);
         assert_eq!(evus.combo_components.len(), 6);
 
-        // Check a pure trainer
+        // Check a base trainer (now categorized as Fighter)
         let histia = meta.iter().find(|m| m.name == "Histia").unwrap();
+        assert_eq!(histia.profession.as_deref(), Some("Fighter"));
         assert!((histia.multiplier - 1.0).abs() < f64::EPSILON);
         assert!(!histia.is_combo);
         assert!(histia.combo_components.is_empty());

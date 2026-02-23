@@ -23,6 +23,9 @@ const PROFESSION_ORDER = [
   "Ranger",
   "Bloodmage",
   "Champion",
+  "Language",
+  "Arts",
+  "Trades",
 ];
 
 export function TrainersView() {

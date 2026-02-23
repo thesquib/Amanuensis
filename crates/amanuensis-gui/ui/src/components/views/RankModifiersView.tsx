@@ -16,6 +16,9 @@ const PROFESSION_ORDER = [
   "Ranger",
   "Bloodmage",
   "Champion",
+  "Language",
+  "Arts",
+  "Trades",
 ];
 
 type RankMode = "modifier" | "override" | "override_until_date";
@@ -160,6 +163,8 @@ export function RankModifiersView() {
   const setSearchQuery = useCallback((v: string) => setRankModifiersViewState({ searchQuery: v }), [setRankModifiersViewState]);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
   const [rescanBanner, setRescanBanner] = useState(false);
+  const hasSavedState = useMemo(() => localStorage.getItem("amanuensis_collapsed_rankModifiers") !== null, []);
+  const [defaultsInitialized, setDefaultsInitialized] = useState(hasSavedState);
 
   useEffect(() => {
     getTrainerDbInfo()
@@ -202,6 +207,29 @@ export function RankModifiersView() {
     }
     return rows;
   }, [trainers, trainerDb]);
+
+  // Initialize default collapsed state: all groups collapsed except those with modifiers
+  useEffect(() => {
+    if (defaultsInitialized || trainerRows.length === 0) return;
+    setDefaultsInitialized(true);
+
+    // Find which professions have any modified ranks set
+    const groupsWithModifiers = new Set<string>();
+    for (const row of trainerRows) {
+      if (row.modified_ranks !== 0) {
+        groupsWithModifiers.add(row.profession);
+      }
+    }
+
+    // Collect all professions and collapse those without modifiers
+    const allProfessions = new Set<string>();
+    for (const row of trainerRows) {
+      allProfessions.add(row.profession);
+    }
+
+    const collapsed = [...allProfessions].filter((p) => !groupsWithModifiers.has(p));
+    setRankModifiersViewState({ collapsedGroups: collapsed });
+  }, [trainerRows, defaultsInitialized, setRankModifiersViewState]);
 
   // Filter by search query
   const filteredRows = useMemo(() => {
@@ -262,6 +290,34 @@ export function RankModifiersView() {
   );
   const weightedRounded = Math.round(weightedEffective * 10) / 10;
 
+  // Professions that have any modifier set
+  const groupsWithModifiers = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of trainerRows) {
+      if (row.modified_ranks !== 0) set.add(row.profession);
+    }
+    return set;
+  }, [trainerRows]);
+
+  const allProfessions = useMemo(() => {
+    const set = new Set<string>();
+    for (const row of trainerRows) set.add(row.profession);
+    return [...set];
+  }, [trainerRows]);
+
+  const openAll = useCallback(() => {
+    setRankModifiersViewState({ collapsedGroups: [] });
+  }, [setRankModifiersViewState]);
+
+  const collapseAll = useCallback(() => {
+    setRankModifiersViewState({ collapsedGroups: allProfessions });
+  }, [allProfessions, setRankModifiersViewState]);
+
+  const openAllSet = useCallback(() => {
+    const collapsed = allProfessions.filter((p) => !groupsWithModifiers.has(p));
+    setRankModifiersViewState({ collapsedGroups: collapsed });
+  }, [allProfessions, groupsWithModifiers, setRankModifiersViewState]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="mb-1 flex items-center justify-between">
@@ -288,7 +344,7 @@ export function RankModifiersView() {
         </div>
       )}
 
-      <div className="mb-3">
+      <div className="mb-3 flex items-center gap-3">
         <input
           type="text"
           value={searchQuery}
@@ -297,10 +353,21 @@ export function RankModifiersView() {
           className="w-full max-w-xs rounded border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] focus:outline-none"
         />
         {searchQuery.trim() && (
-          <span className="ml-2 text-xs text-[var(--color-text-muted)]">
+          <span className="text-xs text-[var(--color-text-muted)]">
             {filteredRows.length} matching
           </span>
         )}
+        <div className="ml-auto flex items-center gap-1">
+          <button type="button" onClick={openAll} className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)]">
+            Open All
+          </button>
+          <button type="button" onClick={collapseAll} className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)]">
+            Collapse All
+          </button>
+          <button type="button" onClick={openAllSet} className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)]" title="Open groups that have any modifiers set">
+            Open All Set
+          </button>
+        </div>
       </div>
 
       {grouped.length === 0 ? (
