@@ -3,6 +3,7 @@ import { createColumnHelper, type SortingState } from "@tanstack/react-table";
 import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
 import { StatCard } from "../shared/StatCard";
+import { CreatureImage } from "../shared/CreatureImage";
 import type { Kill } from "../../types";
 
 const columnHelper = createColumnHelper<Kill>();
@@ -14,7 +15,12 @@ function formatDate(val: string | null) {
 const columns = [
   columnHelper.accessor("creature_name", {
     header: "Creature",
-    cell: (info) => info.getValue(),
+    cell: (info) => (
+      <div className="flex items-center gap-2">
+        <CreatureImage creatureName={info.getValue()} className="h-6 w-6" />
+        <span>{info.getValue()}</span>
+      </div>
+    ),
   }),
   columnHelper.accessor(
     (row) => row.vanquished_count + row.assisted_vanquish_count,
