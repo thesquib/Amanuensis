@@ -29,6 +29,11 @@ interface RankModifiersViewState {
   collapsedGroups: string[];
 }
 
+interface RangerStatsViewState {
+  activePanel: "studies" | "families" | "targets";
+  searchQuery: string;
+}
+
 interface AppStore {
   // Database
   dbPath: string | null;
@@ -104,6 +109,9 @@ interface AppStore {
 
   rankModifiersViewState: RankModifiersViewState;
   setRankModifiersViewState: (patch: Partial<RankModifiersViewState>) => void;
+
+  rangerStatsViewState: RangerStatsViewState;
+  setRangerStatsViewState: (patch: Partial<RangerStatsViewState>) => void;
 }
 
 export const useStore = create<AppStore>((set) => ({
@@ -122,6 +130,7 @@ export const useStore = create<AppStore>((set) => ({
       viewStates: {},
       trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: [] },
       rankModifiersViewState: { searchQuery: "", collapsedGroups: [] },
+      rangerStatsViewState: { activePanel: "studies", searchQuery: "" },
     }),
 
   activeView: "summary",
@@ -201,5 +210,11 @@ export const useStore = create<AppStore>((set) => ({
   setRankModifiersViewState: (patch) =>
     set((state) => ({
       rankModifiersViewState: { ...state.rankModifiersViewState, ...patch },
+    })),
+
+  rangerStatsViewState: { activePanel: "studies", searchQuery: "" },
+  setRangerStatsViewState: (patch) =>
+    set((state) => ({
+      rangerStatsViewState: { ...state.rangerStatsViewState, ...patch },
     })),
 }));
