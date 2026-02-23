@@ -388,7 +388,7 @@ impl Database {
     pub fn get_trainers(&self, char_id: i64) -> Result<Vec<Trainer>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, character_id, trainer_name, ranks, modified_ranks, date_of_last_rank,
-                    apply_learning_ranks, apply_learning_unknown_count
+                    apply_learning_ranks, apply_learning_unknown_count, rank_mode, override_date
              FROM trainers WHERE character_id = ?1 ORDER BY ranks DESC",
         )?;
 
@@ -402,6 +402,8 @@ impl Database {
                 date_of_last_rank: row.get(5)?,
                 apply_learning_ranks: row.get(6)?,
                 apply_learning_unknown_count: row.get(7)?,
+                rank_mode: row.get(8)?,
+                override_date: row.get(9)?,
             })
         })?;
 
@@ -454,23 +456,72 @@ impl Database {
         trainer_name: &str,
         modified_ranks: i64,
     ) -> Result<()> {
+        self.set_rank_override(char_id, trainer_name, "modifier", modified_ranks, None)
+    }
+
+    /// Set rank override mode for a specific trainer record.
+    /// Creates the trainer record if it doesn't exist.
+    /// When switching TO override or override_until_date, zeros ranks and apply_learning_ranks
+    /// so the parser can rebuild only post-cutoff counts on next scan.
+    /// Recalculates coin_level after the update.
+    pub fn set_rank_override(
+        &self,
+        char_id: i64,
+        trainer_name: &str,
+        rank_mode: &str,
+        modified_ranks: i64,
+        override_date: Option<&str>,
+    ) -> Result<()> {
+        // Validate rank_mode
+        if !["modifier", "override", "override_until_date"].contains(&rank_mode) {
+            return Err(crate::error::AmanuensisError::Data(format!(
+                "Invalid rank_mode: {}. Must be one of: modifier, override, override_until_date",
+                rank_mode
+            )));
+        }
+
+        // Check if we're switching to a non-modifier mode that needs rank zeroing
+        let current_mode: Option<String> = self.conn.query_row(
+            "SELECT rank_mode FROM trainers WHERE character_id = ?1 AND trainer_name = ?2",
+            params![char_id, trainer_name],
+            |row| row.get(0),
+        ).ok();
+
+        let switching_to_override = (rank_mode == "override" || rank_mode == "override_until_date")
+            && current_mode.as_deref() != Some(rank_mode);
+
+        // Upsert the trainer record
         self.conn.execute(
-            "INSERT INTO trainers (character_id, trainer_name, ranks, modified_ranks)
-             VALUES (?1, ?2, 0, ?3)
+            "INSERT INTO trainers (character_id, trainer_name, ranks, modified_ranks, rank_mode, override_date)
+             VALUES (?1, ?2, 0, ?3, ?4, ?5)
              ON CONFLICT(character_id, trainer_name) DO UPDATE SET
-                modified_ranks = excluded.modified_ranks",
-            params![char_id, trainer_name, modified_ranks],
+                modified_ranks = excluded.modified_ranks,
+                rank_mode = excluded.rank_mode,
+                override_date = excluded.override_date",
+            params![char_id, trainer_name, modified_ranks, rank_mode, override_date],
         )?;
 
-        // Recalculate coin level from all trainer ranks (including apply-learning)
-        let coin_level: i64 = self.conn.query_row(
-            "SELECT COALESCE(SUM(ranks + modified_ranks + apply_learning_ranks), 0) FROM trainers WHERE character_id = ?1",
-            params![char_id],
-            |row| row.get(0),
-        )?;
+        // When switching TO override or override_until_date, zero out log-derived ranks
+        // so the next scan rebuilds only post-cutoff counts correctly
+        if switching_to_override {
+            self.conn.execute(
+                "UPDATE trainers SET ranks = 0, apply_learning_ranks = 0
+                 WHERE character_id = ?1 AND trainer_name = ?2",
+                params![char_id, trainer_name],
+            )?;
+        }
+
+        // Recalculate coin level using effective_ranks
+        let coin_level = self.compute_effective_coin_level(char_id)?;
         self.update_coin_level(char_id, coin_level)?;
 
         Ok(())
+    }
+
+    /// Compute coin level using mode-aware effective_ranks for each trainer.
+    pub fn compute_effective_coin_level(&self, char_id: i64) -> Result<i64> {
+        let trainers = self.get_trainers(char_id)?;
+        Ok(trainers.iter().map(|t| t.effective_ranks()).sum())
     }
 
     // === Log files ===
@@ -745,12 +796,30 @@ impl Database {
             ));
         }
 
+        // Block merge if either target or any source has non-modifier rank overrides
+        let target_overrides = self.get_non_modifier_trainers(target_id)?;
+        if !target_overrides.is_empty() {
+            return Err(crate::error::AmanuensisError::Data(format!(
+                "Cannot merge: target character has rank overrides on: {}",
+                target_overrides.join(", ")
+            )));
+        }
+
         for &source_id in source_ids {
             if source_id == target_id {
                 return Err(crate::error::AmanuensisError::Data(
                     "Cannot merge a character into itself".to_string(),
                 ));
             }
+
+            let source_overrides = self.get_non_modifier_trainers(source_id)?;
+            if !source_overrides.is_empty() {
+                return Err(crate::error::AmanuensisError::Data(format!(
+                    "Cannot merge: source character {} has rank overrides on: {}",
+                    source_id, source_overrides.join(", ")
+                )));
+            }
+
             // Verify source exists and is not already merged
             let source_merged: Option<Option<i64>> = self.conn.query_row(
                 "SELECT merged_into FROM characters WHERE id = ?1",
@@ -868,23 +937,24 @@ impl Database {
         Ok(chars.filter_map(|r| r.ok()).collect())
     }
 
-    /// Recalculate a target character's coin_level after merge/unmerge.
-    fn recalculate_merged_stats(&self, target_id: i64) -> Result<()> {
-        let all_ids = self.char_ids_for_merged(target_id)?;
-        let placeholders = all_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-
-        // Recalculate coin level from merged trainers
-        let sql = format!(
-            "SELECT COALESCE(SUM(ranks + modified_ranks + apply_learning_ranks), 0) FROM trainers WHERE character_id IN ({})",
-            placeholders
-        );
-        let mut stmt = self.conn.prepare(&sql)?;
-        let coin_level: i64 = stmt.query_row(
-            rusqlite::params_from_iter(all_ids.iter()),
-            |row| row.get(0),
+    /// Get trainer names with non-modifier rank modes for a character.
+    fn get_non_modifier_trainers(&self, char_id: i64) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT trainer_name FROM trainers WHERE character_id = ?1 AND rank_mode != 'modifier'",
         )?;
-        self.update_coin_level(target_id, coin_level)?;
+        let names = stmt
+            .query_map(params![char_id], |row| row.get::<_, String>(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(names)
+    }
 
+    /// Recalculate a target character's coin_level after merge/unmerge.
+    /// Uses effective_ranks() for mode-aware computation.
+    fn recalculate_merged_stats(&self, target_id: i64) -> Result<()> {
+        let trainers = self.get_trainers_merged(target_id)?;
+        let coin_level: i64 = trainers.iter().map(|t| t.effective_ranks()).sum();
+        self.update_coin_level(target_id, coin_level)?;
         Ok(())
     }
 
@@ -939,6 +1009,7 @@ impl Database {
 
     /// Get trainers aggregated across a character and all its merge sources.
     /// For the same trainer name: sum ranks, take max date.
+    /// rank_mode and override_date come from the primary character's record.
     pub fn get_trainers_merged(&self, char_id: i64) -> Result<Vec<Trainer>> {
         let all_ids = self.char_ids_for_merged(char_id)?;
         if all_ids.len() == 1 {
@@ -946,13 +1017,15 @@ impl Database {
         }
         let placeholders = all_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
-            "SELECT NULL, {}, trainer_name,
+            "SELECT NULL, {cid}, trainer_name,
                     SUM(ranks), SUM(modified_ranks), MAX(date_of_last_rank),
-                    SUM(apply_learning_ranks), SUM(apply_learning_unknown_count)
-             FROM trainers WHERE character_id IN ({})
+                    SUM(apply_learning_ranks), SUM(apply_learning_unknown_count),
+                    MAX(CASE WHEN character_id = {cid} THEN rank_mode ELSE 'modifier' END),
+                    MAX(CASE WHEN character_id = {cid} THEN override_date ELSE NULL END)
+             FROM trainers WHERE character_id IN ({placeholders})
              GROUP BY trainer_name
              ORDER BY SUM(ranks) DESC",
-            char_id, placeholders
+            cid = char_id, placeholders = placeholders
         );
         let mut stmt = self.conn.prepare(&sql)?;
         let trainers = stmt.query_map(rusqlite::params_from_iter(all_ids.iter()), |row| {
@@ -965,6 +1038,8 @@ impl Database {
                 date_of_last_rank: row.get(5)?,
                 apply_learning_ranks: row.get(6)?,
                 apply_learning_unknown_count: row.get(7)?,
+                rank_mode: row.get(8)?,
+                override_date: row.get(9)?,
             })
         })?;
         Ok(trainers.filter_map(|r| r.ok()).collect())
@@ -1087,19 +1162,9 @@ impl Database {
             }
         }
 
-        // Coin level is from the merged trainer totals (already set in recalculate_merged_stats)
-        // but recompute here for accuracy
-        let all_ids = self.char_ids_for_merged(char_id)?;
-        let placeholders = all_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        let sql = format!(
-            "SELECT COALESCE(SUM(ranks + modified_ranks + apply_learning_ranks), 0) FROM trainers WHERE character_id IN ({})",
-            placeholders
-        );
-        let mut stmt = self.conn.prepare(&sql)?;
-        let coin_level: i64 = stmt.query_row(
-            rusqlite::params_from_iter(all_ids.iter()),
-            |row| row.get(0),
-        )?;
+        // Coin level is from the merged trainer totals using effective_ranks
+        let trainers = self.get_trainers_merged(char_id)?;
+        let coin_level: i64 = trainers.iter().map(|t| t.effective_ranks()).sum();
         merged.coin_level = coin_level;
 
         Ok(Some(merged))

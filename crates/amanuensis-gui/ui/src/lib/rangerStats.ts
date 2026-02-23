@@ -1,5 +1,6 @@
 import type { Lasty, Trainer } from "../types";
 import type { BestiaryEntry } from "./bestiary";
+import { effectiveRanks } from "./trainerUtils";
 
 export type StudyStatus = "none" | "in_progress" | "completed" | "abandoned";
 
@@ -98,7 +99,7 @@ function getTrainerTotalRanks(trainers: Trainer[], name: string): number {
   let total = 0;
   for (const t of trainers) {
     if (t.trainer_name === name) {
-      total += t.ranks + t.modified_ranks;
+      total += effectiveRanks(t);
     }
   }
   return total;

@@ -19,6 +19,7 @@ fn main() {
             commands::get_kills,
             commands::get_trainers,
             commands::set_modified_ranks,
+            commands::set_rank_override,
             commands::get_pets,
             commands::get_lastys,
             commands::get_scanned_log_count,

@@ -5,7 +5,7 @@ import {
   getTrainerDbInfo,
   getTrainers,
   listCharacters,
-  setModifiedRanks,
+  setRankOverride,
 } from "../../lib/commands";
 import type { Trainer, TrainerInfo } from "../../types";
 
@@ -18,64 +18,139 @@ const PROFESSION_ORDER = [
   "Champion",
 ];
 
+type RankMode = "modifier" | "override" | "override_until_date";
+
 interface TrainerRow {
   name: string;
   profession: string;
   ranks: number;
   modified_ranks: number;
+  apply_learning_ranks: number;
   multiplier: number;
   is_combo: boolean;
   combo_components: string[];
+  rank_mode: RankMode;
+  override_date: string | null;
 }
 
-function ModifiedRankInput({
-  value,
+function todayMDYY(): string {
+  const now = new Date();
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  const yy = String(now.getFullYear()).slice(-2);
+  return `${m}/${d}/${yy}`;
+}
+
+const MODE_LABELS: Record<RankMode, string> = {
+  modifier: "Modifier",
+  override: "Override",
+  override_until_date: "Override Until Date",
+};
+
+function RankModeInput({
+  row,
   onSave,
 }: {
-  value: number;
-  onSave: (val: number) => void;
+  row: TrainerRow;
+  onSave: (mode: RankMode, value: number, date: string | null) => void;
 }) {
-  const [draft, setDraft] = useState(value === 0 ? "" : String(value));
+  const [mode, setMode] = useState<RankMode>(row.rank_mode);
+  const [draft, setDraft] = useState(row.modified_ranks === 0 ? "" : String(row.modified_ranks));
+  const [dateDraft, setDateDraft] = useState(row.override_date ?? "");
   const [saving, setSaving] = useState(false);
 
-  // Sync draft when external value changes
   useEffect(() => {
-    setDraft(value === 0 ? "" : String(value));
-  }, [value]);
+    setMode(row.rank_mode);
+    setDraft(row.modified_ranks === 0 ? "" : String(row.modified_ranks));
+    setDateDraft(row.override_date ?? "");
+  }, [row.rank_mode, row.modified_ranks, row.override_date]);
 
   const commit = useCallback(() => {
     const parsed = draft.trim() === "" ? 0 : parseInt(draft, 10);
     if (isNaN(parsed)) {
-      // Revert to current value
-      setDraft(value === 0 ? "" : String(value));
+      setDraft(row.modified_ranks === 0 ? "" : String(row.modified_ranks));
       return;
     }
-    if (parsed !== value) {
+    const date = mode === "override_until_date" ? (dateDraft.trim() || null) : null;
+    if (parsed !== row.modified_ranks || mode !== row.rank_mode || date !== row.override_date) {
       setSaving(true);
-      onSave(parsed);
-      // saving indicator clears when value prop updates
+      onSave(mode, parsed, date);
       setTimeout(() => setSaving(false), 300);
     }
-  }, [draft, value, onSave]);
+  }, [draft, dateDraft, mode, row, onSave]);
+
+  const handleModeChange = useCallback((newMode: RankMode) => {
+    setMode(newMode);
+    // Auto-commit on mode change if value is set
+    const parsed = draft.trim() === "" ? 0 : parseInt(draft, 10);
+    if (isNaN(parsed)) return;
+    // Default to today's date in M/D/YY format when switching to override_until_date
+    let date: string | null = null;
+    if (newMode === "override_until_date") {
+      const effectiveDate = dateDraft.trim() || todayMDYY();
+      setDateDraft(effectiveDate);
+      date = effectiveDate;
+    }
+    setSaving(true);
+    onSave(newMode, parsed, date);
+    setTimeout(() => setSaving(false), 300);
+  }, [draft, dateDraft, onSave]);
+
+  const inputLabel = mode === "override" ? "Total Ranks" : mode === "override_until_date" ? "Baseline" : "Modifier";
 
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.currentTarget.blur();
-        }
-      }}
-      placeholder="0"
-      className={`w-20 rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1 text-right text-sm transition-colors focus:border-[var(--color-accent)] focus:outline-none ${
-        saving ? "border-[var(--color-accent)]" : ""
-      }`}
-    />
+    <div className="flex items-center gap-2">
+      <select
+        value={mode}
+        onChange={(e) => handleModeChange(e.target.value as RankMode)}
+        className={`rounded border border-[var(--color-border)] bg-[var(--color-card)] px-1.5 py-1 text-xs transition-colors focus:border-[var(--color-accent)] focus:outline-none ${
+          saving ? "border-[var(--color-accent)]" : ""
+        }`}
+      >
+        {(Object.keys(MODE_LABELS) as RankMode[]).map((m) => (
+          <option key={m} value={m}>{MODE_LABELS[m]}</option>
+        ))}
+      </select>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        placeholder="0"
+        title={inputLabel}
+        className={`w-20 rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1 text-right text-sm transition-colors focus:border-[var(--color-accent)] focus:outline-none ${
+          saving ? "border-[var(--color-accent)]" : ""
+        }`}
+      />
+      {mode === "override_until_date" && (
+        <input
+          type="text"
+          value={dateDraft}
+          onChange={(e) => setDateDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          placeholder="M/D/YY"
+          title="Cutoff date (ranks after this date are counted from logs)"
+          className={`w-24 rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1 text-sm transition-colors focus:border-[var(--color-accent)] focus:outline-none ${
+            saving ? "border-[var(--color-accent)]" : ""
+          }`}
+        />
+      )}
+    </div>
   );
+}
+
+function computeEffective(row: TrainerRow): number {
+  switch (row.rank_mode) {
+    case "override":
+      return row.modified_ranks;
+    case "override_until_date":
+      return row.modified_ranks + row.ranks + row.apply_learning_ranks;
+    default:
+      return row.ranks + row.modified_ranks + row.apply_learning_ranks;
+  }
 }
 
 export function RankModifiersView() {
@@ -84,6 +159,7 @@ export function RankModifiersView() {
   const collapsedGroups = useMemo(() => new Set(collapsedArr), [collapsedArr]);
   const setSearchQuery = useCallback((v: string) => setRankModifiersViewState({ searchQuery: v }), [setRankModifiersViewState]);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
+  const [rescanBanner, setRescanBanner] = useState(false);
 
   useEffect(() => {
     getTrainerDbInfo()
@@ -116,9 +192,12 @@ export function RankModifiersView() {
         profession: dbTrainer.profession ?? "Other",
         ranks: existing?.ranks ?? 0,
         modified_ranks: existing?.modified_ranks ?? 0,
+        apply_learning_ranks: existing?.apply_learning_ranks ?? 0,
         multiplier: dbTrainer.multiplier,
         is_combo: dbTrainer.is_combo,
         combo_components: dbTrainer.combo_components,
+        rank_mode: existing?.rank_mode ?? "modifier",
+        override_date: existing?.override_date ?? null,
       });
     }
     return rows;
@@ -152,18 +231,21 @@ export function RankModifiersView() {
   }, [filteredRows]);
 
   const handleSave = useCallback(
-    async (trainerName: string, value: number) => {
+    async (trainerName: string, mode: RankMode, value: number, date: string | null) => {
       if (selectedCharacterId == null) return;
       try {
-        await setModifiedRanks(selectedCharacterId, trainerName, value);
+        await setRankOverride(selectedCharacterId, trainerName, mode, value, date);
         const [updated, chars] = await Promise.all([
           getTrainers(selectedCharacterId),
           listCharacters(),
         ]);
         setTrainers(updated);
         setCharacters(chars);
+        if (mode !== "modifier") {
+          setRescanBanner(true);
+        }
       } catch (e) {
-        console.error("Failed to save modified ranks:", e);
+        console.error("Failed to save rank override:", e);
       }
     },
     [selectedCharacterId, setTrainers, setCharacters],
@@ -173,25 +255,38 @@ export function RankModifiersView() {
   const totalTrainers = trainerRows.length;
   const logRanks = trainerRows.reduce((s, t) => s + t.ranks, 0);
   const modifiedRanks = trainerRows.reduce((s, t) => s + t.modified_ranks, 0);
-  const totalRanks = logRanks + modifiedRanks;
-  const effectiveTotal = trainerRows.reduce(
-    (s, t) => s + (t.ranks + t.modified_ranks) * t.multiplier,
+  const totalEffective = trainerRows.reduce((s, t) => s + computeEffective(t), 0);
+  const weightedEffective = trainerRows.reduce(
+    (s, t) => s + computeEffective(t) * t.multiplier,
     0,
   );
-  const effectiveRounded = Math.round(effectiveTotal * 10) / 10;
+  const weightedRounded = Math.round(weightedEffective * 10) / 10;
 
   return (
     <div className="flex h-full flex-col">
       <div className="mb-1 flex items-center justify-between">
         <div className="text-sm text-[var(--color-text-muted)]">
-          {totalTrainers} trainers, {totalRanks.toLocaleString()} total ranks (
+          {totalTrainers} trainers, {totalEffective.toLocaleString()} total ranks (
           {logRanks.toLocaleString()} from logs, {modifiedRanks.toLocaleString()}{" "}
-          modified) | {effectiveRounded} effective
+          modified) | {weightedRounded} effective
         </div>
       </div>
       <div className="mb-3 text-xs text-[var(--color-text-muted)]">
-        Add ranks that don't appear in logs for whatever reason
+        Add ranks that don't appear in logs. Use Override modes for characters with incomplete log history.
       </div>
+
+      {rescanBanner && (
+        <div className="mb-3 flex items-center justify-between rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+          <span>Rescan logs to update rank counts for override trainers.</span>
+          <button
+            type="button"
+            onClick={() => setRescanBanner(false)}
+            className="ml-2 text-xs text-amber-400 hover:text-amber-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       <div className="mb-3">
         <input
@@ -242,8 +337,8 @@ export function RankModifiersView() {
                           <th className="w-24 px-3 py-2 text-right font-medium">
                             Log Ranks
                           </th>
-                          <th className="w-28 px-3 py-2 text-right font-medium">
-                            Modified
+                          <th className="px-3 py-2 text-left font-medium">
+                            Mode / Value
                           </th>
                           <th className="w-24 px-3 py-2 text-right font-medium">
                             Total
@@ -254,47 +349,58 @@ export function RankModifiersView() {
                         </tr>
                       </thead>
                       <tbody>
-                        {groupTrainers.map((t) => (
-                          <tr
-                            key={t.name}
-                            className="border-b border-[var(--color-border)] last:border-b-0"
-                          >
-                            <td className="px-3 py-1.5">
-                              {t.name}
-                              {t.is_combo && (
-                                <span
-                                  className="ml-1 cursor-help text-[var(--color-accent)]"
-                                  title={`Combo trainer: includes ${t.combo_components.join(", ")}`}
-                                >
-                                  *
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
-                              {t.ranks}
-                            </td>
-                            <td className="px-3 py-1.5 text-right">
-                              <ModifiedRankInput
-                                value={t.modified_ranks}
-                                onSave={(val) => handleSave(t.name, val)}
-                              />
-                            </td>
-                            <td className="px-3 py-1.5 text-right font-medium">
-                              {t.ranks + t.modified_ranks}
-                            </td>
-                            <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
-                              {(() => {
-                                const eff =
-                                  Math.round(
-                                    (t.ranks + t.modified_ranks) *
-                                      t.multiplier *
-                                      10,
-                                  ) / 10;
-                                return eff % 1 === 0 ? eff : eff.toFixed(1);
-                              })()}
-                            </td>
-                          </tr>
-                        ))}
+                        {groupTrainers.map((t) => {
+                          const isNonModifier = t.rank_mode !== "modifier";
+                          const eff = computeEffective(t);
+                          return (
+                            <tr
+                              key={t.name}
+                              className={`border-b border-[var(--color-border)] last:border-b-0 ${
+                                isNonModifier ? "border-l-2" : ""
+                              } ${
+                                t.rank_mode === "override"
+                                  ? "border-l-amber-500"
+                                  : t.rank_mode === "override_until_date"
+                                    ? "border-l-blue-500"
+                                    : ""
+                              }`}
+                            >
+                              <td className="px-3 py-1.5">
+                                {t.name}
+                                {t.is_combo && (
+                                  <span
+                                    className="ml-1 cursor-help text-[var(--color-accent)]"
+                                    title={`Combo trainer: includes ${t.combo_components.join(", ")}`}
+                                  >
+                                    *
+                                  </span>
+                                )}
+                              </td>
+                              <td className={`px-3 py-1.5 text-right ${isNonModifier ? "opacity-40" : "text-[var(--color-text-muted)]"}`}>
+                                {t.ranks}
+                                {t.apply_learning_ranks > 0 && (
+                                  <span className="text-[var(--color-text-muted)]"> +{t.apply_learning_ranks}a</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-1.5">
+                                <RankModeInput
+                                  row={t}
+                                  onSave={(mode, val, date) => handleSave(t.name, mode, val, date)}
+                                />
+                              </td>
+                              <td className="px-3 py-1.5 text-right font-medium">
+                                {eff}
+                              </td>
+                              <td className="px-3 py-1.5 text-right text-[var(--color-text-muted)]">
+                                {(() => {
+                                  const weighted =
+                                    Math.round(eff * t.multiplier * 10) / 10;
+                                  return weighted % 1 === 0 ? weighted : weighted.toFixed(1);
+                                })()}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
