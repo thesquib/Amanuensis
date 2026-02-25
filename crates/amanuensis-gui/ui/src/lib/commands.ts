@@ -112,6 +112,18 @@ export async function resetDatabase(): Promise<void> {
   return invoke("reset_database");
 }
 
+export async function rescanLogs(
+  folder: string,
+  recursive: boolean = false,
+  indexLines: boolean = true,
+): Promise<ScanResult> {
+  return invoke("rescan_logs", { folder, recursive, indexLines });
+}
+
+export async function clearRankOverrides(): Promise<void> {
+  return invoke("clear_rank_overrides");
+}
+
 export async function importScribiusDb(
   scribiusPath: string,
   outputPath: string,
