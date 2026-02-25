@@ -9,6 +9,7 @@ import {
   getLogLineCount,
   getDefaultDbPath,
   scanLogs,
+  rescanLogs,
   scanFiles,
   getKills,
   getTrainers,
@@ -207,27 +208,43 @@ export function Sidebar() {
     }
   }, [ensureDb, setIsScanning, setScanProgress, finishScan, indexLogLines]);
 
+  const handleRescanLogs = useCallback(async () => {
+    if (!logFolder) return;
+    const confirmed = await confirm(
+      "This will clear all scanned data and rescan your logs from scratch. Your rank modifier settings will be preserved. Continue?",
+      { title: "Rescan Logs", kind: "warning" },
+    );
+    if (!confirmed) return;
+    setIsScanning(true);
+    setScanProgress(null);
+    try {
+      await rescanLogs(logFolder, recursiveScan, indexLogLines);
+      await finishScan();
+    } catch (e) {
+      console.error("Rescan failed:", e);
+    } finally {
+      setIsScanning(false);
+      setScanProgress(null);
+    }
+  }, [logFolder, recursiveScan, indexLogLines, setIsScanning, setScanProgress, finishScan]);
+
   const handleReset = useCallback(async () => {
     if (!dbPath) return;
     const confirmed = await confirm(
-      "This will permanently delete ALL scanned data including characters, kills, trainers, pets, and lastys. You will need to rescan your logs to restore this data.\n\nAre you sure?",
+      "This will clear all scanned data (kills, trainers, pets, lastys) and reset all stats. Your rank modifier settings will be preserved.\n\nAre you sure?",
       { title: "Reset Database", kind: "warning" },
     );
     if (!confirmed) return;
     try {
       await resetDatabase();
-      setCharacters([]);
-      selectCharacter(null as unknown as number);
-      setKills([]);
-      setTrainers([]);
-      setPets([]);
-      setLastys([]);
+      // Characters are preserved (just zeroed), reload them so the sidebar stays populated
+      await finishScan();
       setScannedLogCount(0);
       setLogLineCount(0);
     } catch (e) {
       console.error("Reset failed:", e);
     }
-  }, [dbPath, setCharacters, selectCharacter, setKills, setTrainers, setPets, setLastys, setScannedLogCount, setLogLineCount]);
+  }, [dbPath, finishScan, setScannedLogCount, setLogLineCount]);
 
   const handleImportScribius = useCallback(async () => {
     // Pick the Scribius .db file
@@ -309,6 +326,14 @@ export function Sidebar() {
           className="rounded bg-[var(--color-accent)]/80 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/60 disabled:opacity-50"
         >
           Scan Specific Log Files
+        </button>
+        <button
+          onClick={handleRescanLogs}
+          disabled={isScanning || !logFolder}
+          className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50"
+          title={logFolder ? "Clear all scanned data and rescan from scratch (preserves rank modifiers)" : "No log folder selected — scan a folder first"}
+        >
+          Rescan Logs
         </button>
         <button
           onClick={handleImportScribius}

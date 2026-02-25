@@ -333,29 +333,81 @@ pub fn get_log_line_count(state: State<'_, AppState>) -> Result<i64, String> {
     db.log_line_count().map_err(|e| e.to_string())
 }
 
-/// Reset the database: delete the file and reopen a fresh one.
+/// Rescan logs: clear all log-derived data (preserving rank overrides) then rescan.
+/// Equivalent to "reset + scan" but keeps user-entered modifier/override settings.
 #[tauri::command]
-pub fn reset_database(state: State<'_, AppState>) -> Result<(), String> {
-    let path = state
-        .db_path
+pub async fn rescan_logs(
+    folder: String,
+    recursive: bool,
+    index_lines: bool,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<ScanResult, String> {
+    // Take the DB out of state so we can move it to the background thread
+    let db = state
+        .db
         .lock()
         .unwrap()
-        .clone()
+        .take()
         .ok_or("No database open")?;
 
-    // Close the existing DB
-    *state.db.lock().unwrap() = None;
+    let state_db = state.db.clone();
 
-    // Delete the file
-    if Path::new(&path).exists() {
-        std::fs::remove_file(&path).map_err(|e| e.to_string())?;
-    }
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        // Clear log-derived data first
+        db.reset_log_data().map_err(|e| e.to_string())?;
 
-    // Reopen fresh
-    let db = Database::open(&path).map_err(|e| e.to_string())?;
-    *state.db.lock().unwrap() = Some(db);
+        let parser = LogParser::new(db).map_err(|e| e.to_string())?;
 
-    Ok(())
+        let app_handle = app.clone();
+        let progress_cb = |current: usize, total: usize, filename: &str| {
+            let _ = app_handle.emit(
+                "scan-progress",
+                ScanProgress {
+                    current_file: current,
+                    total_files: total,
+                    filename: filename.to_string(),
+                },
+            );
+        };
+
+        let result = if recursive {
+            parser
+                .scan_recursive_with_progress(Path::new(&folder), false, index_lines, progress_cb)
+                .map_err(|e| e.to_string())?
+        } else {
+            parser
+                .scan_folder_with_progress(Path::new(&folder), false, index_lines, progress_cb)
+                .map_err(|e| e.to_string())?
+        };
+
+        parser.finalize_characters().map_err(|e| e.to_string())?;
+        *state_db.lock().unwrap() = Some(parser.into_db());
+
+        Ok(result)
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    result
+}
+
+/// Clear all rank override data: resets modified_ranks to 0, rank_mode to 'modifier',
+/// and override_date to NULL for every trainer across all characters.
+#[tauri::command]
+pub fn clear_rank_overrides(state: State<'_, AppState>) -> Result<(), String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.clear_rank_overrides().map_err(|e| e.to_string())
+}
+
+/// Reset the database: clear all log-derived data while preserving rank overrides.
+/// To also clear overrides, use "Clear All Overrides" in the Rank Modifiers view first.
+#[tauri::command]
+pub fn reset_database(state: State<'_, AppState>) -> Result<(), String> {
+    let guard = state.db.lock().unwrap();
+    let db = guard.as_ref().ok_or("No database open")?;
+    db.reset_log_data().map_err(|e| e.to_string())
 }
 
 // ---------------------------------------------------------------------------

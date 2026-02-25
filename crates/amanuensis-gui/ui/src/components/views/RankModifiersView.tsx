@@ -1,7 +1,9 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../../lib/store";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import {
+  clearRankOverrides,
   getTrainerDbInfo,
   getTrainers,
   listCharacters,
@@ -318,6 +320,27 @@ export function RankModifiersView() {
     setRankModifiersViewState({ collapsedGroups: collapsed });
   }, [allProfessions, groupsWithModifiers, setRankModifiersViewState]);
 
+  const handleClearAllOverrides = useCallback(async () => {
+    if (selectedCharacterId == null) return;
+    const confirmed = await confirm(
+      "This will reset all rank modifiers, override modes, and override dates back to defaults. Are you sure?",
+      { title: "Clear All Overrides", kind: "warning" },
+    );
+    if (!confirmed) return;
+    try {
+      await clearRankOverrides();
+      const [updated, chars] = await Promise.all([
+        getTrainers(selectedCharacterId),
+        listCharacters(),
+      ]);
+      setTrainers(updated);
+      setCharacters(chars);
+      setRescanBanner(false);
+    } catch (e) {
+      console.error("Failed to clear rank overrides:", e);
+    }
+  }, [selectedCharacterId, setTrainers, setCharacters]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="mb-1 flex items-center justify-between">
@@ -366,6 +389,15 @@ export function RankModifiersView() {
           </button>
           <button type="button" onClick={openAllSet} className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)]" title="Open groups that have any modifiers set">
             Open All Set
+          </button>
+          <button
+            type="button"
+            onClick={handleClearAllOverrides}
+            disabled={selectedCharacterId == null}
+            className="ml-2 rounded border border-[var(--color-danger)] px-2 py-1 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)] disabled:opacity-40"
+            title="Reset all rank modifiers, override modes, and override dates to defaults"
+          >
+            Clear All Overrides
           </button>
         </div>
       </div>

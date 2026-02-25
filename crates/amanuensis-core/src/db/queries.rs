@@ -524,6 +524,57 @@ impl Database {
         Ok(trainers.iter().map(|t| t.effective_ranks()).sum())
     }
 
+    /// Clear all log-derived data while preserving user rank overrides.
+    /// Deletes kills, lastys, pets, log_files, log_lines and resets all stat
+    /// columns on characters/trainers to zero. Does NOT touch modified_ranks,
+    /// rank_mode, or override_date.
+    pub fn reset_log_data(&self) -> Result<()> {
+        self.conn.execute_batch(
+            "DELETE FROM kills;
+             DELETE FROM lastys;
+             DELETE FROM pets;
+             DELETE FROM log_files;
+             DELETE FROM log_lines;
+             UPDATE characters SET
+               logins=0, departs=0, deaths=0, esteem=0, coins_picked_up=0,
+               casino_won=0, casino_lost=0, chest_coins=0, bounty_coins=0,
+               fur_coins=0, mandible_coins=0, blood_coins=0,
+               bells_used=0, bells_broken=0, chains_used=0, chains_broken=0,
+               shieldstones_used=0, shieldstones_broken=0, ethereal_portals=0,
+               darkstone=0, purgatory_pendant=0, coin_level=0,
+               good_karma=0, bad_karma=0, start_date=NULL,
+               fur_worth=0, mandible_worth=0, blood_worth=0,
+               eps_broken=0, untraining_count=0, profession='Unknown';
+             UPDATE trainers SET
+               ranks=0, apply_learning_ranks=0, apply_learning_unknown_count=0,
+               date_of_last_rank=NULL;",
+        )?;
+        Ok(())
+    }
+
+    /// Clear all user-controlled rank override data, resetting trainers back to
+    /// modifier mode with zero modified ranks.  Recomputes coin_level for all
+    /// characters afterwards.
+    pub fn clear_rank_overrides(&self) -> Result<()> {
+        self.conn.execute_batch(
+            "UPDATE trainers SET modified_ranks=0, rank_mode='modifier', override_date=NULL;",
+        )?;
+        // Recompute coin_level for every character
+        let char_ids: Vec<i64> = {
+            let mut stmt = self.conn.prepare("SELECT id FROM characters")?;
+            let ids = stmt
+                .query_map([], |row| row.get(0))?
+                .filter_map(|r| r.ok())
+                .collect();
+            ids
+        };
+        for char_id in char_ids {
+            let coin_level = self.compute_effective_coin_level(char_id)?;
+            self.update_coin_level(char_id, coin_level)?;
+        }
+        Ok(())
+    }
+
     // === Log files ===
 
     /// Check if a log file has already been scanned (by path or content hash).
