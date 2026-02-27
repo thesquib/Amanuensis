@@ -5,6 +5,7 @@ import { DataTable } from "../shared/DataTable";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { getTrainerDbInfo } from "../../lib/commands";
 import { effectiveRanks } from "../../lib/trainerUtils";
+import { PROFESSION_ORDER } from "../../lib/constants";
 import type { Trainer, TrainerInfo } from "../../types";
 
 type EnrichedTrainer = Trainer & {
@@ -15,18 +16,6 @@ type EnrichedTrainer = Trainer & {
 };
 
 const columnHelper = createColumnHelper<EnrichedTrainer>();
-
-const PROFESSION_ORDER = [
-  "Fighter",
-  "Healer",
-  "Mystic",
-  "Ranger",
-  "Bloodmage",
-  "Champion",
-  "Language",
-  "Arts",
-  "Trades",
-];
 
 export function TrainersView() {
   const { trainers, trainersViewState, setTrainersViewState } = useStore();

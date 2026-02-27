@@ -15,6 +15,7 @@ import {
   getPets,
   getLastys,
 } from "../../lib/commands";
+import { computeKillStats } from "../../lib/killStats";
 import type { Character, TrainerInfo } from "../../types";
 
 export function SummaryView() {
@@ -89,85 +90,18 @@ export function SummaryView() {
   // Use merged stats when available (aggregated logins, deaths, etc.)
   const char = mergedChar ?? baseChar;
 
-  const totalKills = kills.reduce(
-    (sum, k) =>
-      sum +
-      k.killed_count +
-      k.slaughtered_count +
-      k.vanquished_count +
-      k.dispatched_count,
-    0,
-  );
-  const totalAssisted = kills.reduce(
-    (sum, k) =>
-      sum +
-      k.assisted_kill_count +
-      k.assisted_slaughter_count +
-      k.assisted_vanquish_count +
-      k.assisted_dispatch_count,
-    0,
-  );
-  const uniqueCreatures = kills.length;
-
-  // Find nemesis (most killed-by)
-  const nemesis = kills.reduce(
-    (best, k) => (k.killed_by_count > (best?.killed_by_count ?? 0) ? k : best),
-    null as (typeof kills)[0] | null,
-  );
-
-  // Find highest value creature killed (solo + assisted)
-  const highestKill = kills.reduce(
-    (best, k) => {
-      const total = k.killed_count + k.slaughtered_count + k.vanquished_count + k.dispatched_count +
-        k.assisted_kill_count + k.assisted_slaughter_count + k.assisted_vanquish_count + k.assisted_dispatch_count;
-      if (total === 0) return best;
-      return k.creature_value > (best?.creature_value ?? 0) ? k : best;
-    },
-    null as (typeof kills)[0] | null,
-  );
-
-  // Find most killed creature (solo + assisted)
-  const mostKilled = kills.reduce(
-    (best, k) => {
-      const total = k.killed_count + k.slaughtered_count + k.vanquished_count + k.dispatched_count +
-        k.assisted_kill_count + k.assisted_slaughter_count + k.assisted_vanquish_count + k.assisted_dispatch_count;
-      const bestTotal = best
-        ? best.killed_count + best.slaughtered_count + best.vanquished_count + best.dispatched_count +
-          best.assisted_kill_count + best.assisted_slaughter_count + best.assisted_vanquish_count + best.assisted_dispatch_count
-        : 0;
-      return total > bestTotal ? k : best;
-    },
-    null as (typeof kills)[0] | null,
-  );
-  const mostKilledTotal = mostKilled
-    ? mostKilled.killed_count + mostKilled.slaughtered_count + mostKilled.vanquished_count + mostKilled.dispatched_count +
-      mostKilled.assisted_kill_count + mostKilled.assisted_slaughter_count + mostKilled.assisted_vanquish_count + mostKilled.assisted_dispatch_count
-    : 0;
-
-  // Find highest value creature solo-killed
-  const highestSoloKill = kills.reduce(
-    (best, k) => {
-      const solo = k.killed_count + k.slaughtered_count + k.vanquished_count + k.dispatched_count;
-      if (solo === 0) return best;
-      return k.creature_value > (best?.creature_value ?? 0) ? k : best;
-    },
-    null as (typeof kills)[0] | null,
-  );
-
-  // Find most solo-killed creature
-  const mostSoloKilled = kills.reduce(
-    (best, k) => {
-      const solo = k.killed_count + k.slaughtered_count + k.vanquished_count + k.dispatched_count;
-      const bestSolo = best
-        ? best.killed_count + best.slaughtered_count + best.vanquished_count + best.dispatched_count
-        : 0;
-      return solo > bestSolo ? k : best;
-    },
-    null as (typeof kills)[0] | null,
-  );
-  const mostSoloKilledTotal = mostSoloKilled
-    ? mostSoloKilled.killed_count + mostSoloKilled.slaughtered_count + mostSoloKilled.vanquished_count + mostSoloKilled.dispatched_count
-    : 0;
+  const {
+    totalSolo: totalKills,
+    totalAssisted,
+    uniqueCreatures,
+    nemesis,
+    highestKill,
+    mostKilled,
+    mostKilledTotal,
+    highestSoloKill,
+    mostSoloKilled,
+    mostSoloKilledTotal,
+  } = useMemo(() => computeKillStats(kills), [kills]);
 
   const totalRanks = trainers.reduce(
     (sum, t) => sum + t.ranks + t.modified_ranks,

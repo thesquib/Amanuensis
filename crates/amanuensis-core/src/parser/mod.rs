@@ -15,7 +15,7 @@ use crate::data::{CreatureDb, TrainerDb};
 use crate::db::Database;
 use crate::encoding::decode_log_bytes;
 use crate::error::Result;
-use crate::models::Profession;
+use crate::models::{Profession, RankMode};
 use crate::parser::events::{KillVerb, LogEvent, LootType};
 use crate::parser::line_classifier::classify_line;
 use crate::parser::timestamp::parse_timestamp;
@@ -63,11 +63,11 @@ impl LogParser {
         let mut override_until_date = HashMap::new();
 
         for t in &trainers {
-            match t.rank_mode.as_str() {
-                "override" => {
+            match RankMode::parse(&t.rank_mode) {
+                Some(RankMode::Override) => {
                     override_trainers.insert(t.trainer_name.clone());
                 }
-                "override_until_date" => {
+                Some(RankMode::OverrideUntilDate) => {
                     if let Some(ref date) = t.override_date {
                         override_until_date.insert(t.trainer_name.clone(), date.clone());
                     }
@@ -322,10 +322,7 @@ impl LogParser {
                 }
                 LogEvent::Depart { count } => {
                     // Set departs to the absolute count (it's cumulative)
-                    self.db.conn().execute(
-                        "UPDATE characters SET departs = ?1 WHERE id = ?2",
-                        rusqlite::params![count, char_id],
-                    )?;
+                    self.db.set_departs(char_id, count)?;
                     file_result.events_found += 1;
                 }
 

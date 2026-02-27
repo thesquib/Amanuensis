@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { SortingState } from "@tanstack/react-table";
+import { STORAGE_KEYS } from "./constants";
 import type {
   Character,
   Kill,
@@ -126,8 +127,8 @@ function saveCollapsedGroups(key: string, groups: string[]) {
   localStorage.setItem(key, JSON.stringify(groups));
 }
 
-const TRAINERS_COLLAPSED_KEY = "amanuensis_collapsed_trainers";
-const RANK_MODIFIERS_COLLAPSED_KEY = "amanuensis_collapsed_rankModifiers";
+const TRAINERS_COLLAPSED_KEY = STORAGE_KEYS.COLLAPSED_TRAINERS;
+const RANK_MODIFIERS_COLLAPSED_KEY = STORAGE_KEYS.COLLAPSED_RANK_MODIFIERS;
 
 export const useStore = create<AppStore>((set) => ({
   dbPath: null,
@@ -139,14 +140,7 @@ export const useStore = create<AppStore>((set) => ({
   characters: [],
   setCharacters: (chars) => set({ characters: chars }),
   selectedCharacterId: null,
-  selectCharacter: (id) =>
-    set((state) => ({
-      selectedCharacterId: id,
-      viewStates: {},
-      trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: state.trainersViewState.collapsedGroups },
-      rankModifiersViewState: { searchQuery: "", collapsedGroups: state.rankModifiersViewState.collapsedGroups },
-      rangerStatsViewState: { activePanel: "studies", searchQuery: "" },
-    })),
+  selectCharacter: (id) => set({ selectedCharacterId: id }),
 
   activeView: "summary",
   setActiveView: (view) => set({ activeView: view }),
@@ -176,23 +170,23 @@ export const useStore = create<AppStore>((set) => ({
   excludeUnknown: true,
   setExcludeUnknown: (exclude) => set({ excludeUnknown: exclude }),
 
-  indexLogLines: localStorage.getItem("amanuensis_index_logs") !== "false",
+  indexLogLines: localStorage.getItem(STORAGE_KEYS.INDEX_LOGS) !== "false",
   setIndexLogLines: (index) => {
-    localStorage.setItem("amanuensis_index_logs", String(index));
+    localStorage.setItem(STORAGE_KEYS.INDEX_LOGS, String(index));
     set({ indexLogLines: index });
   },
 
   logLineCount: 0,
   setLogLineCount: (count) => set({ logLineCount: count }),
 
-  theme: (localStorage.getItem("amanuensis_theme") as Theme) || "dark",
+  theme: (localStorage.getItem(STORAGE_KEYS.THEME) as Theme) || "dark",
   setTheme: (theme) => {
     if (theme === "dark") {
       delete document.documentElement.dataset.theme;
     } else {
       document.documentElement.dataset.theme = theme;
     }
-    localStorage.setItem("amanuensis_theme", theme);
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
     set({ theme });
   },
 

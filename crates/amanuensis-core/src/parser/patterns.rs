@@ -3,154 +3,154 @@ use regex::Regex;
 
 // === Character detection ===
 pub static WELCOME_LOGIN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^Welcome to Clan Lord, (.+)!$").unwrap());
+    Lazy::new(|| Regex::new(r"^Welcome to Clan Lord, (.+)!$").expect("regex compile error"));
 pub static WELCOME_BACK: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^Welcome back, (.+)!$").unwrap());
+    Lazy::new(|| Regex::new(r"^Welcome back, (.+)!$").expect("regex compile error"));
 
 // === Kill patterns ===
 // Solo: "You slaughtered a/an/the {creature}."
 pub static SOLO_KILL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You (killed|slaughtered|vanquished|dispatched) ((?:an?|the) .+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You (killed|slaughtered|vanquished|dispatched) ((?:an?|the) .+)\.$").expect("regex compile error"));
 // Assisted: "You helped kill/slaughter/vanquish/dispatch a/an/the {creature}."
 pub static ASSISTED_KILL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You helped (kill|slaughter|vanquish|dispatch) ((?:an?|the) .+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You helped (kill|slaughter|vanquish|dispatch) ((?:an?|the) .+)\.$").expect("regex compile error"));
 
 // === Death/fall patterns ===
 // "X has fallen to [a/an] Y." — cause may or may not have an article
 pub static FALLEN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(.+) has fallen to (?:an? )?(.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^(.+) has fallen to (?:an? )?(.+)\.$").expect("regex compile error"));
 pub static RECOVERED: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(.+) is no longer fallen\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^(.+) is no longer fallen\.$").expect("regex compile error"));
 pub static FIRST_DEPART: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^This is the first time your spirit has departed your body\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^This is the first time your spirit has departed your body\.$").expect("regex compile error"));
 pub static DEPART_COUNT: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^Your spirit has departed your body (\d+) times?\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^Your spirit has departed your body (\d+) times?\.$").expect("regex compile error"));
 
 // === Coin patterns ===
 pub static COINS_PICKED_UP: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* You pick up (\d+) coins?\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^\* You pick up (\d+) coins?\.$").expect("regex compile error"));
 pub static COIN_BALANCE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You have (\d+) coins?\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You have (\d+) coins?\.$").expect("regex compile error"));
 // Loot: "* {name} recovers the {item} fur/blood, worth Nc. Your share is Nc."
 // Also: "* You recover the {item} fur/blood, worth Nc. Your share is Nc."
 pub static LOOT_SHARE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* (?:.+) recovers? the (.+) (fur|blood|mandibles?), worth (\d+)c\. Your share is (\d+)c\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^\* (?:.+) recovers? the (.+) (fur|blood|mandibles?), worth (\d+)c\. Your share is (\d+)c\.$").expect("regex compile error"));
 // Self-recovery: "* You recover the {item} fur/blood/mandibles, worth Nc." (no "Your share" — solo)
 pub static SELF_RECOVERY: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* You recover the (.+) (fur|blood|mandibles?), worth (\d+)c\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^\* You recover the (.+) (fur|blood|mandibles?), worth (\d+)c\.$").expect("regex compile error"));
 
 // === Equipment patterns ===
 pub static BELL_BROKEN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* Your bell crumbles to dust\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^\* Your bell crumbles to dust\.$").expect("regex compile error"));
 pub static BELL_USED: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* The bell rings soundlessly into the void, summoning").unwrap());
+    Lazy::new(|| Regex::new(r"^\* The bell rings soundlessly into the void, summoning").expect("regex compile error"));
 pub static CHAIN_BREAK: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^Your chain breaks as you try to use it\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^Your chain breaks as you try to use it\.$").expect("regex compile error"));
 pub static CHAIN_SHATTER: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^A link in your chain shatters\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^A link in your chain shatters\.$").expect("regex compile error"));
 pub static CHAIN_SNAP: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^Your chain snaps as you try to use it\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^Your chain snaps as you try to use it\.$").expect("regex compile error"));
 pub static CHAIN_DRAG: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You start dragging (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You start dragging (.+)\.$").expect("regex compile error"));
 pub static SHIELDSTONE_USED: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* You activate your shieldstone\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^\* You activate your shieldstone\.$").expect("regex compile error"));
 pub static SHIELDSTONE_BROKEN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^Your Shieldstone goes inert\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^Your Shieldstone goes inert\.$").expect("regex compile error"));
 pub static ETHEREAL_PORTAL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You open an ethereal portal\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You open an ethereal portal\.$").expect("regex compile error"));
 pub static ETHEREAL_STONE_USED: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^Your ethereal portal stone disappears into the ether\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^Your ethereal portal stone disappears into the ether\.$").expect("regex compile error"));
 
 // === Karma patterns ===
 // "You just received good karma from {name}." / "You just received bad karma from {name}."
 pub static KARMA_RECEIVED: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You (?:just )?received (?:anonymous )?(good|bad) karma").unwrap());
+    Lazy::new(|| Regex::new(r"^You (?:just )?received (?:anonymous )?(good|bad) karma").expect("regex compile error"));
 
 // === Esteem pattern ===
 // "* You gain esteem." or "* You gain experience and esteem."
 pub static ESTEEM_GAIN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* You gain (?:experience and )?esteem\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^\* You gain (?:experience and )?esteem\.$").expect("regex compile error"));
 
 // === Untrainus ===
 pub static UNTRAINED: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"^Untrainus says, ".+, your mind is less cluttered now\."$"#).unwrap());
+    Lazy::new(|| Regex::new(r#"^Untrainus says, ".+, your mind is less cluttered now\."$"#).expect("regex compile error"));
 
 // === Speech/emote patterns to skip ===
 pub static SPEECH: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"^.+ (says|exclaims|yells|ponders|thinks|asks), ""#).unwrap());
+    Lazy::new(|| Regex::new(r#"^.+ (says|exclaims|yells|ponders|thinks|asks), ""#).expect("regex compile error"));
 pub static EMOTE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\(.+ .+\)$").unwrap());
+    Lazy::new(|| Regex::new(r"^\(.+ .+\)$").expect("regex compile error"));
 
 // === Clanning ===
 pub static CLANNING_ON: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(.+) is now Clanning\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^(.+) is now Clanning\.$").expect("regex compile error"));
 pub static CLANNING_OFF: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^(.+) is no longer Clanning\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^(.+) is no longer Clanning\.$").expect("regex compile error"));
 
 // === Study messages (¥-prefixed, not trainer ranks) ===
 pub static STUDY_PROGRESS: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You are (?:currently studying|remembering your studies of) the (.+), and have (.+) left to learn\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You are (?:currently studying|remembering your studies of) the (.+), and have (.+) left to learn\.$").expect("regex compile error"));
 pub static STUDY_CHARGE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You have been charged (\d+) coins? for advanced studies\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You have been charged (\d+) coins? for advanced studies\.$").expect("regex compile error"));
 
 // === Disconnect ===
 pub static DISCONNECT: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\*\*\* We are no longer connected to the Clan Lord game server\. \*\*\*$").unwrap());
+    Lazy::new(|| Regex::new(r"^\*\*\* We are no longer connected to the Clan Lord game server\. \*\*\*$").expect("regex compile error"));
 
 // === Experience ===
 pub static EXPERIENCE_GAIN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^\* You (grow more mindful|gain experience|gain morale)").unwrap());
+    Lazy::new(|| Regex::new(r"^\* You (grow more mindful|gain experience|gain morale)").expect("regex compile error"));
 
 // === Lasty patterns (¥-prefixed) ===
 // Completion: "You learn to befriend the {creature}." → Befriend lasty + pet
 pub static LASTY_BEFRIEND: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You learn to befriend the (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You learn to befriend the (.+)\.$").expect("regex compile error"));
 // Completion: "You learn to assume the form of the {creature}." → Morph lasty
 pub static LASTY_MORPH: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You learn to assume the form of the (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You learn to assume the form of the (.+)\.$").expect("regex compile error"));
 // Completion: "You learn to fight the {creature} more effectively." → Movements lasty
 pub static LASTY_MOVEMENTS: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You learn to fight the (.+) more effectively\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You learn to fight the (.+) more effectively\.$").expect("regex compile error"));
 // Completion: "You have completed your training with {trainer}." → Lasty completed
 pub static LASTY_COMPLETED: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You have completed your training with (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You have completed your training with (.+)\.$").expect("regex compile error"));
 // Begin: "You begin studying the (movements|ways|essence) of the {creature}."
 pub static LASTY_BEGIN_STUDY: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You begin studying the (movements|ways|essence) of the (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You begin studying the (movements|ways|essence) of the (.+)\.$").expect("regex compile error"));
 // Progress: "You have {amount} left to learn about the (movements|ways|essence) of the {creature}."
 pub static LASTY_LEARN_PROGRESS: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You have .+ (?:left )?to learn about the (movements|ways|essence) of the (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You have .+ (?:left )?to learn about the (movements|ways|essence) of the (.+)\.$").expect("regex compile error"));
 
 // === Study abandon (¥-prefixed) ===
 pub static STUDY_ABANDON: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You abandon your study of the (.+)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You abandon your study of the (.+)\.$").expect("regex compile error"));
 
 // === Profession detection from NPC announcements ===
 // Circle test: Honor thinks, "Congratulations go out to {name}, who has just passed the {ordinal} circle {profession} test."
 // Glory thinks, "Congratulations go out to {name}, who has just passed the {ordinal} circle healer test."
 pub static PROFESSION_CIRCLE_TEST: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"(?:thinks|says), "Congratulations go out to (.+), who has just passed the \w+ circle (\w+) test\."#).unwrap());
+    Lazy::new(|| Regex::new(r#"(?:thinks|says), "Congratulations go out to (.+), who has just passed the \w+ circle (\w+) test\."#).expect("regex compile error"));
 // Becoming: "Congratulations to {name}, who has just become a {profession}."
 pub static PROFESSION_BECOME: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r#"(?:thinks|says), "Congratulations to (.+), who has just become an? (\w+)\."#).unwrap());
+    Lazy::new(|| Regex::new(r#"(?:thinks|says), "Congratulations to (.+), who has just become an? (\w+)\."#).expect("regex compile error"));
 
 // === Apply-learning bonus rank (non-¥, spoken by NPC) ===
 pub static APPLY_LEARNING_OFFER: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[Ww]ould you like to apply some of your learning to (.+?)[\u{0027}\u{2019}]s lessons").unwrap());
+    Lazy::new(|| Regex::new(r"[Ww]ould you like to apply some of your learning to (.+?)[\u{0027}\u{2019}]s lessons").expect("regex compile error"));
 pub static APPLY_LEARNING_CONFIRM: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"Congratulations, (.+?)\. [Yy]ou should now understand much more of (.+?)[\u{0027}\u{2019}]s teachings").unwrap());
+    Lazy::new(|| Regex::new(r"Congratulations, (.+?)\. [Yy]ou should now understand much more of (.+?)[\u{0027}\u{2019}]s teachings").expect("regex compile error"));
 pub static APPLY_LEARNING_PARTIAL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"Congratulations, (.+?)\. [Yy]ou should now understand more of (.+?)[\u{0027}\u{2019}]s teachings").unwrap());
+    Lazy::new(|| Regex::new(r"Congratulations, (.+?)\. [Yy]ou should now understand more of (.+?)[\u{0027}\u{2019}]s teachings").expect("regex compile error"));
 
 // === ¥-prefixed lines to skip (not trainer ranks) ===
 pub static YEN_HEALING_SENSE: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You sense healing energy from .+\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You sense healing energy from .+\.$").expect("regex compile error"));
 pub static YEN_SUN_EVENT: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^The Sun (rises|sets)\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^The Sun (rises|sets)\.$").expect("regex compile error"));
 pub static YEN_STUDY_GAIN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You gain experience from your").unwrap());
+    Lazy::new(|| Regex::new(r"^You gain experience from your").expect("regex compile error"));
 pub static YEN_STUDY_CONCURRENT: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You can study up to \d+ creatures? concurrently\.$").unwrap());
+    Lazy::new(|| Regex::new(r"^You can study up to \d+ creatures? concurrently\.$").expect("regex compile error"));
 
 #[cfg(test)]
 mod tests {

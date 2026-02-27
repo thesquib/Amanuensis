@@ -46,7 +46,7 @@ dependencies = [
 
 [[package]]
 name = "amanuensis-cli"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "amanuensis-core",
  "clap",
@@ -57,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "amanuensis-core"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "chrono",
  "csv",
@@ -74,11 +74,10 @@ dependencies = [
 
 [[package]]
 name = "amanuensis-gui"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "amanuensis-core",
  "base64 0.22.1",
- "log",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

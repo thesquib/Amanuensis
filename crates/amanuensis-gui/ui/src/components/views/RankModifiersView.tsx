@@ -9,19 +9,9 @@ import {
   listCharacters,
   setRankOverride,
 } from "../../lib/commands";
+import { PROFESSION_ORDER, STORAGE_KEYS } from "../../lib/constants";
+import { todayMDYY } from "../../lib/dateUtils";
 import type { Trainer, TrainerInfo } from "../../types";
-
-const PROFESSION_ORDER = [
-  "Fighter",
-  "Healer",
-  "Mystic",
-  "Ranger",
-  "Bloodmage",
-  "Champion",
-  "Language",
-  "Arts",
-  "Trades",
-];
 
 type RankMode = "modifier" | "override" | "override_until_date";
 
@@ -36,14 +26,6 @@ interface TrainerRow {
   combo_components: string[];
   rank_mode: RankMode;
   override_date: string | null;
-}
-
-function todayMDYY(): string {
-  const now = new Date();
-  const m = now.getMonth() + 1;
-  const d = now.getDate();
-  const yy = String(now.getFullYear()).slice(-2);
-  return `${m}/${d}/${yy}`;
 }
 
 const MODE_LABELS: Record<RankMode, string> = {
@@ -165,7 +147,7 @@ export function RankModifiersView() {
   const setSearchQuery = useCallback((v: string) => setRankModifiersViewState({ searchQuery: v }), [setRankModifiersViewState]);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
   const [rescanBanner, setRescanBanner] = useState(false);
-  const hasSavedState = useMemo(() => localStorage.getItem("amanuensis_collapsed_rankModifiers") !== null, []);
+  const hasSavedState = useMemo(() => localStorage.getItem(STORAGE_KEYS.COLLAPSED_RANK_MODIFIERS) !== null, []);
   const [defaultsInitialized, setDefaultsInitialized] = useState(hasSavedState);
 
   useEffect(() => {

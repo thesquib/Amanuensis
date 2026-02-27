@@ -1,4 +1,5 @@
 use crate::data::TrainerDb;
+use crate::models::LastyType;
 use crate::parser::events::{KillVerb, LogEvent, LootType};
 use crate::parser::patterns;
 
@@ -265,9 +266,9 @@ fn normalize_profession(raw: &str) -> String {
 /// ways → Befriend, movements → Movements, essence → Morph
 fn study_type_to_lasty(study_type: &str) -> String {
     match study_type {
-        "ways" => "Befriend".to_string(),
-        "movements" => "Movements".to_string(),
-        "essence" => "Morph".to_string(),
+        "ways" => LastyType::Befriend.as_str().to_string(),
+        "movements" => LastyType::Movements.as_str().to_string(),
+        "essence" => LastyType::Morph.as_str().to_string(),
         other => other.to_string(),
     }
 }
@@ -322,19 +323,19 @@ fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     if let Some(caps) = patterns::LASTY_BEFRIEND.captures(body) {
         return LogEvent::LastyFinished {
             creature: caps[1].to_string(),
-            lasty_type: "Befriend".to_string(),
+            lasty_type: LastyType::Befriend.as_str().to_string(),
         };
     }
     if let Some(caps) = patterns::LASTY_MORPH.captures(body) {
         return LogEvent::LastyFinished {
             creature: caps[1].to_string(),
-            lasty_type: "Morph".to_string(),
+            lasty_type: LastyType::Morph.as_str().to_string(),
         };
     }
     if let Some(caps) = patterns::LASTY_MOVEMENTS.captures(body) {
         return LogEvent::LastyFinished {
             creature: caps[1].to_string(),
-            lasty_type: "Movements".to_string(),
+            lasty_type: LastyType::Movements.as_str().to_string(),
         };
     }
     if let Some(caps) = patterns::LASTY_COMPLETED.captures(body) {
