@@ -4,13 +4,11 @@ import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
 import { StatCard } from "../shared/StatCard";
 import { CreatureImage } from "../shared/CreatureImage";
+import { formatDate } from "../../lib/dateUtils";
+import { computeKillStats } from "../../lib/killStats";
 import type { Kill } from "../../types";
 
 const columnHelper = createColumnHelper<Kill>();
-
-function formatDate(val: string | null) {
-  return val ? val.split(" ")[0] : "";
-}
 
 const columns = [
   columnHelper.accessor("creature_name", {
@@ -134,32 +132,7 @@ export function KillsView() {
     [setViewFilter],
   );
 
-  const stats = useMemo(() => {
-    const totalSolo = kills.reduce(
-      (s, k) =>
-        s +
-        k.killed_count +
-        k.slaughtered_count +
-        k.vanquished_count +
-        k.dispatched_count,
-      0,
-    );
-    const totalAssisted = kills.reduce(
-      (s, k) =>
-        s +
-        k.assisted_kill_count +
-        k.assisted_slaughter_count +
-        k.assisted_vanquish_count +
-        k.assisted_dispatch_count,
-      0,
-    );
-    const totalKilledBy = kills.reduce((s, k) => s + k.killed_by_count, 0);
-    const totalVanquished = kills.reduce((s, k) => s + k.vanquished_count + k.assisted_vanquish_count, 0);
-    const totalSlaughtered = kills.reduce((s, k) => s + k.slaughtered_count + k.assisted_slaughter_count, 0);
-    const totalKilled = kills.reduce((s, k) => s + k.killed_count + k.assisted_kill_count, 0);
-    const totalDispatched = kills.reduce((s, k) => s + k.dispatched_count + k.assisted_dispatch_count, 0);
-    return { totalSolo, totalAssisted, totalKilledBy, totalVanquished, totalSlaughtered, totalKilled, totalDispatched };
-  }, [kills]);
+  const stats = useMemo(() => computeKillStats(kills), [kills]);
 
   return (
     <div className="flex h-full flex-col">

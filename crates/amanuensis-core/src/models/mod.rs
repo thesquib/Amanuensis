@@ -7,7 +7,7 @@ pub mod trainer;
 
 pub use character::{Character, Profession};
 pub use kill::Kill;
-pub use lasty::Lasty;
+pub use lasty::{Lasty, LastyType};
 pub use log_meta::LogMeta;
 pub use pet::Pet;
-pub use trainer::Trainer;
+pub use trainer::{RankMode, Trainer};
