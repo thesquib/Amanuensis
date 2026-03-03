@@ -14,6 +14,7 @@ import { RankModifiersView } from "../views/RankModifiersView";
 import { FighterStatsView } from "../views/FighterStatsView";
 import { LogSearchView } from "../views/LogSearchView";
 import { ProcessLogsView } from "../views/ProcessLogsView";
+import { CVGraphView } from "../views/CVGraphView";
 import type { ViewType } from "../../types";
 
 const TABS: { id: ViewType; label: string; visibleFor?: string[] }[] = [
@@ -26,6 +27,7 @@ const TABS: { id: ViewType; label: string; visibleFor?: string[] }[] = [
   { id: "lastys", label: "Ranger Stats", visibleFor: ["Ranger"] },
   { id: "equipment", label: "Equipment" },
   { id: "fighter-stats", label: "Stats" },
+  { id: "cv-graph", label: "Graph" },
   { id: "log-search", label: "Log Search" },
   { id: "process-logs", label: "Logs" },
 ];
@@ -52,6 +54,8 @@ function ViewContent({ view }: { view: ViewType }) {
       return <FighterStatsView />;
     case "log-search":
       return <LogSearchView />;
+    case "cv-graph":
+      return <CVGraphView />;
     case "process-logs":
       return <ProcessLogsView />;
   }

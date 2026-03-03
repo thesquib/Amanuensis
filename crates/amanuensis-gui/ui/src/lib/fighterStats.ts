@@ -18,7 +18,7 @@ const RACE_BASE = {
 };
 
 // Slaughter point costs per trainer
-const SP_COSTS: Record<string, number> = {
+export const SP_COSTS: Record<string, number> = {
   Atkus: 21,
   Darkus: 19,
   Balthus: 18,
@@ -47,7 +47,7 @@ const SP_COSTS: Record<string, number> = {
 };
 
 // Human race SP: 300+100+200+floor(5000/3)+400+floor(3000/3)+300+100+800+600
-const RACE_SP = 300 + 100 + 200 + Math.floor(5000 / 3) + 400 + Math.floor(3000 / 3) + 300 + 100 + 800 + 600;
+export const RACE_SP = 300 + 100 + 200 + Math.floor(5000 / 3) + 400 + Math.floor(3000 / 3) + 300 + 100 + 800 + 600;
 
 export interface FighterStats {
   // Raw computed stats (before adding race base)

@@ -356,7 +356,10 @@ impl LogParser {
                     file_result.events_found += 1;
                 }
                 LogEvent::LootShare {
-                    worth, amount, loot_type, ..
+                    item,
+                    worth,
+                    amount,
+                    loot_type,
                 } => {
                     let (share_field, worth_field) = match loot_type {
                         LootType::Fur => ("fur_coins", "fur_worth"),
@@ -370,6 +373,15 @@ impl LogParser {
                         self.db
                             .increment_character_field(char_id, worth_field, worth)?;
                     }
+                    // Track best single-loot recovery per creature (by player's share)
+                    let loot_type_label = match loot_type {
+                        LootType::Fur => "fur",
+                        LootType::Blood => "blood",
+                        LootType::Mandible => "mandibles",
+                        LootType::Other => "loot",
+                    };
+                    let loot_item = format!("{} {}", item, loot_type_label);
+                    self.db.update_kill_best_loot(char_id, &item, amount, &loot_item)?;
                     file_result.events_found += 1;
                 }
                 LogEvent::StudyCharge { amount } => {
