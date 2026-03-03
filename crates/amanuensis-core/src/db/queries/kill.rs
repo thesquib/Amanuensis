@@ -40,7 +40,7 @@ impl Database {
         let date_col_insert = date_col.map(|c| format!(", {c}")).unwrap_or_default();
         let date_col_value = if date_col.is_some() { ", ?4" } else { "" };
         let date_col_update = date_col
-            .map(|c| format!(", {c} = excluded.{c}"))
+            .map(|c| format!(", {c} = NULLIF(MAX(COALESCE(kills.{c}, ''), COALESCE(excluded.{c}, '')), '')"))
             .unwrap_or_default();
 
         let is_death = field == "killed_by_count";
@@ -60,10 +60,11 @@ impl Database {
             )?;
         } else {
             // Kill events: set dates, backfill date_first if NULL or empty string.
-            // NULLIF ensures empty strings are treated as NULL so valid dates always win.
+            // date_last uses MAX so that scan order never causes an older date to overwrite a newer one.
+            // Dates are stored as "YYYY-MM-DD HH:MM:SS" which is lexicographically sortable.
             let date_update =
                 ", date_first = COALESCE(NULLIF(kills.date_first, ''), NULLIF(excluded.date_first, '')), \
-                   date_last = NULLIF(COALESCE(NULLIF(excluded.date_last, ''), kills.date_last), '')";
+                   date_last = NULLIF(MAX(COALESCE(kills.date_last, ''), COALESCE(excluded.date_last, '')), '')";
 
             let sql = format!(
                 "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert})

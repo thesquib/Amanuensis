@@ -50,35 +50,42 @@ pub fn parse_timestamp(line: &str) -> Option<(NaiveDateTime, &str)> {
     let time_with_ampm = &rest[..time_end];
     let message = &rest[time_end + 1..];
 
-    // Last char of time string is a/p
+    // Last char of time string is a/p (12-hour) or a digit (24-hour)
     if time_with_ampm.is_empty() {
         return None;
     }
-    let am_pm = time_with_ampm.as_bytes()[time_with_ampm.len() - 1];
-    let time_part = &time_with_ampm[..time_with_ampm.len() - 1];
+    let last = time_with_ampm.as_bytes()[time_with_ampm.len() - 1];
 
-    // Parse time: H:MM:SS
-    let mut time_parts = time_part.split(':');
-    let mut hour: u32 = time_parts.next()?.parse().ok()?;
-    let minute: u32 = time_parts.next()?.parse().ok()?;
-    let second: u32 = time_parts.next()?.parse().ok()?;
-    if time_parts.next().is_some() {
-        return None; // Extra colon
-    }
+    let (mut hour, minute, second) = if last == b'a' || last == b'p' {
+        // 12-hour format: H:MM:SSa/p
+        let time_part = &time_with_ampm[..time_with_ampm.len() - 1];
+        let mut time_parts = time_part.split(':');
+        let h: u32 = time_parts.next()?.parse().ok()?;
+        let m: u32 = time_parts.next()?.parse().ok()?;
+        let s: u32 = time_parts.next()?.parse().ok()?;
+        if time_parts.next().is_some() {
+            return None;
+        }
+        (h, m, s)
+    } else if last.is_ascii_digit() {
+        // 24-hour format: H:MM:SS or HH:MM:SS (no am/pm suffix)
+        let mut time_parts = time_with_ampm.split(':');
+        let h: u32 = time_parts.next()?.parse().ok()?;
+        let m: u32 = time_parts.next()?.parse().ok()?;
+        let s: u32 = time_parts.next()?.parse().ok()?;
+        if time_parts.next().is_some() {
+            return None;
+        }
+        (h, m, s)
+    } else {
+        return None;
+    };
 
-    // Convert 12-hour to 24-hour
-    match &am_pm {
-        b'a' => {
-            if hour == 12 {
-                hour = 0; // 12:xx AM = 0:xx
-            }
-        }
-        b'p' => {
-            if hour != 12 {
-                hour += 12; // 1-11 PM = 13-23
-            }
-        }
-        _ => return None,
+    // Convert 12-hour to 24-hour (only for a/p format)
+    if last == b'a' {
+        if hour == 12 { hour = 0; }
+    } else if last == b'p' {
+        if hour != 12 { hour += 12; }
     }
 
     // Validate ranges
@@ -147,6 +154,25 @@ mod tests {
         assert_eq!(dt.day(), 2);
         assert_eq!(dt.year(), 2003);
         assert_eq!(dt.hour(), 1);
+    }
+
+    #[test]
+    fn test_24h_format() {
+        // Some CL clients output 24-hour timestamps without a/p suffix
+        let (dt, msg) = parse_timestamp("2/18/26 13:58:38 You slaughtered a Large Vermine.").unwrap();
+        assert_eq!(dt.year(), 2026);
+        assert_eq!(dt.month(), 2);
+        assert_eq!(dt.day(), 18);
+        assert_eq!(dt.hour(), 13);
+        assert_eq!(dt.minute(), 58);
+        assert_eq!(dt.second(), 38);
+        assert_eq!(msg, "You slaughtered a Large Vermine.");
+    }
+
+    #[test]
+    fn test_24h_midnight() {
+        let (dt, _) = parse_timestamp("1/1/26 0:00:00 Hello").unwrap();
+        assert_eq!(dt.hour(), 0);
     }
 
     #[test]

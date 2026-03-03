@@ -121,7 +121,7 @@ const columns = [
 export function KillsView() {
   const { kills, viewStates, setViewSorting, setViewFilter } = useStore();
   const viewState = viewStates["kills"];
-  const sorting = viewState?.sorting ?? [];
+  const sorting = viewState?.sorting ?? [{ id: "date_last", desc: true }];
   const globalFilter = viewState?.globalFilter ?? "";
   const onSortingChange = useCallback(
     (s: SortingState) => setViewSorting("kills", s),
