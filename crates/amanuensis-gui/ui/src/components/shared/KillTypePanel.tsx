@@ -40,7 +40,7 @@ export function KillTypePanel({ label, highest, lowestRecent, dateField }: KillT
         )}
       </div>
       <div className="mt-3 border-t border-[var(--color-border)] pt-3">
-        <div className="mb-1 text-xs text-[var(--color-text-muted)]">Lowest (last 10)</div>
+        <div className="mb-1 text-xs text-[var(--color-text-muted)]">Lowest (last 20)</div>
         {lowestRecent ? (
           <div className="flex items-center gap-2">
             <CreatureImage

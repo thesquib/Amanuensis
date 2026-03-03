@@ -49,19 +49,20 @@ export interface KillStats {
   highestLootKill: Kill | null;
 }
 
-/** Returns the lowest-value creature among the 10 most recently killed by a specific type. */
+/** Returns the lowest-value creature among the 20 most recently killed by a specific type.
+ *  Excludes creatures with value 0 (GM spawns, special events, etc.). */
 function lowestRecentByType(
   kills: Kill[],
   dateField: keyof Kill,
   countField: keyof Kill,
 ): Kill | null {
   const eligible = kills.filter(
-    (k) => (k[countField] as number) > 0 && k[dateField] !== null,
+    (k) => (k[countField] as number) > 0 && k[dateField] !== null && k.creature_value > 0,
   );
   eligible.sort((a, b) =>
     ((b[dateField] as string) ?? "").localeCompare((a[dateField] as string) ?? ""),
   );
-  const recent = eligible.slice(0, 10);
+  const recent = eligible.slice(0, 20);
   if (recent.length === 0) return null;
   return recent.reduce((min, k) => (k.creature_value < min.creature_value ? k : min));
 }
@@ -118,11 +119,11 @@ export function computeKillStats(kills: Kill[]): KillStats {
     if (k.best_loot_value > (highestLootKill?.best_loot_value ?? 0)) highestLootKill = k;
   }
 
-  // Lowest value among the 10 most recently encountered creatures (any solo kill type)
+  // Lowest value among the 20 most recently encountered creatures (any solo kill type), excluding value 0
   const recentAny = kills
-    .filter((k) => soloKillCount(k) > 0 && k.date_last !== null)
+    .filter((k) => soloKillCount(k) > 0 && k.date_last !== null && k.creature_value > 0)
     .sort((a, b) => ((b.date_last ?? "").localeCompare(a.date_last ?? "")))
-    .slice(0, 10);
+    .slice(0, 20);
   const lowestRecentKill =
     recentAny.length > 0
       ? recentAny.reduce((min, k) => (k.creature_value < min.creature_value ? k : min))
