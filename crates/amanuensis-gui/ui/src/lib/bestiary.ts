@@ -16,7 +16,8 @@ export interface BestiaryEntry {
 export const bestiaryMap = bestiaryData as Record<string, BestiaryEntry>;
 
 export function getCreatureImageUrl(name: string): string | null {
-  const entry = bestiaryMap[name];
+  const lookupName = name.startsWith("Captured ") ? name.slice("Captured ".length) : name;
+  const entry = bestiaryMap[lookupName];
   if (!entry) return null;
   return `/bestiary/${entry.pic}`;
 }
