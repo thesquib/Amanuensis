@@ -18,6 +18,7 @@ use crate::error::Result;
 use crate::models::{Profession, RankMode};
 use crate::parser::events::{KillVerb, LogEvent, LootType};
 use crate::parser::line_classifier::classify_line;
+use crate::parser::timestamp::parse_filename_date;
 use crate::parser::timestamp::parse_timestamp;
 
 /// Override configuration for a character's trainers, loaded before scanning.
@@ -247,6 +248,15 @@ impl LogParser {
         let mut first_date_str: Option<String> = None;
         let mut log_lines: Vec<(i64, String, String, String)> = Vec::new();
 
+        // Use filename date as the starting fallback; updated by each timestamped line.
+        let filename_only = std::path::Path::new(file_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+        let filename_date = parse_filename_date(filename_only);
+        let mut current_date: String = filename_date.clone().unwrap_or_default();
+        let mut had_real_timestamp = false;
+
         for line in content.lines() {
             file_result.lines_parsed += 1;
 
@@ -257,9 +267,14 @@ impl LogParser {
 
             let event = classify_line(message, &self.trainer_db);
 
-            let date_str = ts
-                .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string())
-                .unwrap_or_default();
+            let date_str = if let Some(dt) = ts {
+                had_real_timestamp = true;
+                let s = dt.format("%Y-%m-%d %H:%M:%S").to_string();
+                current_date = s.clone();
+                s
+            } else {
+                current_date.clone()
+            };
 
             if index_lines && !line.trim().is_empty() {
                 log_lines.push((
@@ -508,6 +523,21 @@ impl LogParser {
             }
         }
 
+        // Log a warning if no per-line timestamps were found in this file.
+        if !had_real_timestamp {
+            if filename_date.is_some() {
+                let _ = self.db.add_process_log(
+                    "warning",
+                    &format!("No timestamps in log lines — used filename date: {filename_only}"),
+                );
+            } else {
+                let _ = self.db.add_process_log(
+                    "error",
+                    &format!("No timestamps in log lines and filename date could not be parsed: {filename_only}"),
+                );
+            }
+        }
+
         // Every scanned file counts as exactly 1 login (matching Scribius behavior).
         self.db.increment_character_field(char_id, "logins", 1)?;
         // If no Login/Reconnect had a timestamp, use the file's first timestamp for start_date
@@ -620,6 +650,7 @@ impl LogParser {
             )));
         }
 
+        let _ = self.db.clear_process_logs();
         self.db.set_scan_pragmas()?;
         self.db.begin_transaction()?;
 
@@ -762,6 +793,7 @@ impl LogParser {
     {
         let mut result = ScanResult::default();
 
+        let _ = self.db.clear_process_logs();
         self.db.set_scan_pragmas()?;
         self.db.begin_transaction()?;
 
@@ -881,6 +913,7 @@ impl LogParser {
 
         let mut combined = ScanResult::default();
 
+        let _ = self.db.clear_process_logs();
         self.db.set_scan_pragmas()?;
         self.db.begin_transaction()?;
 

@@ -142,6 +142,14 @@ export interface LogSearchResult {
   character_name: string;
 }
 
+/** Mirrors Rust `ProcessLog` struct */
+export interface ProcessLog {
+  id: number;
+  created_at: string;
+  level: string;
+  message: string;
+}
+
 export type ViewType =
   | "summary"
   | "kills"
@@ -152,4 +160,5 @@ export type ViewType =
   | "lastys"
   | "equipment"
   | "fighter-stats"
-  | "log-search";
+  | "log-search"
+  | "process-logs";

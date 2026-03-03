@@ -2,7 +2,7 @@ import { open, confirm } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useCallback } from "react";
 import { useStore } from "../store";
-import { scanLogs, rescanLogs, scanFiles, listCharacters, getScannedLogCount, getLogLineCount } from "../commands";
+import { scanLogs, rescanLogs, scanFiles, listCharacters, getScannedLogCount, getLogLineCount, getProcessLogs } from "../commands";
 import type { ScanProgress } from "../../types";
 
 export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCharacters>>) => Promise<void>) {
@@ -16,6 +16,7 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     setCharacters,
     setScannedLogCount,
     setLogLineCount,
+    setProcessLogs,
     recursiveScan,
     indexLogLines,
   } = useStore();
@@ -27,8 +28,10 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     setScannedLogCount(count);
     const lineCount = await getLogLineCount();
     setLogLineCount(lineCount);
+    const logs = await getProcessLogs();
+    setProcessLogs(logs);
     await onScanComplete(chars);
-  }, [setCharacters, setScannedLogCount, setLogLineCount, onScanComplete]);
+  }, [setCharacters, setScannedLogCount, setLogLineCount, setProcessLogs, onScanComplete]);
 
   // Listen for scan progress events
   useEffect(() => {

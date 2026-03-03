@@ -14,6 +14,7 @@ import {
   getLastys,
   resetDatabase,
   importScribiusDb,
+  getProcessLogs,
 } from "../commands";
 
 export function useDatabase() {
@@ -30,6 +31,7 @@ export function useDatabase() {
     setPets,
     setLastys,
     setLogLineCount,
+    setProcessLogs,
   } = useStore();
 
   const loadCharacterData = useCallback(
@@ -68,6 +70,8 @@ export function useDatabase() {
       setScannedLogCount(count);
       const lineCount = await getLogLineCount();
       setLogLineCount(lineCount);
+      const logs = await getProcessLogs();
+      setProcessLogs(logs);
       if (chars.length > 0) {
         const lastCharId = Number(localStorage.getItem(STORAGE_KEYS.LAST_CHARACTER));
         const toSelect = chars.find((c) => c.id === lastCharId) ?? chars[0];
@@ -76,7 +80,7 @@ export function useDatabase() {
         }
       }
     },
-    [setDbPath, setCharacters, setScannedLogCount, setLogLineCount, handleSelectCharacter],
+    [setDbPath, setCharacters, setScannedLogCount, setLogLineCount, setProcessLogs, handleSelectCharacter],
   );
 
   // Auto-open database on startup: last-used path, or default app data dir

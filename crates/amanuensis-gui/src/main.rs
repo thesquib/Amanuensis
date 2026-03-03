@@ -34,6 +34,7 @@ fn main() {
             commands::reset_database,
             commands::search_logs,
             commands::get_log_line_count,
+            commands::get_process_logs,
             commands::merge_characters,
             commands::unmerge_character,
             commands::get_merge_sources,

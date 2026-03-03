@@ -1,5 +1,18 @@
 use chrono::NaiveDateTime;
 
+/// Extract a date string from a CL Log filename.
+/// Format: `CL Log YYYY:MM:DD HH.MM.SS.txt` → `"YYYY-MM-DD HH:MM:SS"`
+/// Returns None if the filename doesn't match the expected pattern.
+pub fn parse_filename_date(filename: &str) -> Option<String> {
+    let inner = filename.strip_prefix("CL Log ")?.strip_suffix(".txt")?;
+    // inner = "YYYY:MM:DD HH.MM.SS"
+    let (date_part, time_part) = inner.split_once(' ')?;
+    // date_part = "YYYY:MM:DD", time_part = "HH.MM.SS"
+    let date = date_part.replace(':', "-");
+    let time = time_part.replace('.', ":");
+    Some(format!("{date} {time}"))
+}
+
 /// Parse a Clan Lord log timestamp from the beginning of a line.
 /// Format: `M/D/YY H:MM:SSa/p` (12-hour, no leading zeros on month/day/hour)
 /// Returns (NaiveDateTime, rest_of_line) or None if no timestamp found.

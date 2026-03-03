@@ -9,6 +9,7 @@ import type {
   Lasty,
   ScanProgress,
   ViewType,
+  ProcessLog,
 } from "../types";
 
 export type Theme = "dark" | "light" | "midnight";
@@ -63,6 +64,10 @@ interface AppStore {
   setPets: (pets: Pet[]) => void;
   lastys: Lasty[];
   setLastys: (lastys: Lasty[]) => void;
+
+  // Process logs
+  processLogs: ProcessLog[];
+  setProcessLogs: (logs: ProcessLog[]) => void;
 
   // Scanning
   isScanning: boolean;
@@ -153,6 +158,9 @@ export const useStore = create<AppStore>((set) => ({
   setPets: (pets) => set({ pets }),
   lastys: [],
   setLastys: (lastys) => set({ lastys }),
+
+  processLogs: [],
+  setProcessLogs: (logs) => set({ processLogs: logs }),
 
   isScanning: false,
   setIsScanning: (scanning) => set({ isScanning: scanning }),

@@ -11,6 +11,7 @@ mod lasty;
 mod pet;
 mod log_file;
 mod merge;
+mod process_log;
 
 // ---------------------------------------------------------------------------
 // Shared character projection

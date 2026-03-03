@@ -58,13 +58,15 @@ impl Database {
                 params![char_id, creature_name, creature_value],
             )?;
         } else {
-            // Kill events: set dates, backfill date_first if NULL (first encounter was a death)
+            // Kill events: set dates, backfill date_first if NULL or empty string.
+            // NULLIF ensures empty strings are treated as NULL so valid dates always win.
             let date_update =
-                ", date_first = COALESCE(kills.date_first, excluded.date_first), date_last = excluded.date_last";
+                ", date_first = COALESCE(NULLIF(kills.date_first, ''), NULLIF(excluded.date_first, '')), \
+                   date_last = NULLIF(COALESCE(NULLIF(excluded.date_last, ''), kills.date_last), '')";
 
             let sql = format!(
                 "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert})
-                 VALUES (?1, ?2, 1, ?3, ?4, ?4{date_col_value})
+                 VALUES (?1, ?2, 1, ?3, NULLIF(?4, ''), NULLIF(?4, ''){date_col_value})
                  ON CONFLICT(character_id, creature_name) DO UPDATE SET
                     {field} = {field} + 1,
                     creature_value = MAX(kills.creature_value, excluded.creature_value){date_update}{date_col_update}",
