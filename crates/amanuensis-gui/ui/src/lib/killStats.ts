@@ -50,14 +50,18 @@ export interface KillStats {
 }
 
 /** Returns the lowest-value creature among the 20 most recently killed by a specific type.
- *  Excludes creatures with value 0 (GM spawns, special events, etc.). */
+ *  Counts both solo and assisted. Excludes creatures with value < 2. */
 function lowestRecentByType(
   kills: Kill[],
   dateField: keyof Kill,
   countField: keyof Kill,
+  assistedCountField: keyof Kill,
 ): Kill | null {
   const eligible = kills.filter(
-    (k) => (k[countField] as number) > 0 && k[dateField] !== null && k.creature_value > 0,
+    (k) =>
+      ((k[countField] as number) + (k[assistedCountField] as number)) > 0 &&
+      k[dateField] !== null &&
+      k.creature_value >= 2,
   );
   eligible.sort((a, b) =>
     ((b[dateField] as string) ?? "").localeCompare((a[dateField] as string) ?? ""),
@@ -119,19 +123,19 @@ export function computeKillStats(kills: Kill[]): KillStats {
     if (k.best_loot_value > (highestLootKill?.best_loot_value ?? 0)) highestLootKill = k;
   }
 
-  // Lowest value among the 20 most recently encountered creatures (any solo kill type), excluding value 0
-  const recentAny = kills
-    .filter((k) => soloKillCount(k) > 0 && k.date_last !== null && k.creature_value > 0)
-    .sort((a, b) => ((b.date_last ?? "").localeCompare(a.date_last ?? "")))
+  // Lowest-value creature among the 20 most recently killed (kill verb: solo + assisted), excluding value < 2
+  const recentKills = kills
+    .filter((k) => (k.killed_count + k.assisted_kill_count) > 0 && k.date_last_killed !== null && k.creature_value >= 2)
+    .sort((a, b) => ((b.date_last_killed ?? "").localeCompare(a.date_last_killed ?? "")))
     .slice(0, 20);
   const lowestRecentKill =
-    recentAny.length > 0
-      ? recentAny.reduce((min, k) => (k.creature_value < min.creature_value ? k : min))
+    recentKills.length > 0
+      ? recentKills.reduce((min, k) => (k.creature_value < min.creature_value ? k : min))
       : null;
 
-  const lowestRecentSlaughtered = lowestRecentByType(kills, "date_last_slaughtered", "slaughtered_count");
-  const lowestRecentVanquished  = lowestRecentByType(kills, "date_last_vanquished",  "vanquished_count");
-  const lowestRecentDispatched  = lowestRecentByType(kills, "date_last_dispatched",  "dispatched_count");
+  const lowestRecentSlaughtered = lowestRecentByType(kills, "date_last_slaughtered", "slaughtered_count", "assisted_slaughter_count");
+  const lowestRecentVanquished  = lowestRecentByType(kills, "date_last_vanquished",  "vanquished_count",  "assisted_vanquish_count");
+  const lowestRecentDispatched  = lowestRecentByType(kills, "date_last_dispatched",  "dispatched_count",  "assisted_dispatch_count");
 
   const mostRecentSoloKill = kills
     .filter((k) => soloKillCount(k) > 0 && k.date_last !== null)
