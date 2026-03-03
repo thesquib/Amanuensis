@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 export const STORAGE_KEYS = {
   LAST_DB: "amanuensis_last_db",
+  LAST_CHARACTER: "amanuensis_last_character",
   THEME: "amanuensis_theme",
   INDEX_LOGS: "amanuensis_index_logs",
   COLLAPSED_TRAINERS: "amanuensis_collapsed_trainers",

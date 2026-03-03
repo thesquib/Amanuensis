@@ -51,6 +51,7 @@ export function useDatabase() {
   const handleSelectCharacter = useCallback(
     async (charId: number) => {
       selectCharacter(charId);
+      localStorage.setItem(STORAGE_KEYS.LAST_CHARACTER, String(charId));
       await loadCharacterData(charId);
     },
     [selectCharacter, loadCharacterData],
@@ -67,8 +68,12 @@ export function useDatabase() {
       setScannedLogCount(count);
       const lineCount = await getLogLineCount();
       setLogLineCount(lineCount);
-      if (chars.length > 0 && chars[0].id !== null) {
-        await handleSelectCharacter(chars[0].id);
+      if (chars.length > 0) {
+        const lastCharId = Number(localStorage.getItem(STORAGE_KEYS.LAST_CHARACTER));
+        const toSelect = chars.find((c) => c.id === lastCharId) ?? chars[0];
+        if (toSelect.id !== null) {
+          await handleSelectCharacter(toSelect.id);
+        }
       }
     },
     [setDbPath, setCharacters, setScannedLogCount, setLogLineCount, handleSelectCharacter],
