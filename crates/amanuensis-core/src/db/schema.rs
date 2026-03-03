@@ -110,6 +110,13 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             file_path UNINDEXED,
             tokenize='unicode61'
         );
+
+        CREATE TABLE IF NOT EXISTS process_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            level TEXT NOT NULL,
+            message TEXT NOT NULL
+        );
         ",
     )?;
     Ok(())

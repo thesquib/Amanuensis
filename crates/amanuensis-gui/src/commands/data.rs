@@ -1,6 +1,6 @@
 use tauri::State;
 
-use amanuensis_core::models::{Kill, Lasty, Pet, Trainer};
+use amanuensis_core::models::{Kill, Lasty, Pet, ProcessLog, Trainer};
 use amanuensis_core::{LogSearchResult, TrainerDb};
 
 use crate::state::AppState;
@@ -58,6 +58,12 @@ pub fn get_trainer_db_info() -> Result<Vec<TrainerInfo>, String> {
             combo_components: m.combo_components,
         })
         .collect())
+}
+
+/// Get process log entries (warnings/errors from the last scan).
+#[tauri::command]
+pub fn get_process_logs(state: State<'_, AppState>) -> Result<Vec<ProcessLog>, String> {
+    state.with_db(|db| db.get_process_logs().map_err(|e| e.to_string()))
 }
 
 /// Search indexed log lines using FTS5 full-text search.

@@ -197,7 +197,17 @@ export function SummaryView() {
             className="h-full max-h-40 w-auto rounded-lg"
           />
         </div>
-        <StatCard label="Coin Level" value={char.coin_level.toLocaleString()} large />
+        <div className="rounded-lg bg-[var(--color-card)] p-4 flex flex-col justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Coin Level</div>
+            <div className="mt-1 text-4xl font-bold">{char.coin_level.toLocaleString()}</div>
+            <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">Highest Kill</div>
+          </div>
+          <div className="mt-3 border-t border-[var(--color-border)] pt-3">
+            <div className="mt-1 text-4xl font-bold">{Math.round(effectiveRanks / 10).toLocaleString()}</div>
+            <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">Ranks</div>
+          </div>
+        </div>
         <div className="rounded-lg bg-[var(--color-card)] px-3 py-2 flex flex-col justify-center gap-1">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Logins</div>
@@ -210,6 +220,19 @@ export function SummaryView() {
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Departs</div>
             <div className="text-sm font-semibold">{char.departs.toLocaleString()}</div>
+          </div>
+          <div className="my-0.5 border-t border-[var(--color-border)]" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Good Karma</div>
+            <div className="text-sm font-semibold">{char.good_karma.toLocaleString()}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Bad Karma</div>
+            <div className="text-sm font-semibold">{char.bad_karma.toLocaleString()}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Esteem</div>
+            <div className="text-sm font-semibold">{char.esteem.toLocaleString()}</div>
           </div>
         </div>
         <StatCard
@@ -335,20 +358,6 @@ export function SummaryView() {
         {char.untraining_count > 0 && (
           <StatCard label="Untrained" value={`${char.untraining_count}x`} />
         )}
-        <div className="rounded-lg bg-[var(--color-card)] px-3 py-2 flex flex-col justify-center gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Good Karma</div>
-            <div className="text-sm font-semibold">{char.good_karma.toLocaleString()}</div>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Bad Karma</div>
-            <div className="text-sm font-semibold">{char.bad_karma.toLocaleString()}</div>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Esteem</div>
-            <div className="text-sm font-semibold">{char.esteem.toLocaleString()}</div>
-          </div>
-        </div>
         {chanceOfDepart && (
           <StatCard
             label="Chance of Depart"

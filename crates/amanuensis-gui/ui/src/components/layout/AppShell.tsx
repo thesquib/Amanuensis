@@ -13,6 +13,7 @@ import { EquipmentView } from "../views/EquipmentView";
 import { RankModifiersView } from "../views/RankModifiersView";
 import { FighterStatsView } from "../views/FighterStatsView";
 import { LogSearchView } from "../views/LogSearchView";
+import { ProcessLogsView } from "../views/ProcessLogsView";
 import type { ViewType } from "../../types";
 
 const TABS: { id: ViewType; label: string; visibleFor?: string[] }[] = [
@@ -26,6 +27,7 @@ const TABS: { id: ViewType; label: string; visibleFor?: string[] }[] = [
   { id: "equipment", label: "Equipment" },
   { id: "fighter-stats", label: "Stats" },
   { id: "log-search", label: "Log Search" },
+  { id: "process-logs", label: "Logs" },
 ];
 
 function ViewContent({ view }: { view: ViewType }) {
@@ -50,11 +52,13 @@ function ViewContent({ view }: { view: ViewType }) {
       return <FighterStatsView />;
     case "log-search":
       return <LogSearchView />;
+    case "process-logs":
+      return <ProcessLogsView />;
   }
 }
 
 export function AppShell() {
-  const { activeView, setActiveView, selectedCharacterId, characters, dbPath } =
+  const { activeView, setActiveView, selectedCharacterId, characters, dbPath, processLogs } =
     useStore();
 
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -92,19 +96,29 @@ export function AppShell() {
                 (tab) =>
                   !tab.visibleFor ||
                   tab.visibleFor.includes(selectedCharacter.profession),
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveView(tab.id)}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors ${
-                    effectiveView === tab.id
-                      ? "border-b-2 border-[var(--color-accent)] text-[var(--color-accent)]"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              ).map((tab) => {
+                const errorCount = tab.id === "process-logs"
+                  ? processLogs.filter((l) => l.level === "error" || l.level === "warn").length
+                  : 0;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveView(tab.id)}
+                    className={`relative flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+                      effectiveView === tab.id
+                        ? "border-b-2 border-[var(--color-accent)] text-[var(--color-accent)]"
+                        : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                    }`}
+                  >
+                    {tab.label}
+                    {errorCount > 0 && (
+                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white">
+                        {errorCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
               <div className="flex-1" />
               <div className="flex items-center px-4 text-sm text-[var(--color-text-muted)]">
                 {selectedCharacter.name}
