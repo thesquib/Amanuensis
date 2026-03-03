@@ -109,11 +109,11 @@ const columns = [
     cell: (info) => info.getValue(),
   }),
   columnHelper.accessor("date_first", {
-    header: "First Seen",
+    header: "First Kill",
     cell: (info) => formatDate(info.getValue()),
   }),
   columnHelper.accessor("date_last", {
-    header: "Last Seen",
+    header: "Last Kill",
     cell: (info) => formatDate(info.getValue()),
   }),
 ];
