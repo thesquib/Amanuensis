@@ -149,7 +149,7 @@ impl Database {
                  FROM log_lines l
                  LEFT JOIN characters c ON CAST(l.character_id AS INTEGER) = c.id
                  WHERE log_lines MATCH ?1 AND CAST(l.character_id AS INTEGER) = ?2
-                 ORDER BY rank
+                 ORDER BY l.file_path DESC, rowid DESC
                  LIMIT ?3",
             )?;
             let mut results = Vec::new();
@@ -168,7 +168,7 @@ impl Database {
                  FROM log_lines l
                  LEFT JOIN characters c ON CAST(l.character_id AS INTEGER) = c.id
                  WHERE log_lines MATCH ?1
-                 ORDER BY rank
+                 ORDER BY l.file_path DESC, rowid DESC
                  LIMIT ?2",
             )?;
             let mut results = Vec::new();
