@@ -31,11 +31,38 @@ export interface KillStats {
   uniqueCreatures: number;
   nemesis: Kill | null;
   highestKill: Kill | null;
+  highestKilled: Kill | null;
+  highestSlaughtered: Kill | null;
+  highestVanquished: Kill | null;
+  highestDispatched: Kill | null;
+  lowestRecentKill: Kill | null;
+  lowestRecentSlaughtered: Kill | null;
+  lowestRecentVanquished: Kill | null;
+  lowestRecentDispatched: Kill | null;
   mostKilled: Kill | null;
   mostKilledTotal: number;
   highestSoloKill: Kill | null;
   mostSoloKilled: Kill | null;
   mostSoloKilledTotal: number;
+  mostRecentSoloKill: Kill | null;
+  mostRecentAssistedKill: Kill | null;
+}
+
+/** Returns the lowest-value creature among the 10 most recently killed by a specific type. */
+function lowestRecentByType(
+  kills: Kill[],
+  dateField: keyof Kill,
+  countField: keyof Kill,
+): Kill | null {
+  const eligible = kills.filter(
+    (k) => (k[countField] as number) > 0 && k[dateField] !== null,
+  );
+  eligible.sort((a, b) =>
+    ((b[dateField] as string) ?? "").localeCompare((a[dateField] as string) ?? ""),
+  );
+  const recent = eligible.slice(0, 10);
+  if (recent.length === 0) return null;
+  return recent.reduce((min, k) => (k.creature_value < min.creature_value ? k : min));
 }
 
 export function computeKillStats(kills: Kill[]): KillStats {
@@ -48,6 +75,10 @@ export function computeKillStats(kills: Kill[]): KillStats {
   let totalDispatched = 0;
   let nemesis: Kill | null = null;
   let highestKill: Kill | null = null;
+  let highestKilled: Kill | null = null;
+  let highestSlaughtered: Kill | null = null;
+  let highestVanquished: Kill | null = null;
+  let highestDispatched: Kill | null = null;
   let mostKilled: Kill | null = null;
   let highestSoloKill: Kill | null = null;
   let mostSoloKilled: Kill | null = null;
@@ -69,6 +100,11 @@ export function computeKillStats(kills: Kill[]): KillStats {
 
     if (total > 0 && k.creature_value > (highestKill?.creature_value ?? 0)) highestKill = k;
 
+    if (k.killed_count > 0 && k.creature_value > (highestKilled?.creature_value ?? 0)) highestKilled = k;
+    if (k.slaughtered_count > 0 && k.creature_value > (highestSlaughtered?.creature_value ?? 0)) highestSlaughtered = k;
+    if (k.vanquished_count > 0 && k.creature_value > (highestVanquished?.creature_value ?? 0)) highestVanquished = k;
+    if (k.dispatched_count > 0 && k.creature_value > (highestDispatched?.creature_value ?? 0)) highestDispatched = k;
+
     const mostKilledTotal = mostKilled ? totalKillCount(mostKilled) : 0;
     if (total > mostKilledTotal) mostKilled = k;
 
@@ -77,6 +113,34 @@ export function computeKillStats(kills: Kill[]): KillStats {
     const bestSolo = mostSoloKilled ? soloKillCount(mostSoloKilled) : 0;
     if (solo > bestSolo) mostSoloKilled = k;
   }
+
+  // Lowest value among the 10 most recently encountered creatures (any solo kill type)
+  const recentAny = kills
+    .filter((k) => soloKillCount(k) > 0 && k.date_last !== null)
+    .sort((a, b) => ((b.date_last ?? "").localeCompare(a.date_last ?? "")))
+    .slice(0, 10);
+  const lowestRecentKill =
+    recentAny.length > 0
+      ? recentAny.reduce((min, k) => (k.creature_value < min.creature_value ? k : min))
+      : null;
+
+  const lowestRecentSlaughtered = lowestRecentByType(kills, "date_last_slaughtered", "slaughtered_count");
+  const lowestRecentVanquished  = lowestRecentByType(kills, "date_last_vanquished",  "vanquished_count");
+  const lowestRecentDispatched  = lowestRecentByType(kills, "date_last_dispatched",  "dispatched_count");
+
+  const mostRecentSoloKill = kills
+    .filter((k) => soloKillCount(k) > 0 && k.date_last !== null)
+    .reduce<Kill | null>((best, k) => {
+      if (!best) return k;
+      return (k.date_last ?? "") > (best.date_last ?? "") ? k : best;
+    }, null);
+
+  const mostRecentAssistedKill = kills
+    .filter((k) => assistedKillCount(k) > 0 && k.date_last !== null)
+    .reduce<Kill | null>((best, k) => {
+      if (!best) return k;
+      return (k.date_last ?? "") > (best.date_last ?? "") ? k : best;
+    }, null);
 
   return {
     totalSolo,
@@ -89,10 +153,20 @@ export function computeKillStats(kills: Kill[]): KillStats {
     uniqueCreatures: kills.length,
     nemesis,
     highestKill,
+    highestKilled,
+    highestSlaughtered,
+    highestVanquished,
+    highestDispatched,
+    lowestRecentKill,
+    lowestRecentSlaughtered,
+    lowestRecentVanquished,
+    lowestRecentDispatched,
     mostKilled,
     mostKilledTotal: mostKilled ? totalKillCount(mostKilled) : 0,
     highestSoloKill,
     mostSoloKilled,
     mostSoloKilledTotal: mostSoloKilled ? soloKillCount(mostSoloKilled) : 0,
+    mostRecentSoloKill,
+    mostRecentAssistedKill,
   };
 }

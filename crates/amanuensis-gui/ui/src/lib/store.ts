@@ -162,7 +162,7 @@ export const useStore = create<AppStore>((set) => ({
   scannedLogCount: 0,
   setScannedLogCount: (count) => set({ scannedLogCount: count }),
 
-  recursiveScan: false,
+  recursiveScan: true,
   setRecursiveScan: (recursive) => set({ recursiveScan: recursive }),
 
   excludeLowCL: true,

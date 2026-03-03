@@ -1,8 +1,35 @@
+use std::collections::HashSet;
+
 use rusqlite::params;
 
+use crate::data::TrainerDb;
 use crate::error::Result;
 use crate::models::{RankMode, Trainer};
 use super::Database;
+
+/// Compute weighted effective ranks from a trainer slice, skipping combo trainers
+/// whose components are already present (avoids double-counting).
+///
+/// A combo trainer is excluded if **any** of its component trainers has
+/// non-zero effective ranks in the same set.
+#[allow(dead_code)]
+pub fn coin_level_from_trainers(trainers: &[Trainer], trainer_db: &TrainerDb) -> i64 {
+    let active: HashSet<&str> = trainers
+        .iter()
+        .filter(|t| t.effective_ranks() > 0)
+        .map(|t| t.trainer_name.as_str())
+        .collect();
+
+    trainers
+        .iter()
+        .filter(|t| {
+            let components = trainer_db.get_combo_components(&t.trainer_name);
+            // Not a combo, or none of its components have ranks → include it
+            components.is_empty() || !components.iter().any(|c| active.contains(c.as_str()))
+        })
+        .map(|t| (t.effective_ranks() as f64 * t.effective_multiplier).round() as i64)
+        .sum()
+}
 
 impl Database {
     /// Upsert a trainer rank.
@@ -12,14 +39,16 @@ impl Database {
         char_id: i64,
         trainer_name: &str,
         date: &str,
+        multiplier: f64,
     ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO trainers (character_id, trainer_name, ranks, date_of_last_rank)
-             VALUES (?1, ?2, 1, ?3)
+            "INSERT INTO trainers (character_id, trainer_name, ranks, date_of_last_rank, effective_multiplier)
+             VALUES (?1, ?2, 1, ?3, ?4)
              ON CONFLICT(character_id, trainer_name) DO UPDATE SET
                 ranks = ranks + 1,
-                date_of_last_rank = excluded.date_of_last_rank",
-            params![char_id, trainer_name, date],
+                date_of_last_rank = excluded.date_of_last_rank,
+                effective_multiplier = excluded.effective_multiplier",
+            params![char_id, trainer_name, date, multiplier],
         )?;
         Ok(())
     }
@@ -28,7 +57,8 @@ impl Database {
     pub fn get_trainers(&self, char_id: i64) -> Result<Vec<Trainer>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, character_id, trainer_name, ranks, modified_ranks, date_of_last_rank,
-                    apply_learning_ranks, apply_learning_unknown_count, rank_mode, override_date
+                    apply_learning_ranks, apply_learning_unknown_count, rank_mode, override_date,
+                    effective_multiplier
              FROM trainers WHERE character_id = ?1 ORDER BY ranks DESC",
         )?;
 
@@ -44,6 +74,7 @@ impl Database {
                 apply_learning_unknown_count: row.get(7)?,
                 rank_mode: row.get(8)?,
                 override_date: row.get(9)?,
+                effective_multiplier: row.get(10)?,
             })
         })?;
 
@@ -57,14 +88,16 @@ impl Database {
         trainer_name: &str,
         date: &str,
         amount: i64,
+        multiplier: f64,
     ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO trainers (character_id, trainer_name, apply_learning_ranks, date_of_last_rank)
-             VALUES (?1, ?2, ?3, ?4)
+            "INSERT INTO trainers (character_id, trainer_name, apply_learning_ranks, date_of_last_rank, effective_multiplier)
+             VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(character_id, trainer_name) DO UPDATE SET
                 apply_learning_ranks = apply_learning_ranks + ?3,
-                date_of_last_rank = excluded.date_of_last_rank",
-            params![char_id, trainer_name, amount, date],
+                date_of_last_rank = excluded.date_of_last_rank,
+                effective_multiplier = excluded.effective_multiplier",
+            params![char_id, trainer_name, amount, date, multiplier],
         )?;
         Ok(())
     }
@@ -75,14 +108,16 @@ impl Database {
         char_id: i64,
         trainer_name: &str,
         date: &str,
+        multiplier: f64,
     ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO trainers (character_id, trainer_name, apply_learning_unknown_count, date_of_last_rank)
-             VALUES (?1, ?2, 1, ?3)
+            "INSERT INTO trainers (character_id, trainer_name, apply_learning_unknown_count, date_of_last_rank, effective_multiplier)
+             VALUES (?1, ?2, 1, ?3, ?4)
              ON CONFLICT(character_id, trainer_name) DO UPDATE SET
                 apply_learning_unknown_count = apply_learning_unknown_count + 1,
-                date_of_last_rank = excluded.date_of_last_rank",
-            params![char_id, trainer_name, date],
+                date_of_last_rank = excluded.date_of_last_rank,
+                effective_multiplier = excluded.effective_multiplier",
+            params![char_id, trainer_name, date, multiplier],
         )?;
         Ok(())
     }
@@ -151,16 +186,6 @@ impl Database {
             )?;
         }
 
-        // Recalculate coin level using effective_ranks
-        let coin_level = self.compute_effective_coin_level(char_id)?;
-        self.update_coin_level(char_id, coin_level)?;
-
         Ok(())
-    }
-
-    /// Compute coin level using mode-aware effective_ranks for each trainer.
-    pub fn compute_effective_coin_level(&self, char_id: i64) -> Result<i64> {
-        let trainers = self.get_trainers(char_id)?;
-        Ok(trainers.iter().map(|t| t.effective_ranks()).sum())
     }
 }

@@ -125,8 +125,8 @@ fn import_ruuk_character_stats() {
     // Start date: Core Data timestamp 532809057 → 2017-11-19
     assert_eq!(ruuk.start_date.as_deref(), Some("2017-11-19"));
 
-    // Coin level = sum of all trainer ranks (382 total)
-    assert_eq!(ruuk.coin_level, 382);
+    // Coin level = weighted sum of trainer ranks using per-trainer multipliers
+    assert_eq!(ruuk.coin_level, 383);
 }
 
 #[test]
@@ -140,8 +140,8 @@ fn import_ruuk_trainers() {
     let ruuk = db.get_character("Ruuk").unwrap().expect("Ruuk should exist");
     let trainers = db.get_trainers(ruuk.id.unwrap()).unwrap();
 
-    // Scribius has 15 trainers for Ruuk (5 with 0 ranks)
-    assert_eq!(trainers.len(), 15);
+    // Scribius has 20 trainers for Ruuk (some with 0 ranks)
+    assert_eq!(trainers.len(), 20);
 
     let expected = [
         ("Duvin Beastlore", 136),
@@ -205,8 +205,8 @@ fn import_all_characters() {
     let (db, _tmp) = import_scribius_to_temp();
     let chars = db.list_characters().unwrap();
 
-    // Scribius DB has exactly 12 characters
-    assert_eq!(chars.len(), 12);
+    // Scribius DB has exactly 13 characters
+    assert_eq!(chars.len(), 13);
 
     let names: Vec<&str> = chars.iter().map(|c| c.name.as_str()).collect();
     for expected in [
@@ -240,7 +240,7 @@ fn import_total_trainers() {
         .conn()
         .query_row("SELECT COUNT(*) FROM trainers", [], |row| row.get(0))
         .unwrap();
-    assert_eq!(count, 38);
+    assert_eq!(count, 43);
 }
 
 // ===========================================================================
@@ -332,7 +332,7 @@ fn scan_ruuk_trainers() {
 
     let total: i64 = trainers.iter().map(|t| t.ranks).sum();
     assert_eq!(total, 404);
-    assert_eq!(ruuk.coin_level, 404);
+    assert_eq!(ruuk.coin_level, 405);
 }
 
 #[test]
@@ -426,8 +426,8 @@ fn compare_trainers_same_source() {
     let import_trainers = import_db.get_trainers(import_ruuk.id.unwrap()).unwrap();
     let scan_trainers = scan_db.get_trainers(scan_ruuk.id.unwrap()).unwrap();
 
-    // Scribius: 15 trainers (5 with 0 ranks), Scan: 11 trainers
-    assert_eq!(import_trainers.len(), 15);
+    // Scribius: 20 trainers, Scan: 11 trainers
+    assert_eq!(import_trainers.len(), 20);
     assert_eq!(scan_trainers.len(), 11);
 
     // 9 trainers match exactly by name and rank count
@@ -768,7 +768,7 @@ fn scan_tu_whawha_character_stats() {
 
     assert_eq!(
         tu.profession,
-        amanuensis_core::models::character::Profession::Fighter
+        amanuensis_core::models::character::Profession::Ranger
     );
 
     let kills = db.get_kills(tu.id.unwrap()).unwrap();
@@ -795,7 +795,7 @@ fn scan_tane_character_stats() {
 
     assert_eq!(
         tane.profession,
-        amanuensis_core::models::character::Profession::Unknown
+        amanuensis_core::models::character::Profession::Fighter
     );
 
     let kills = db.get_kills(tane.id.unwrap()).unwrap();

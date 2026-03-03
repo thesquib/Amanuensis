@@ -328,8 +328,9 @@ impl LogParser {
 
                 LogEvent::TrainerRank { trainer_name, .. } => {
                     if self.should_count_rank(char_id, &trainer_name, &date_str) {
+                        let multiplier = self.trainer_db.get_multiplier(&trainer_name);
                         self.db
-                            .upsert_trainer_rank(char_id, &trainer_name, &date_str)?;
+                            .upsert_trainer_rank(char_id, &trainer_name, &date_str, multiplier)?;
                         file_result.events_found += 1;
                     }
                 }
@@ -491,14 +492,15 @@ impl LogParser {
                     if character_name.eq_ignore_ascii_case(char_name)
                         && self.should_count_rank(char_id, &trainer_name, &date_str)
                     {
+                        let multiplier = self.trainer_db.get_multiplier(&trainer_name);
                         if is_full {
                             // "much more" = exactly 10 confirmed bonus ranks
                             self.db
-                                .upsert_apply_learning(char_id, &trainer_name, &date_str, 10)?;
+                                .upsert_apply_learning(char_id, &trainer_name, &date_str, 10, multiplier)?;
                         } else {
                             // "more" = 1-9 unknown bonus ranks, just count occurrences
                             self.db
-                                .upsert_apply_learning_unknown(char_id, &trainer_name, &date_str)?;
+                                .upsert_apply_learning_unknown(char_id, &trainer_name, &date_str, multiplier)?;
                         }
                         file_result.events_found += 1;
                     }
@@ -591,10 +593,9 @@ impl LogParser {
         Ok(Profession::Unknown)
     }
 
-    /// Compute coin level based on total trainer ranks.
-    /// Uses effective_ranks() for mode-aware computation.
+    /// Compute coin level as the highest creature_value among personal kills.
     pub fn compute_coin_level(&self, char_id: i64) -> Result<i64> {
-        self.db.compute_effective_coin_level(char_id)
+        self.db.compute_coin_level_from_kills(char_id)
     }
 
     /// Scan a log folder with a progress callback.
@@ -921,9 +922,7 @@ impl LogParser {
                 }
             }
             let coin_level = self.compute_coin_level(char_id)?;
-            if coin_level > 0 {
-                self.db.update_coin_level(char_id, coin_level)?;
-            }
+            self.db.update_coin_level(char_id, coin_level)?;
         }
         Ok(())
     }
@@ -1404,7 +1403,6 @@ mod tests {
 
         let char = parser.db().get_character("TestChar").unwrap().unwrap();
         assert_eq!(char.profession, crate::models::Profession::Fighter);
-        assert!(char.coin_level > 0);
     }
 
     #[test]

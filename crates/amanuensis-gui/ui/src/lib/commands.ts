@@ -171,3 +171,7 @@ export interface UpdateInfo {
 export async function checkForUpdate(): Promise<UpdateInfo | null> {
   return invoke("check_for_update");
 }
+
+export async function revealDatabase(path: string): Promise<void> {
+  return invoke("reveal_database", { path });
+}

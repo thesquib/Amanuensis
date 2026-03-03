@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useStore } from "../../lib/store";
 import { StatCard } from "../shared/StatCard";
+import { KillTypePanel } from "../shared/KillTypePanel";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { CreatureImage } from "../shared/CreatureImage";
 import { CharacterPortrait } from "../shared/CharacterPortrait";
@@ -16,6 +17,7 @@ import {
   getLastys,
 } from "../../lib/commands";
 import { computeKillStats } from "../../lib/killStats";
+import { timeAgo } from "../../lib/timeAgo";
 import type { Character, TrainerInfo } from "../../types";
 
 export function SummaryView() {
@@ -95,12 +97,21 @@ export function SummaryView() {
     totalAssisted,
     uniqueCreatures,
     nemesis,
-    highestKill,
+    highestKilled,
+    highestSlaughtered,
+    highestVanquished,
+    highestDispatched,
+    lowestRecentKill,
+    lowestRecentSlaughtered,
+    lowestRecentVanquished,
+    lowestRecentDispatched,
     mostKilled,
     mostKilledTotal,
     highestSoloKill,
     mostSoloKilled,
     mostSoloKilledTotal,
+    mostRecentSoloKill,
+    mostRecentAssistedKill,
   } = useMemo(() => computeKillStats(kills), [kills]);
 
   const totalRanks = trainers.reduce(
@@ -178,39 +189,68 @@ export function SummaryView() {
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+
+        {/* ── Portrait + top stats ─────────────────────────────────── */}
         <div className="row-span-2 flex items-center justify-center rounded-lg bg-[var(--color-card)] p-4">
           <CharacterPortrait
             name={char.name}
             className="h-full max-h-40 w-auto rounded-lg"
           />
         </div>
-        <StatCard label="Coin Level" value={char.coin_level.toLocaleString()} />
-        <StatCard label="Logins" value={char.logins.toLocaleString()} />
-        <StatCard label="Deaths" value={char.deaths.toLocaleString()} />
-        <StatCard label="Departs" value={char.departs.toLocaleString()} />
+        <StatCard label="Coin Level" value={char.coin_level.toLocaleString()} large />
+        <div className="rounded-lg bg-[var(--color-card)] px-3 py-2 flex flex-col justify-center gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Logins</div>
+            <div className="text-sm font-semibold">{char.logins.toLocaleString()}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Deaths</div>
+            <div className="text-sm font-semibold">{char.deaths.toLocaleString()}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Departs</div>
+            <div className="text-sm font-semibold">{char.departs.toLocaleString()}</div>
+          </div>
+        </div>
         <StatCard
           label="Solo Kills"
           value={totalKills.toLocaleString()}
-          sub={`${uniqueCreatures} unique creatures`}
+          sub={[
+            `${uniqueCreatures} unique creatures`,
+            mostRecentSoloKill?.creature_name,
+            timeAgo(mostRecentSoloKill?.date_last),
+          ].filter(Boolean).join(" · ")}
+          image={
+            mostRecentSoloKill ? (
+              <CreatureImage creatureName={mostRecentSoloKill.creature_name} className="h-12 w-auto" />
+            ) : undefined
+          }
         />
+
+        {/* ── Compact half-height panels ───────────────────────────── */}
         <StatCard
           label="Assisted Kills"
           value={totalAssisted.toLocaleString()}
+          sub={[
+            mostRecentAssistedKill?.creature_name,
+            timeAgo(mostRecentAssistedKill?.date_last),
+          ].filter(Boolean).join(" · ")}
+          image={
+            mostRecentAssistedKill ? (
+              <CreatureImage creatureName={mostRecentAssistedKill.creature_name} className="h-12 w-auto" />
+            ) : undefined
+          }
         />
         <StatCard
           label="Highest Value Kill"
-          value={highestKill?.creature_name ?? "None"}
-          sub={
-            highestKill
-              ? `Value: ${highestKill.creature_value}`
-              : undefined
-          }
+          value={highestKilled?.creature_name ?? "None"}
+          sub={highestKilled ? [
+            `Value: ${highestKilled.creature_value}`,
+            timeAgo(highestKilled.date_last_killed),
+          ].filter(Boolean).join(" · ") : undefined}
           image={
-            highestKill ? (
-              <CreatureImage
-                creatureName={highestKill.creature_name}
-                className="h-12 w-auto"
-              />
+            highestKilled ? (
+              <CreatureImage creatureName={highestKilled.creature_name} className="h-12 w-auto" />
             ) : undefined
           }
         />
@@ -219,15 +259,15 @@ export function SummaryView() {
           value={mostKilled?.creature_name ?? "None"}
           sub={
             mostKilled
-              ? `${mostKilledTotal.toLocaleString()} times`
+              ? [
+                  `${mostKilledTotal.toLocaleString()}×`,
+                  timeAgo(mostKilled.date_last),
+                ].filter(Boolean).join(" · ")
               : undefined
           }
           image={
             mostKilled ? (
-              <CreatureImage
-                creatureName={mostKilled.creature_name}
-                className="h-12 w-auto"
-              />
+              <CreatureImage creatureName={mostKilled.creature_name} className="h-12 w-auto" />
             ) : undefined
           }
         />
@@ -236,15 +276,15 @@ export function SummaryView() {
           value={highestSoloKill?.creature_name ?? "None"}
           sub={
             highestSoloKill
-              ? `Value: ${highestSoloKill.creature_value}`
+              ? [
+                  `Value: ${highestSoloKill.creature_value}`,
+                  timeAgo(highestSoloKill.date_last),
+                ].filter(Boolean).join(" · ")
               : undefined
           }
           image={
             highestSoloKill ? (
-              <CreatureImage
-                creatureName={highestSoloKill.creature_name}
-                className="h-12 w-auto"
-              />
+              <CreatureImage creatureName={highestSoloKill.creature_name} className="h-12 w-auto" />
             ) : undefined
           }
         />
@@ -253,30 +293,28 @@ export function SummaryView() {
           value={mostSoloKilled?.creature_name ?? "None"}
           sub={
             mostSoloKilled
-              ? `${mostSoloKilledTotal.toLocaleString()} times`
+              ? [
+                  `${mostSoloKilledTotal.toLocaleString()}×`,
+                  mostSoloKilled.date_first ? `first ${timeAgo(mostSoloKilled.date_first)}` : null,
+                  mostSoloKilled.date_last ? `last ${timeAgo(mostSoloKilled.date_last)}` : null,
+                ].filter(Boolean).join(" · ")
               : undefined
           }
           image={
             mostSoloKilled ? (
-              <CreatureImage
-                creatureName={mostSoloKilled.creature_name}
-                className="h-12 w-auto"
-              />
+              <CreatureImage creatureName={mostSoloKilled.creature_name} className="h-12 w-auto" />
             ) : undefined
           }
         />
+
+        {/* ── Regular stat panels ──────────────────────────────────── */}
         <StatCard
           label="Nemesis"
           value={nemesis?.creature_name ?? "None"}
-          sub={
-            nemesis ? `Killed you ${nemesis.killed_by_count} times` : undefined
-          }
+          sub={nemesis ? `Killed you ${nemesis.killed_by_count} times` : undefined}
           image={
             nemesis ? (
-              <CreatureImage
-                creatureName={nemesis.creature_name}
-                className="h-12 w-auto"
-              />
+              <CreatureImage creatureName={nemesis.creature_name} className="h-12 w-auto" />
             ) : undefined
           }
         />
@@ -295,23 +333,22 @@ export function SummaryView() {
           }
         />
         {char.untraining_count > 0 && (
-          <StatCard
-            label="Untrained"
-            value={`${char.untraining_count}x`}
-          />
+          <StatCard label="Untrained" value={`${char.untraining_count}x`} />
         )}
-        <StatCard
-          label="Good Karma"
-          value={char.good_karma.toLocaleString()}
-        />
-        <StatCard
-          label="Bad Karma"
-          value={char.bad_karma.toLocaleString()}
-        />
-        <StatCard
-          label="Esteem"
-          value={char.esteem.toLocaleString()}
-        />
+        <div className="rounded-lg bg-[var(--color-card)] px-3 py-2 flex flex-col justify-center gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Good Karma</div>
+            <div className="text-sm font-semibold">{char.good_karma.toLocaleString()}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Bad Karma</div>
+            <div className="text-sm font-semibold">{char.bad_karma.toLocaleString()}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Esteem</div>
+            <div className="text-sm font-semibold">{char.esteem.toLocaleString()}</div>
+          </div>
+        </div>
         {chanceOfDepart && (
           <StatCard
             label="Chance of Depart"
@@ -327,11 +364,34 @@ export function SummaryView() {
           />
         )}
         {char.eps_broken > 0 && (
-          <StatCard
-            label="EPS Broken"
-            value={char.eps_broken.toLocaleString()}
-          />
+          <StatCard label="EPS Broken" value={char.eps_broken.toLocaleString()} />
         )}
+
+        {/* ── Kill type panels (double height) ─────────────────────── */}
+        <KillTypePanel
+          label="Vanquishes"
+          highest={highestVanquished}
+          lowestRecent={lowestRecentVanquished}
+          dateField="date_last_vanquished"
+        />
+        <KillTypePanel
+          label="Kills"
+          highest={highestKilled}
+          lowestRecent={lowestRecentKill}
+          dateField="date_last_killed"
+        />
+        <KillTypePanel
+          label="Dispatches"
+          highest={highestDispatched}
+          lowestRecent={lowestRecentDispatched}
+          dateField="date_last_dispatched"
+        />
+        <KillTypePanel
+          label="Slaughters"
+          highest={highestSlaughtered}
+          lowestRecent={lowestRecentSlaughtered}
+          dateField="date_last_slaughtered"
+        />
       </div>
     </div>
   );

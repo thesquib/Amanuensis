@@ -255,11 +255,11 @@ mod tests {
     fn test_upsert_trainer_rank() {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Fen").unwrap();
-        db.upsert_trainer_rank(id, "Bangus Anmash", "2024-01-01")
+        db.upsert_trainer_rank(id, "Bangus Anmash", "2024-01-01", 1.0)
             .unwrap();
-        db.upsert_trainer_rank(id, "Bangus Anmash", "2024-01-02")
+        db.upsert_trainer_rank(id, "Bangus Anmash", "2024-01-02", 1.0)
             .unwrap();
-        db.upsert_trainer_rank(id, "Regia", "2024-01-03").unwrap();
+        db.upsert_trainer_rank(id, "Regia", "2024-01-03", 1.0).unwrap();
 
         let trainers = db.get_trainers(id).unwrap();
         assert_eq!(trainers.len(), 2);
@@ -441,10 +441,10 @@ mod tests {
         db.upsert_kill(id_a, "Rat", "killed_count", 2, "2024-01-01").unwrap();
         db.upsert_kill(id_b, "Rat", "killed_count", 2, "2024-01-05").unwrap();
         db.upsert_kill(id_b, "Wolf", "killed_count", 5, "2024-01-03").unwrap();
-        db.upsert_trainer_rank(id_a, "Histia", "2024-01-01").unwrap();
-        db.upsert_trainer_rank(id_a, "Histia", "2024-01-02").unwrap();
-        db.upsert_trainer_rank(id_b, "Histia", "2024-01-03").unwrap();
-        db.upsert_trainer_rank(id_b, "Regia", "2024-01-04").unwrap();
+        db.upsert_trainer_rank(id_a, "Histia", "2024-01-01", 1.0).unwrap();
+        db.upsert_trainer_rank(id_a, "Histia", "2024-01-02", 1.0).unwrap();
+        db.upsert_trainer_rank(id_b, "Histia", "2024-01-03", 1.0).unwrap();
+        db.upsert_trainer_rank(id_b, "Regia", "2024-01-04", 1.0).unwrap();
         db.upsert_pet(id_a, "Cat").unwrap();
         db.upsert_pet(id_b, "Cat").unwrap(); // duplicate pet
         db.upsert_pet(id_b, "Dog").unwrap();

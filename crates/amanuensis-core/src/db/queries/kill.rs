@@ -135,6 +135,35 @@ impl Database {
         }
     }
 
+    /// Minimum creature value that counts toward coin level.
+    /// Excludes trivial low-level creatures (rats worth 2, jellyfish worth 8, etc.).
+    const COIN_LEVEL_MIN_VALUE: i32 = 50;
+
+    /// Compute coin level as the highest creature_value among all personal kills
+    /// (killed, slaughtered, vanquished, or dispatched — not assists or deaths).
+    /// Returns 0 if no personal kills of meaningful value recorded.
+    pub fn compute_coin_level_from_kills(&self, char_id: i64) -> Result<i64> {
+        self.compute_coin_level_for_char_ids(&[char_id])
+    }
+
+    /// Compute coin level across a set of character IDs (for merged characters).
+    pub fn compute_coin_level_for_char_ids(&self, char_ids: &[i64]) -> Result<i64> {
+        let placeholders = char_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT COALESCE(MAX(creature_value), 0) FROM kills
+             WHERE character_id IN ({placeholders})
+               AND (killed_count + slaughtered_count + vanquished_count + dispatched_count) > 0
+               AND creature_value >= {min}",
+            min = Self::COIN_LEVEL_MIN_VALUE,
+        );
+        let result: i64 = self.conn.query_row(
+            &sql,
+            rusqlite::params_from_iter(char_ids.iter()),
+            |row| row.get(0),
+        )?;
+        Ok(result)
+    }
+
     /// Get the nemesis (creature that killed the character the most).
     /// Returns (creature_name, killed_by_count).
     pub fn get_nemesis(&self, char_id: i64) -> Result<Option<(String, i64)>> {

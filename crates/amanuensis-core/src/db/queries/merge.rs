@@ -160,10 +160,10 @@ impl Database {
     }
 
     /// Recalculate a target character's coin_level after merge/unmerge.
-    /// Uses effective_ranks() for mode-aware computation.
+    /// Coin level = max creature_value across all personal kills for this character and its sources.
     fn recalculate_merged_stats(&self, target_id: i64) -> Result<()> {
-        let trainers = self.get_trainers_merged(target_id)?;
-        let coin_level: i64 = trainers.iter().map(|t| t.effective_ranks()).sum();
+        let all_ids = self.char_ids_for_merged(target_id)?;
+        let coin_level = self.compute_coin_level_for_char_ids(&all_ids)?;
         self.update_coin_level(target_id, coin_level)?;
         Ok(())
     }
@@ -229,7 +229,8 @@ impl Database {
                     SUM(ranks), SUM(modified_ranks), MAX(date_of_last_rank),
                     SUM(apply_learning_ranks), SUM(apply_learning_unknown_count),
                     MAX(CASE WHEN character_id = {cid} THEN rank_mode ELSE 'modifier' END),
-                    MAX(CASE WHEN character_id = {cid} THEN override_date ELSE NULL END)
+                    MAX(CASE WHEN character_id = {cid} THEN override_date ELSE NULL END),
+                    MAX(effective_multiplier)
              FROM trainers WHERE character_id IN ({placeholders})
              GROUP BY trainer_name
              ORDER BY SUM(ranks) DESC",
@@ -248,6 +249,7 @@ impl Database {
                 apply_learning_unknown_count: row.get(7)?,
                 rank_mode: row.get(8)?,
                 override_date: row.get(9)?,
+                effective_multiplier: row.get(10)?,
             })
         })?;
         Ok(trainers.filter_map(|r| r.ok()).collect())
@@ -370,10 +372,9 @@ impl Database {
             }
         }
 
-        // Coin level is from the merged trainer totals using effective_ranks
-        let trainers = self.get_trainers_merged(char_id)?;
-        let coin_level: i64 = trainers.iter().map(|t| t.effective_ranks()).sum();
-        merged.coin_level = coin_level;
+        // Coin level = max creature_value across all personal kills
+        let all_ids = self.char_ids_for_merged(char_id)?;
+        merged.coin_level = self.compute_coin_level_for_char_ids(&all_ids)?;
 
         Ok(Some(merged))
     }

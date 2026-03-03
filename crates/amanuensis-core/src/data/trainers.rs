@@ -308,9 +308,14 @@ mod tests {
     #[test]
     fn test_combo_detection() {
         let db = TrainerDb::bundled().unwrap();
+        // True combos (no unique stat contributions beyond their components)
         assert!(db.is_combo("Evus"));
         assert!(db.is_combo("Atkus"));
-        assert!(db.is_combo("Darkus"));
+        assert!(db.is_combo("Swengus"));
+        // Trainers with unique damage contributions — NOT treated as combos
+        assert!(!db.is_combo("Darkus"));
+        assert!(!db.is_combo("Atkia"));
+        // Regular trainers
         assert!(!db.is_combo("Histia"));
         assert!(!db.is_combo("Knox"));
     }
