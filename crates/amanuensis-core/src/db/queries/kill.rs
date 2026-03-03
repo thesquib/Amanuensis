@@ -27,12 +27,13 @@ impl Database {
             )));
         }
 
-        // Determine the per-type date column to update (solo kill types only)
+        // Determine the per-type date column to update (solo and assisted share the same date column
+        // so that date_last_vanquished etc. reflect ANY vanquish, whether solo or assisted)
         let date_col = match field {
-            "killed_count" => Some("date_last_killed"),
-            "slaughtered_count" => Some("date_last_slaughtered"),
-            "vanquished_count" => Some("date_last_vanquished"),
-            "dispatched_count" => Some("date_last_dispatched"),
+            "killed_count" | "assisted_kill_count" => Some("date_last_killed"),
+            "slaughtered_count" | "assisted_slaughter_count" => Some("date_last_slaughtered"),
+            "vanquished_count" | "assisted_vanquish_count" => Some("date_last_vanquished"),
+            "dispatched_count" | "assisted_dispatch_count" => Some("date_last_dispatched"),
             _ => None,
         };
 
