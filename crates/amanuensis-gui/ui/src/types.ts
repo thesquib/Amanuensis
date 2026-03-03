@@ -57,6 +57,8 @@ export interface Kill {
   date_last_slaughtered: string | null;
   date_last_vanquished: string | null;
   date_last_dispatched: string | null;
+  best_loot_value: number;
+  best_loot_item: string;
 }
 
 /** Mirrors Rust `Trainer` struct */
@@ -71,6 +73,7 @@ export interface Trainer {
   apply_learning_unknown_count: number;
   rank_mode: "modifier" | "override" | "override_until_date";
   override_date: string | null;
+  effective_multiplier: number;
 }
 
 /** Mirrors Rust `Pet` struct */
@@ -160,5 +163,6 @@ export type ViewType =
   | "lastys"
   | "equipment"
   | "fighter-stats"
+  | "cv-graph"
   | "log-search"
   | "process-logs";

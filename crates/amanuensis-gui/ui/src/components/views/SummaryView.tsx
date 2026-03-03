@@ -17,6 +17,7 @@ import {
   getLastys,
 } from "../../lib/commands";
 import { computeKillStats } from "../../lib/killStats";
+import { computeFighterStats } from "../../lib/fighterStats";
 import { timeAgo } from "../../lib/timeAgo";
 import type { Character, TrainerInfo } from "../../types";
 
@@ -112,6 +113,7 @@ export function SummaryView() {
     mostSoloKilledTotal,
     mostRecentSoloKill,
     mostRecentAssistedKill,
+    highestLootKill,
   } = useMemo(() => computeKillStats(kills), [kills]);
 
   const totalRanks = trainers.reduce(
@@ -119,16 +121,20 @@ export function SummaryView() {
     0,
   );
 
-  const effectiveRanks = useMemo(() => {
+  const { effectiveRanks, slaughterPoints } = useMemo(() => {
+    const ranksMap = new Map<string, number>();
     const multMap = new Map<string, number>();
-    for (const t of trainerDb) {
-      multMap.set(t.name, t.multiplier);
+    for (const t of trainerDb) multMap.set(t.name, t.multiplier);
+    for (const t of trainers) {
+      const total = t.ranks + t.modified_ranks;
+      ranksMap.set(t.trainer_name, (ranksMap.get(t.trainer_name) ?? 0) + total);
     }
-    return trainers.reduce(
-      (sum, t) =>
-        sum + (t.ranks + t.modified_ranks) * (multMap.get(t.trainer_name) ?? 1.0),
+    const stats = computeFighterStats(ranksMap, multMap);
+    const effectiveRanks = trainers.reduce(
+      (sum, t) => sum + (t.ranks + t.modified_ranks) * (multMap.get(t.trainer_name) ?? 1.0),
       0,
     );
+    return { effectiveRanks, slaughterPoints: stats.slaughterPoints };
   }, [trainers, trainerDb]);
 
   const effectiveRounded = Math.round(effectiveRanks * 10) / 10;
@@ -204,7 +210,7 @@ export function SummaryView() {
             <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">Highest Kill</div>
           </div>
           <div className="mt-3 border-t border-[var(--color-border)] pt-3">
-            <div className="mt-1 text-4xl font-bold">{Math.round(effectiveRanks / 10).toLocaleString()}</div>
+            <div className="mt-1 text-4xl font-bold">{Math.round(slaughterPoints / 150).toLocaleString()}</div>
             <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">Ranks</div>
           </div>
         </div>
@@ -329,6 +335,15 @@ export function SummaryView() {
             ) : undefined
           }
         />
+
+        {highestLootKill && highestLootKill.best_loot_value > 0 && (
+          <StatCard
+            label="Best Loot Recovery"
+            value={highestLootKill.creature_name}
+            sub={`${highestLootKill.best_loot_value}c — ${highestLootKill.best_loot_item}`}
+            image={<CreatureImage creatureName={highestLootKill.creature_name} className="h-12 w-auto" />}
+          />
+        )}
 
         {/* ── Regular stat panels ──────────────────────────────────── */}
         <StatCard

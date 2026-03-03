@@ -181,15 +181,20 @@ impl Database {
                     SUM(killed_count), SUM(slaughtered_count), SUM(vanquished_count), SUM(dispatched_count),
                     SUM(assisted_kill_count), SUM(assisted_slaughter_count), SUM(assisted_vanquish_count), SUM(assisted_dispatch_count),
                     SUM(killed_by_count), MIN(date_first), MAX(date_last), MAX(creature_value),
-                    MAX(date_last_killed), MAX(date_last_slaughtered), MAX(date_last_vanquished), MAX(date_last_dispatched)
+                    MAX(date_last_killed), MAX(date_last_slaughtered), MAX(date_last_vanquished), MAX(date_last_dispatched),
+                    COALESCE(MAX(best_loot_value), 0),
+                    COALESCE((SELECT best_loot_item FROM kills k2 WHERE k2.character_id IN ({}) AND k2.creature_name = kills.creature_name ORDER BY best_loot_value DESC LIMIT 1), '')
              FROM kills WHERE character_id IN ({})
              GROUP BY creature_name
              ORDER BY (SUM(killed_count) + SUM(slaughtered_count) + SUM(vanquished_count) + SUM(dispatched_count) +
                        SUM(assisted_kill_count) + SUM(assisted_slaughter_count) + SUM(assisted_vanquish_count) + SUM(assisted_dispatch_count)) DESC",
-            char_id, placeholders
+            char_id, placeholders, placeholders
         );
         let mut stmt = self.conn.prepare(&sql)?;
-        let kills = stmt.query_map(rusqlite::params_from_iter(all_ids.iter()), |row| {
+        // The SQL has two IN (?) clauses: one for the best_loot_item subquery and one for the
+        // main WHERE. Supply all_ids twice so both sets of ? placeholders are bound.
+        let all_params: Vec<i64> = all_ids.iter().chain(all_ids.iter()).copied().collect();
+        let kills = stmt.query_map(rusqlite::params_from_iter(all_params.iter()), |row| {
             Ok(Kill {
                 id: row.get(0)?,
                 character_id: row.get(1)?,
@@ -210,6 +215,8 @@ impl Database {
                 date_last_slaughtered: row.get(16)?,
                 date_last_vanquished: row.get(17)?,
                 date_last_dispatched: row.get(18)?,
+                best_loot_value: row.get(19)?,
+                best_loot_item: row.get(20)?,
             })
         })?;
         Ok(kills.filter_map(|r| r.ok()).collect())

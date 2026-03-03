@@ -148,6 +148,8 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE trainers ADD COLUMN rank_mode TEXT NOT NULL DEFAULT 'modifier'",
         "ALTER TABLE trainers ADD COLUMN override_date TEXT",
         "ALTER TABLE trainers ADD COLUMN effective_multiplier REAL NOT NULL DEFAULT 1.0",
+        "ALTER TABLE kills ADD COLUMN best_loot_value INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE kills ADD COLUMN best_loot_item TEXT NOT NULL DEFAULT ''",
     ];
 
     for sql in &migrations {

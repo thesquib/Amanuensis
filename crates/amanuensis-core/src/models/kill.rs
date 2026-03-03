@@ -22,6 +22,8 @@ pub struct Kill {
     pub date_last_slaughtered: Option<String>,
     pub date_last_vanquished: Option<String>,
     pub date_last_dispatched: Option<String>,
+    pub best_loot_value: i64,
+    pub best_loot_item: String,
 }
 
 impl Kill {
@@ -46,6 +48,8 @@ impl Kill {
             date_last_slaughtered: None,
             date_last_vanquished: None,
             date_last_dispatched: None,
+            best_loot_value: 0,
+            best_loot_item: String::new(),
         }
     }
 

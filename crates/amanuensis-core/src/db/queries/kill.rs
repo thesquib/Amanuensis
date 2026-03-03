@@ -86,7 +86,8 @@ impl Database {
                     killed_count, slaughtered_count, vanquished_count, dispatched_count,
                     assisted_kill_count, assisted_slaughter_count, assisted_vanquish_count, assisted_dispatch_count,
                     killed_by_count, date_first, date_last, creature_value,
-                    date_last_killed, date_last_slaughtered, date_last_vanquished, date_last_dispatched
+                    date_last_killed, date_last_slaughtered, date_last_vanquished, date_last_dispatched,
+                    COALESCE(best_loot_value, 0), COALESCE(best_loot_item, '')
              FROM kills WHERE character_id = ?1
              ORDER BY (killed_count + slaughtered_count + vanquished_count + dispatched_count +
                        assisted_kill_count + assisted_slaughter_count + assisted_vanquish_count + assisted_dispatch_count) DESC",
@@ -113,10 +114,31 @@ impl Database {
                 date_last_slaughtered: row.get(16)?,
                 date_last_vanquished: row.get(17)?,
                 date_last_dispatched: row.get(18)?,
+                best_loot_value: row.get(19)?,
+                best_loot_item: row.get(20)?,
             })
         })?;
 
         Ok(kills.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Update the best single-loot recovery for a creature if the new value beats the existing one.
+    /// Only updates if the creature already has a kills record (no-op otherwise).
+    pub fn update_kill_best_loot(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+        loot_value: i64,
+        loot_item: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE kills SET
+                best_loot_item = CASE WHEN ?3 > best_loot_value THEN ?4 ELSE best_loot_item END,
+                best_loot_value = MAX(best_loot_value, ?3)
+             WHERE character_id = ?1 AND creature_name = ?2",
+            params![char_id, creature_name, loot_value, loot_item],
+        )?;
+        Ok(())
     }
 
     /// Get the highest-value killed creature for a character.

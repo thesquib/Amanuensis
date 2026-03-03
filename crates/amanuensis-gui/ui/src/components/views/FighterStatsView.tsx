@@ -51,6 +51,10 @@ export function FighterStatsView() {
           label="Est. Slaughter Points"
           value={stats.slaughterPoints.toLocaleString()}
         />
+        <StatCard
+          label="Est. Slaughter Ranks"
+          value={Math.round(stats.slaughterPoints / 150).toLocaleString()}
+        />
       </div>
 
       {/* Primary stats */}

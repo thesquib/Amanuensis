@@ -46,6 +46,7 @@ export interface KillStats {
   mostSoloKilledTotal: number;
   mostRecentSoloKill: Kill | null;
   mostRecentAssistedKill: Kill | null;
+  highestLootKill: Kill | null;
 }
 
 /** Returns the lowest-value creature among the 10 most recently killed by a specific type. */
@@ -82,6 +83,7 @@ export function computeKillStats(kills: Kill[]): KillStats {
   let mostKilled: Kill | null = null;
   let highestSoloKill: Kill | null = null;
   let mostSoloKilled: Kill | null = null;
+  let highestLootKill: Kill | null = null;
 
   for (const k of kills) {
     const solo = soloKillCount(k);
@@ -112,6 +114,8 @@ export function computeKillStats(kills: Kill[]): KillStats {
 
     const bestSolo = mostSoloKilled ? soloKillCount(mostSoloKilled) : 0;
     if (solo > bestSolo) mostSoloKilled = k;
+
+    if (k.best_loot_value > (highestLootKill?.best_loot_value ?? 0)) highestLootKill = k;
   }
 
   // Lowest value among the 10 most recently encountered creatures (any solo kill type)
@@ -168,5 +172,6 @@ export function computeKillStats(kills: Kill[]): KillStats {
     mostSoloKilledTotal: mostSoloKilled ? soloKillCount(mostSoloKilled) : 0,
     mostRecentSoloKill,
     mostRecentAssistedKill,
+    highestLootKill,
   };
 }
