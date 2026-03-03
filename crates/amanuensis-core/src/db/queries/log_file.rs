@@ -95,7 +95,7 @@ impl Database {
             ids
         };
         for char_id in char_ids {
-            let coin_level = self.compute_effective_coin_level(char_id)?;
+            let coin_level = self.compute_coin_level_from_kills(char_id)?;
             self.update_coin_level(char_id, coin_level)?;
         }
         Ok(())

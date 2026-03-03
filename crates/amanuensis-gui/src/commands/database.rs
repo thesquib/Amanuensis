@@ -39,6 +39,38 @@ pub fn reset_database(state: State<'_, AppState>) -> Result<(), String> {
     state.with_db(|db| db.reset_log_data().map_err(|e| e.to_string()))
 }
 
+/// Reveal the database file in the OS file manager (Finder/Explorer/Nautilus).
+#[tauri::command]
+pub fn reveal_database(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .args(["/select,", &path])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let parent = std::path::Path::new(&path)
+            .parent()
+            .unwrap_or(std::path::Path::new("/"))
+            .to_string_lossy()
+            .into_owned();
+        std::process::Command::new("xdg-open")
+            .arg(&parent)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Import data from a Scribius (Core Data) database into a new Amanuensis database.
 /// After import, the new database is opened in the app state.
 #[tauri::command]

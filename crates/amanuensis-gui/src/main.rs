@@ -40,6 +40,7 @@ fn main() {
             commands::fetch_character_portrait,
             commands::get_character_portrait_path,
             commands::check_for_update,
+            commands::reveal_database,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -69,6 +69,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             ranks INTEGER NOT NULL DEFAULT 0,
             modified_ranks INTEGER NOT NULL DEFAULT 0,
             date_of_last_rank TEXT,
+            effective_multiplier REAL NOT NULL DEFAULT 1.0,
             FOREIGN KEY (character_id) REFERENCES characters(id),
             UNIQUE(character_id, trainer_name)
         );
@@ -139,6 +140,7 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE kills ADD COLUMN date_last_dispatched TEXT",
         "ALTER TABLE trainers ADD COLUMN rank_mode TEXT NOT NULL DEFAULT 'modifier'",
         "ALTER TABLE trainers ADD COLUMN override_date TEXT",
+        "ALTER TABLE trainers ADD COLUMN effective_multiplier REAL NOT NULL DEFAULT 1.0",
     ];
 
     for sql in &migrations {

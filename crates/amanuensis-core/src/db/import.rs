@@ -4,7 +4,7 @@ use std::path::Path;
 use rusqlite::{params, Connection, OpenFlags};
 use serde::Serialize;
 
-use crate::data::CreatureDb;
+use crate::data::{CreatureDb, TrainerDb};
 use crate::error::{AmanuensisError, Result};
 use crate::models::Profession;
 
@@ -76,8 +76,9 @@ pub fn import_scribius(
     // Build set of character Z_PKs that have related data
     let chars_with_data = find_characters_with_data(&src)?;
 
-    // Load creature DB for value lookups
+    // Load creature and trainer DBs for value/multiplier lookups
     let creature_db = CreatureDb::bundled()?;
+    let trainer_db = TrainerDb::bundled()?;
 
     // Import characters, building PK mapping
     let pk_map = import_characters(&src, &dst, &chars_with_data, &mut result)?;
@@ -87,25 +88,21 @@ pub fn import_scribius(
         let conn = dst.conn();
         conn.execute_batch("BEGIN")?;
 
-        import_trainers(&src, conn, &pk_map, &mut result)?;
+        import_trainers(&src, conn, &pk_map, &trainer_db, &mut result)?;
         import_kills(&src, conn, &pk_map, &creature_db, &mut result)?;
         import_pets(&src, conn, &pk_map, &mut result)?;
         import_lastys(&src, conn, &pk_map, &mut result)?;
 
-        // Recalculate coin_level for each imported character
-        for &new_id in pk_map.values() {
-            let coin_level: i64 = conn.query_row(
-                "SELECT COALESCE(SUM(ranks + modified_ranks), 0) FROM trainers WHERE character_id = ?1",
-                params![new_id],
-                |row| row.get(0),
-            )?;
-            conn.execute(
-                "UPDATE characters SET coin_level = ?1 WHERE id = ?2",
-                params![coin_level, new_id],
-            )?;
-        }
-
         conn.execute_batch("COMMIT")?;
+    }
+
+    // Recalculate coin_level from kills: highest creature_value among personal kills.
+    for &new_id in pk_map.values() {
+        let coin_level = dst.compute_coin_level_from_kills(new_id)?;
+        dst.conn().execute(
+            "UPDATE characters SET coin_level = ?1 WHERE id = ?2",
+            params![coin_level, new_id],
+        )?;
     }
 
     Ok(result)
@@ -321,6 +318,7 @@ fn import_trainers(
     src: &Connection,
     dst: &Connection,
     pk_map: &HashMap<i64, i64>,
+    trainer_db: &TrainerDb,
     result: &mut ImportResult,
 ) -> Result<()> {
     let mut stmt = match src.prepare(
@@ -353,11 +351,12 @@ fn import_trainers(
         }
 
         let date_of_last_rank = coredata_timestamp_to_date(last_trained_ts);
+        let multiplier = trainer_db.get_multiplier(&trainer_name);
 
         dst.execute(
-            "INSERT OR IGNORE INTO trainers (character_id, trainer_name, ranks, modified_ranks, date_of_last_rank)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![new_char_id, trainer_name, ranks, modified_ranks, date_of_last_rank],
+            "INSERT OR IGNORE INTO trainers (character_id, trainer_name, ranks, modified_ranks, date_of_last_rank, effective_multiplier)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![new_char_id, trainer_name, ranks, modified_ranks, date_of_last_rank, multiplier],
         )?;
 
         result.trainers_imported += 1;
