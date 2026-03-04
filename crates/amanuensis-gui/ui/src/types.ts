@@ -36,6 +36,10 @@ export interface Character {
   eps_broken: number;
   untraining_count: number;
   ore_found: number;
+  tin_ore_found: number;
+  copper_ore_found: number;
+  gold_ore_found: number;
+  iron_ore_found: number;
   wood_taken: number;
   wood_useless: number;
 }

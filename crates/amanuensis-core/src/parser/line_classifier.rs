@@ -195,8 +195,9 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     if patterns::ETHEREAL_STONE_USED.is_match(message) {
         return LogEvent::EtherealPortalStoneUsed;
     }
-    if patterns::ORE_FOUND.is_match(message) {
-        return LogEvent::OreFound;
+    if let Some(caps) = patterns::ORE_FOUND.captures(message) {
+        let ore_type = caps.get(1).map_or("unknown", |m| m.as_str()).to_lowercase();
+        return LogEvent::OreFound(ore_type);
     }
     if patterns::WOOD_TAKEN.is_match(message) {
         return LogEvent::WoodTaken;

@@ -36,6 +36,14 @@ export function EquipmentView() {
         <StatCard
           label="Ore Found"
           value={char.ore_found.toLocaleString()}
+          sub={char.ore_found > 0
+            ? [
+                char.iron_ore_found > 0 ? `${char.iron_ore_found} iron` : null,
+                char.copper_ore_found > 0 ? `${char.copper_ore_found} copper` : null,
+                char.tin_ore_found > 0 ? `${char.tin_ore_found} tin` : null,
+                char.gold_ore_found > 0 ? `${char.gold_ore_found} gold` : null,
+              ].filter(Boolean).join(" · ") || undefined
+            : undefined}
         />
         <StatCard
           label="Wood Taken"
