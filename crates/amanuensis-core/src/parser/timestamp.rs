@@ -82,11 +82,8 @@ pub fn parse_timestamp(line: &str) -> Option<(NaiveDateTime, &str)> {
     };
 
     // Convert 12-hour to 24-hour (only for a/p format)
-    if last == b'a' {
-        if hour == 12 { hour = 0; }
-    } else if last == b'p' {
-        if hour != 12 { hour += 12; }
-    }
+    if last == b'a' && hour == 12 { hour = 0; }
+    else if last == b'p' && hour != 12 { hour += 12; }
 
     // Validate ranges
     if !(1..=12).contains(&month) || !(1..=31).contains(&day) || hour > 23 || minute > 59 || second > 59 {
