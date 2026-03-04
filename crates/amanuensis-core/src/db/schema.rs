@@ -41,7 +41,9 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             blood_worth INTEGER NOT NULL DEFAULT 0,
             eps_broken INTEGER NOT NULL DEFAULT 0,
             untraining_count INTEGER NOT NULL DEFAULT 0,
-            ore_found INTEGER NOT NULL DEFAULT 0
+            ore_found INTEGER NOT NULL DEFAULT 0,
+            wood_taken INTEGER NOT NULL DEFAULT 0,
+            wood_useless INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS kills (
@@ -156,6 +158,8 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE kills ADD COLUMN date_first_killed TEXT",
         "ALTER TABLE characters ADD COLUMN coin_level_interim INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN ore_found INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN wood_taken INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN wood_useless INTEGER NOT NULL DEFAULT 0",
     ];
 
     for sql in &migrations {

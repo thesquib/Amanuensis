@@ -97,6 +97,10 @@ pub enum LogEvent {
     ProfessionAnnouncement { name: String, profession: String },
     /// Ore found: "You found a lump of {type} ore!"
     OreFound,
+    /// Wood taken: "You take the wood."
+    WoodTaken,
+    /// Wood useless: "You find that the wood is useless."
+    WoodUseless,
     /// Character was untrained by Untrainus
     Untrained,
     /// Line was not classified (speech, emote, or unrecognized)

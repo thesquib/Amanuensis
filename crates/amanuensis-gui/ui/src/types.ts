@@ -36,6 +36,8 @@ export interface Character {
   eps_broken: number;
   untraining_count: number;
   ore_found: number;
+  wood_taken: number;
+  wood_useless: number;
 }
 
 /** Mirrors Rust `Kill` struct */

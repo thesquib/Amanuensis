@@ -438,6 +438,16 @@ impl LogParser {
                         .increment_character_field(char_id, "ore_found", 1)?;
                     file_result.events_found += 1;
                 }
+                LogEvent::WoodTaken => {
+                    self.db
+                        .increment_character_field(char_id, "wood_taken", 1)?;
+                    file_result.events_found += 1;
+                }
+                LogEvent::WoodUseless => {
+                    self.db
+                        .increment_character_field(char_id, "wood_useless", 1)?;
+                    file_result.events_found += 1;
+                }
 
                 LogEvent::KarmaReceived { good } => {
                     let field = if good { "good_karma" } else { "bad_karma" };
