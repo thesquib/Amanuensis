@@ -26,6 +26,7 @@ export interface Character {
   darkstone: number;
   purgatory_pendant: number;
   coin_level: number;
+  coin_level_interim: number;
   good_karma: number;
   bad_karma: number;
   start_date: string | null;

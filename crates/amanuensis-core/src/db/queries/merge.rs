@@ -165,6 +165,8 @@ impl Database {
         let all_ids = self.char_ids_for_merged(target_id)?;
         let coin_level = self.compute_coin_level_for_char_ids(&all_ids)?;
         self.update_coin_level(target_id, coin_level)?;
+        let interim = if coin_level == 0 { self.compute_interim_coin_level_for_char_ids(&all_ids)? } else { 0 };
+        self.update_coin_level_interim(target_id, interim)?;
         Ok(())
     }
 

@@ -97,6 +97,8 @@ impl Database {
         for char_id in char_ids {
             let coin_level = self.compute_coin_level_from_kills(char_id)?;
             self.update_coin_level(char_id, coin_level)?;
+            let interim = if coin_level == 0 { self.compute_interim_coin_level_from_kills(char_id)? } else { 0 };
+            self.update_coin_level_interim(char_id, interim)?;
         }
         Ok(())
     }

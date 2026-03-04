@@ -106,6 +106,15 @@ impl Database {
         Ok(())
     }
 
+    /// Update a character's interim coin level (best kill-verb value when threshold not met).
+    pub fn update_coin_level_interim(&self, char_id: i64, interim: i64) -> Result<()> {
+        self.conn.execute(
+            "UPDATE characters SET coin_level_interim = ?1 WHERE id = ?2",
+            params![interim, char_id],
+        )?;
+        Ok(())
+    }
+
     /// Set a character's start_date to the earlier of the existing value and the new value.
     pub fn update_start_date(&self, char_id: i64, date: &str) -> Result<()> {
         self.conn.execute(
