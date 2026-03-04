@@ -26,15 +26,18 @@ export function getCreatureFamily(name: string): string {
   return bestiaryMap[name]?.family ?? "";
 }
 
+// Families excluded from coin-level and CV graph because their bestiary values are
+// averaged across multiple population strengths (e.g. Ghastly Presence appears in
+// weak and strong variants, averaged to ~650). Demonic Undine (e.g. Ancient Darshak
+// Liche) is NOT excluded — these are specific enemies with reliable, consistent values.
 export const NON_STUFFABLE_FAMILIES = new Set([
   "Ethereal",
   "Insubstantial Undine",
   "Substantial Undine",
   "Skeletal Undine",
-  "Demonic Undine",
 ]);
 
-/** Returns false for ethereal/undine creatures whose bestiary values are unreliable for CV tracking. */
+/** Returns false for creatures whose bestiary values are unreliable for CV tracking. */
 export function isStuffable(name: string): boolean {
   const family = bestiaryMap[name]?.family ?? "";
   return !NON_STUFFABLE_FAMILIES.has(family);
