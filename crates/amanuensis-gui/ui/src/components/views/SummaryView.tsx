@@ -117,10 +117,13 @@ export function SummaryView() {
     highestLootKill,
   } = useMemo(() => computeKillStats(kills), [kills]);
 
-  // Coin level fallback: if no creature has 5+ kill-verb kills (coin_level=0),
-  // use the precomputed interim value (best kill-verb creature with ≥1 kill, value ≥50).
-  const displayCoinLevel = char.coin_level > 0 ? char.coin_level : char.coin_level_interim;
-  const coinLevelEstimated = char.coin_level === 0 && char.coin_level_interim > 0;
+  // Prefer the TS-computed coinLevelKill.creature_value over char.coin_level:
+  // the Rust SQL has no stuffable filter (no family data in creatures.csv), so it can
+  // include non-stuffable creatures (e.g. Ghastly Presence at 650). The TS computation
+  // correctly excludes those and is the authoritative displayed value.
+  const confirmedCoinLevel = coinLevelKill?.creature_value ?? char.coin_level;
+  const displayCoinLevel = confirmedCoinLevel > 0 ? confirmedCoinLevel : char.coin_level_interim;
+  const coinLevelEstimated = confirmedCoinLevel === 0 && char.coin_level_interim > 0;
 
   const totalRanks = trainers.reduce(
     (sum, t) => sum + t.ranks + t.modified_ranks,
