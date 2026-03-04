@@ -33,6 +33,10 @@ export function EquipmentView() {
           label="Purgatory Pendant"
           value={char.purgatory_pendant.toLocaleString()}
         />
+        <StatCard
+          label="Ore Found"
+          value={char.ore_found.toLocaleString()}
+        />
       </div>
     </div>
   );

@@ -433,6 +433,11 @@ impl LogParser {
                         .increment_character_field(char_id, "eps_broken", 1)?;
                     file_result.events_found += 1;
                 }
+                LogEvent::OreFound => {
+                    self.db
+                        .increment_character_field(char_id, "ore_found", 1)?;
+                    file_result.events_found += 1;
+                }
 
                 LogEvent::KarmaReceived { good } => {
                     let field = if good { "good_karma" } else { "bad_karma" };

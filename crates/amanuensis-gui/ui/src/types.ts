@@ -35,6 +35,7 @@ export interface Character {
   blood_worth: number;
   eps_broken: number;
   untraining_count: number;
+  ore_found: number;
 }
 
 /** Mirrors Rust `Kill` struct */

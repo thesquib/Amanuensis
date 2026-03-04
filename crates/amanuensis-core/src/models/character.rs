@@ -87,6 +87,8 @@ pub struct Character {
     pub eps_broken: i64,
     // Untrainus visits
     pub untraining_count: i64,
+    // Ore found (mining)
+    pub ore_found: i64,
 }
 
 impl Character {
@@ -127,6 +129,7 @@ impl Character {
             blood_worth: 0,
             eps_broken: 0,
             untraining_count: 0,
+            ore_found: 0,
         }
     }
 }

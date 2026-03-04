@@ -61,6 +61,11 @@ pub static ETHEREAL_PORTAL: Lazy<Regex> =
 pub static ETHEREAL_STONE_USED: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^Your ethereal portal stone disappears into the ether\.$").expect("regex compile error"));
 
+// === Ore found ===
+// "You found a lump of iron ore!" / "You found a lump of copper ore!" / etc.
+pub static ORE_FOUND: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You found a lump of .+ ore!$").expect("regex compile error"));
+
 // === Karma patterns ===
 // "You just received good karma from {name}." / "You just received bad karma from {name}."
 pub static KARMA_RECEIVED: Lazy<Regex> =
