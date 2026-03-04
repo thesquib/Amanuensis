@@ -98,6 +98,7 @@ export function SummaryView() {
     totalAssisted,
     uniqueCreatures,
     nemesis,
+    highestKill,
     highestKilled,
     coinLevelKill,
     highestSlaughtered,
@@ -295,15 +296,15 @@ export function SummaryView() {
           }
         />
         <StatCard
-          label="Highest Value Kill"
-          value={highestKilled?.creature_name ?? "None"}
-          sub={highestKilled ? [
-            `Value: ${highestKilled.creature_value}`,
-            timeAgo(highestKilled.date_last_killed),
+          label="Highest Value Kill (any)"
+          value={highestKill?.creature_name ?? "None"}
+          sub={highestKill ? [
+            `Value: ${highestKill.creature_value}`,
+            timeAgo(highestKill.date_last),
           ].filter(Boolean).join(" · ") : undefined}
           image={
-            highestKilled ? (
-              <CreatureImage creatureName={highestKilled.creature_name} className="h-12 w-auto" />
+            highestKill ? (
+              <CreatureImage creatureName={highestKill.creature_name} className="h-12 w-auto" />
             ) : undefined
           }
         />
@@ -325,7 +326,7 @@ export function SummaryView() {
           }
         />
         <StatCard
-          label="Highest Solo Kill"
+          label="Highest Solo Kill (any)"
           value={highestSoloKill?.creature_name ?? "None"}
           sub={
             highestSoloKill
