@@ -21,6 +21,9 @@ export function totalKillCount(k: Kill): number {
   return soloKillCount(k) + assistedKillCount(k);
 }
 
+/** Minimum verb-kills needed for a creature to count toward coin level (mirrors Rust COIN_LEVEL_MIN_KILLS). */
+export const COIN_LEVEL_MIN_KILLS = 5;
+
 export interface KillStats {
   totalSolo: number;
   totalAssisted: number;
@@ -33,6 +36,8 @@ export interface KillStats {
   nemesis: Kill | null;
   highestKill: Kill | null;
   highestKilled: Kill | null;
+  /** Highest-value stuffable creature with ≥COIN_LEVEL_MIN_KILLS verb kills — the creature that actually sets coin_level. */
+  coinLevelKill: Kill | null;
   highestSlaughtered: Kill | null;
   highestVanquished: Kill | null;
   highestDispatched: Kill | null;
@@ -83,6 +88,7 @@ export function computeKillStats(kills: Kill[]): KillStats {
   let nemesis: Kill | null = null;
   let highestKill: Kill | null = null;
   let highestKilled: Kill | null = null;
+  let coinLevelKill: Kill | null = null;
   let highestSlaughtered: Kill | null = null;
   let highestVanquished: Kill | null = null;
   let highestDispatched: Kill | null = null;
@@ -109,6 +115,7 @@ export function computeKillStats(kills: Kill[]): KillStats {
     if (total > 0 && k.creature_value > (highestKill?.creature_value ?? 0)) highestKill = k;
 
     if (k.killed_count + k.assisted_kill_count > 0 && isStuffable(k.creature_name) && k.creature_value > (highestKilled?.creature_value ?? 0)) highestKilled = k;
+    if (k.killed_count + k.assisted_kill_count >= COIN_LEVEL_MIN_KILLS && isStuffable(k.creature_name) && k.creature_value > (coinLevelKill?.creature_value ?? 0)) coinLevelKill = k;
     if (k.slaughtered_count + k.assisted_slaughter_count > 0 && k.creature_value > (highestSlaughtered?.creature_value ?? 0)) highestSlaughtered = k;
     if (k.vanquished_count + k.assisted_vanquish_count > 0 && k.creature_value > (highestVanquished?.creature_value ?? 0)) highestVanquished = k;
     if (k.dispatched_count + k.assisted_dispatch_count > 0 && k.creature_value > (highestDispatched?.creature_value ?? 0)) highestDispatched = k;
@@ -164,6 +171,7 @@ export function computeKillStats(kills: Kill[]): KillStats {
     nemesis,
     highestKill,
     highestKilled,
+    coinLevelKill,
     highestSlaughtered,
     highestVanquished,
     highestDispatched,
