@@ -198,6 +198,12 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     if patterns::ORE_FOUND.is_match(message) {
         return LogEvent::OreFound;
     }
+    if patterns::WOOD_TAKEN.is_match(message) {
+        return LogEvent::WoodTaken;
+    }
+    if patterns::WOOD_USELESS.is_match(message) {
+        return LogEvent::WoodUseless;
+    }
 
     // Esteem gain (check before experience since it also starts with "* You gain")
     if patterns::ESTEEM_GAIN.is_match(message) {

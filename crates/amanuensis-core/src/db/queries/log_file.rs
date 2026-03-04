@@ -68,6 +68,7 @@ impl Database {
                bells_used=0, bells_broken=0, chains_used=0, chains_broken=0,
                shieldstones_used=0, shieldstones_broken=0, ethereal_portals=0,
                darkstone=0, purgatory_pendant=0, coin_level=0, ore_found=0,
+               wood_taken=0, wood_useless=0,
                good_karma=0, bad_karma=0, start_date=NULL,
                fur_worth=0, mandible_worth=0, blood_worth=0,
                eps_broken=0, untraining_count=0, profession='Unknown';

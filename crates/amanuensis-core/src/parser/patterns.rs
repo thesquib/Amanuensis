@@ -66,6 +66,12 @@ pub static ETHEREAL_STONE_USED: Lazy<Regex> =
 pub static ORE_FOUND: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You found a lump of .+ ore!$").expect("regex compile error"));
 
+// === Wood gathering ===
+pub static WOOD_TAKEN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You take the wood\.$").expect("regex compile error"));
+pub static WOOD_USELESS: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You find that the wood is useless\.$").expect("regex compile error"));
+
 // === Karma patterns ===
 // "You just received good karma from {name}." / "You just received bad karma from {name}."
 pub static KARMA_RECEIVED: Lazy<Regex> =

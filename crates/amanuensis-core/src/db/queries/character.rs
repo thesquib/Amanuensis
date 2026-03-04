@@ -62,7 +62,7 @@ impl Database {
             "darkstone", "purgatory_pendant", "coin_level",
             "good_karma", "bad_karma",
             "fur_worth", "mandible_worth", "blood_worth", "eps_broken",
-            "untraining_count", "ore_found",
+            "untraining_count", "ore_found", "wood_taken", "wood_useless",
         ];
         if !allowed.contains(&field) {
             return Err(crate::error::AmanuensisError::Data(format!(

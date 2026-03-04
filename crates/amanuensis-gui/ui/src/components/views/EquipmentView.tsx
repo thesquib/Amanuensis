@@ -37,6 +37,13 @@ export function EquipmentView() {
           label="Ore Found"
           value={char.ore_found.toLocaleString()}
         />
+        <StatCard
+          label="Wood Taken"
+          value={char.wood_taken.toLocaleString()}
+          sub={char.wood_taken + char.wood_useless > 0
+            ? `${char.wood_useless} useless · ${Math.round(char.wood_taken / (char.wood_taken + char.wood_useless) * 100)}% success`
+            : undefined}
+        />
       </div>
     </div>
   );

@@ -89,6 +89,9 @@ pub struct Character {
     pub untraining_count: i64,
     // Ore found (mining)
     pub ore_found: i64,
+    // Wood gathering
+    pub wood_taken: i64,
+    pub wood_useless: i64,
 }
 
 impl Character {
@@ -130,6 +133,8 @@ impl Character {
             eps_broken: 0,
             untraining_count: 0,
             ore_found: 0,
+            wood_taken: 0,
+            wood_useless: 0,
         }
     }
 }
