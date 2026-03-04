@@ -1,16 +1,26 @@
 use encoding_rs::WINDOWS_1252;
 
-/// Remap Mac Roman bytes in the 0x80–0x9F range to their W1252 equivalents.
+/// Remap Mac Roman bytes to their W1252 equivalents so that W1252 decoding yields
+/// correct Unicode output.
 ///
-/// Clan Lord is a classic Mac game, so log files contain Mac Roman byte values for
-/// accented characters (e.g., 0x87 = á in "Rodán", 0x8F = è in "Violène"). In W1252,
-/// the 0x80–0x9F range holds typography symbols (smart quotes, dashes, etc.) rather than
-/// accented letters. We remap each Mac Roman byte to the W1252 byte that produces the
-/// same Unicode character, so W1252 decoding yields correct accented output.
-/// Bytes 0xA0–0xFF are left alone (0xA5 = ¥ for trainer message prefixes).
+/// Clan Lord is a classic Mac game, so log files use Mac Roman encoding for non-ASCII
+/// characters.  Two ranges need fixing:
+///
+/// **0x80–0x9F — accented Latin letters**
+/// Mac Roman places accented letters here (e.g. 0x87 = á, 0x8F = è).  W1252 uses the
+/// same range for typographic symbols (€, smart quotes, dashes, etc.), so we remap each
+/// Mac Roman accented-letter byte to the W1252 byte that produces the same Unicode char.
+///
+/// **Selected bytes in 0xA0–0xFF — typographic punctuation**
+/// Mac Roman and W1252 diverge here for common punctuation used in NPC dialogue:
+/// smart quotes (0xD2–0xD5), en/em dashes (0xD0–0xD1), ellipsis (0xC9), trademark
+/// (0xAA).  W1252 keeps these at 0x80–0x9F, so we remap them accordingly.
+/// 0xA5 is intentionally left alone — Clan Lord uses byte 0xA5 as the ¥ prefix on
+/// trainer messages, and W1252 decodes 0xA5 as ¥ (U+00A5) which is what we want.
 fn patch_mac_roman_bytes(line: &[u8]) -> Vec<u8> {
     line.iter()
         .map(|&b| match b {
+            // 0x80–0x9F: Mac Roman accented letters → W1252 equivalents
             0x80 => 0xC4, // Ä
             0x81 => 0xC5, // Å
             0x82 => 0xC7, // Ç
@@ -43,6 +53,16 @@ fn patch_mac_roman_bytes(line: &[u8]) -> Vec<u8> {
             0x9D => 0xF9, // ù
             0x9E => 0xFB, // û
             0x9F => 0xFC, // ü
+            // 0xA0–0xFF: Mac Roman typographic punctuation used in NPC dialogue
+            // These differ from W1252; map to the W1252 bytes that carry the same Unicode char.
+            0xAA => 0x99, // ™  (U+2122, trademark)
+            0xC9 => 0x85, // …  (U+2026, horizontal ellipsis)
+            0xD0 => 0x96, // –  (U+2013, en dash)
+            0xD1 => 0x97, // —  (U+2014, em dash)
+            0xD2 => 0x93, // \u{201C}  (U+201C, left double quotation mark)
+            0xD3 => 0x94, // \u{201D}  (U+201D, right double quotation mark)
+            0xD4 => 0x91, // \u{2018}  (U+2018, left single quotation mark)
+            0xD5 => 0x92, // \u{2019}  (U+2019, right single quotation mark / smart apostrophe)
             _ => b,
         })
         .collect()
@@ -169,6 +189,44 @@ mod tests {
         bytes.extend_from_slice(b"n Panther.");
         let result = decode_log_bytes(&bytes);
         assert!(result.contains("Rodán Panther"), "Expected á, got: {}", result);
+    }
+
+    #[test]
+    fn test_mac_roman_smart_apostrophe() {
+        // Mac Roman 0xD5 = ' (U+2019, right single quotation mark / smart apostrophe)
+        // e.g. "I've" stored as "I\x{D5}ve" in Mac Roman logs
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"So far I");
+        bytes.push(0xD5); // Mac Roman right single quote / apostrophe
+        bytes.extend_from_slice(b"ve been here.");
+        let result = decode_log_bytes(&bytes);
+        assert!(result.contains("I\u{2019}ve"), "Expected smart apostrophe, got: {}", result);
+        assert!(!result.contains("I\u{00D5}ve"), "Should not have Õ, got: {}", result);
+    }
+
+    #[test]
+    fn test_mac_roman_curly_quotes() {
+        // Mac Roman 0xD2 = " (U+201C), 0xD3 = " (U+201D)
+        // e.g. «Type "/use /shape" to assume...»
+        let mut bytes = Vec::new();
+        bytes.push(0xD2); // Mac Roman left double quote
+        bytes.extend_from_slice(b"/use /shape");
+        bytes.push(0xD3); // Mac Roman right double quote
+        let result = decode_log_bytes(&bytes);
+        assert!(result.contains("\u{201C}/use /shape\u{201D}"), "Expected curly quotes, got: {}", result);
+        assert!(!result.contains('\u{00D2}'), "Should not have Ò, got: {}", result);
+        assert!(!result.contains('\u{00D3}'), "Should not have Ó, got: {}", result);
+    }
+
+    #[test]
+    fn test_mac_roman_em_dash() {
+        // Mac Roman 0xD1 = — (U+2014, em dash)
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"one");
+        bytes.push(0xD1); // Mac Roman em dash
+        bytes.extend_from_slice(b"two");
+        let result = decode_log_bytes(&bytes);
+        assert!(result.contains("one\u{2014}two"), "Expected em dash, got: {}", result);
     }
 
     #[test]
