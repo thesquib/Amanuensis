@@ -33,8 +33,6 @@ export function getCreatureFamily(name: string): string {
 export const NON_STUFFABLE_FAMILIES = new Set([
   "Ethereal",
   "Insubstantial Undine",
-  "Substantial Undine",
-  "Skeletal Undine",
 ]);
 
 /** Returns false for creatures whose bestiary values are unreliable for CV tracking. */
