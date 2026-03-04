@@ -433,9 +433,19 @@ impl LogParser {
                         .increment_character_field(char_id, "eps_broken", 1)?;
                     file_result.events_found += 1;
                 }
-                LogEvent::OreFound => {
+                LogEvent::OreFound(ref ore_type) => {
                     self.db
                         .increment_character_field(char_id, "ore_found", 1)?;
+                    let type_field = match ore_type.as_str() {
+                        "tin" => Some("tin_ore_found"),
+                        "copper" => Some("copper_ore_found"),
+                        "gold" => Some("gold_ore_found"),
+                        "iron" => Some("iron_ore_found"),
+                        _ => None,
+                    };
+                    if let Some(field) = type_field {
+                        self.db.increment_character_field(char_id, field, 1)?;
+                    }
                     file_result.events_found += 1;
                 }
                 LogEvent::WoodTaken => {

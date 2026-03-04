@@ -63,8 +63,9 @@ pub static ETHEREAL_STONE_USED: Lazy<Regex> =
 
 // === Ore found ===
 // "You found a lump of iron ore!" / "You found a lump of copper ore!" / etc.
+// Captures the ore type (group 1).
 pub static ORE_FOUND: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You found a lump of .+ ore!$").expect("regex compile error"));
+    Lazy::new(|| Regex::new(r"^You found a lump of (.+) ore!$").expect("regex compile error"));
 
 // === Wood gathering ===
 pub static WOOD_TAKEN: Lazy<Regex> =

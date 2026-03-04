@@ -42,6 +42,10 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             eps_broken INTEGER NOT NULL DEFAULT 0,
             untraining_count INTEGER NOT NULL DEFAULT 0,
             ore_found INTEGER NOT NULL DEFAULT 0,
+            tin_ore_found INTEGER NOT NULL DEFAULT 0,
+            copper_ore_found INTEGER NOT NULL DEFAULT 0,
+            gold_ore_found INTEGER NOT NULL DEFAULT 0,
+            iron_ore_found INTEGER NOT NULL DEFAULT 0,
             wood_taken INTEGER NOT NULL DEFAULT 0,
             wood_useless INTEGER NOT NULL DEFAULT 0
         );
@@ -158,6 +162,10 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE kills ADD COLUMN date_first_killed TEXT",
         "ALTER TABLE characters ADD COLUMN coin_level_interim INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN ore_found INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN tin_ore_found INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN copper_ore_found INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN gold_ore_found INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN iron_ore_found INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN wood_taken INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN wood_useless INTEGER NOT NULL DEFAULT 0",
     ];

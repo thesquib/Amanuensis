@@ -87,8 +87,12 @@ pub struct Character {
     pub eps_broken: i64,
     // Untrainus visits
     pub untraining_count: i64,
-    // Ore found (mining)
+    // Ore found (mining) — total and by type
     pub ore_found: i64,
+    pub tin_ore_found: i64,
+    pub copper_ore_found: i64,
+    pub gold_ore_found: i64,
+    pub iron_ore_found: i64,
     // Wood gathering
     pub wood_taken: i64,
     pub wood_useless: i64,
@@ -133,6 +137,10 @@ impl Character {
             eps_broken: 0,
             untraining_count: 0,
             ore_found: 0,
+            tin_ore_found: 0,
+            copper_ore_found: 0,
+            gold_ore_found: 0,
+            iron_ore_found: 0,
             wood_taken: 0,
             wood_useless: 0,
         }

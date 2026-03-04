@@ -96,7 +96,8 @@ pub enum LogEvent {
     /// Profession announcement from NPC (circle test or "become a" message)
     ProfessionAnnouncement { name: String, profession: String },
     /// Ore found: "You found a lump of {type} ore!"
-    OreFound,
+    /// The string is the ore type in lowercase, e.g. "iron", "copper", "tin", "gold".
+    OreFound(String),
     /// Wood taken: "You take the wood."
     WoodTaken,
     /// Wood useless: "You find that the wood is useless."
