@@ -192,12 +192,13 @@ impl Database {
 
     pub fn compute_interim_coin_level_for_char_ids(&self, char_ids: &[i64]) -> Result<i64> {
         let placeholders = char_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        // No min_value floor — any kill-verb creature with a positive value qualifies,
+        // so low-level characters like Olga aren't left showing 0.
         let sql = format!(
             "SELECT COALESCE(MAX(creature_value), 0) FROM kills
              WHERE character_id IN ({placeholders})
                AND (killed_count + assisted_kill_count) >= 1
-               AND creature_value >= {min_val}",
-            min_val = Self::COIN_LEVEL_MIN_VALUE,
+               AND creature_value > 0",
         );
         let result: i64 = self.conn.query_row(
             &sql,
