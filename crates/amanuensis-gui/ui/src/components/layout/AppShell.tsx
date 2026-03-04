@@ -162,7 +162,7 @@ export function AppShell() {
             </div>
             {/* View content */}
             <div className="min-h-0 flex-1 overflow-auto p-4">
-              <ViewErrorBoundary view={effectiveView}>
+              <ViewErrorBoundary key={effectiveView} view={effectiveView}>
                 <ViewContent view={effectiveView} />
               </ViewErrorBoundary>
             </div>
