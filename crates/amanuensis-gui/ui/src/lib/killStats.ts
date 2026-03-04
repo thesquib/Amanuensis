@@ -24,6 +24,17 @@ export function totalKillCount(k: Kill): number {
 /** Minimum verb-kills needed for a creature to count toward coin level (mirrors Rust COIN_LEVEL_MIN_KILLS). */
 export const COIN_LEVEL_MIN_KILLS = 5;
 
+/**
+ * Pseudo-creature names that appear in "fallen to X" death messages but are NOT
+ * actual creatures — they're self-inflicted skill/magic damage or environmental causes.
+ * Excluded from the Nemesis calculation so Bloodmages/Mystics don't get "blood magic"
+ * or "lightning bolt" as their nemesis.
+ */
+export const SELF_INFLICTED_DEATH_CAUSES = new Set([
+  "blood magic",
+  "lightning bolt",
+]);
+
 export interface KillStats {
   totalSolo: number;
   totalAssisted: number;
@@ -110,7 +121,7 @@ export function computeKillStats(kills: Kill[]): KillStats {
     totalKilled += k.killed_count + k.assisted_kill_count;
     totalDispatched += k.dispatched_count + k.assisted_dispatch_count;
 
-    if (k.killed_by_count > (nemesis?.killed_by_count ?? 0)) nemesis = k;
+    if (k.killed_by_count > (nemesis?.killed_by_count ?? 0) && !SELF_INFLICTED_DEATH_CAUSES.has(k.creature_name.toLowerCase())) nemesis = k;
 
     if (total > 0 && k.creature_value > (highestKill?.creature_value ?? 0)) highestKill = k;
 
