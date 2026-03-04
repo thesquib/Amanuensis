@@ -25,7 +25,7 @@ const CHARACTER_COLUMNS: &str =
      bells_used, bells_broken, chains_used, chains_broken,
      shieldstones_used, shieldstones_broken, ethereal_portals, darkstone, purgatory_pendant,
      coin_level, coin_level_interim, good_karma, bad_karma, start_date,
-     fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count";
+     fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count, ore_found";
 
 /// Map a rusqlite row (from a CHARACTER_COLUMNS projection) to a Character.
 fn map_character_row(row: &Row<'_>) -> rusqlite::Result<Character> {
@@ -65,6 +65,7 @@ fn map_character_row(row: &Row<'_>) -> rusqlite::Result<Character> {
         blood_worth: row.get(32)?,
         eps_broken: row.get(33)?,
         untraining_count: row.get(34)?,
+        ore_found: row.get(35)?,
     })
 }
 

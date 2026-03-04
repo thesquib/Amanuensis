@@ -195,6 +195,9 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     if patterns::ETHEREAL_STONE_USED.is_match(message) {
         return LogEvent::EtherealPortalStoneUsed;
     }
+    if patterns::ORE_FOUND.is_match(message) {
+        return LogEvent::OreFound;
+    }
 
     // Esteem gain (check before experience since it also starts with "* You gain")
     if patterns::ESTEEM_GAIN.is_match(message) {

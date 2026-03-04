@@ -95,6 +95,8 @@ pub enum LogEvent {
     EsteemGain,
     /// Profession announcement from NPC (circle test or "become a" message)
     ProfessionAnnouncement { name: String, profession: String },
+    /// Ore found: "You found a lump of {type} ore!"
+    OreFound,
     /// Character was untrained by Untrainus
     Untrained,
     /// Line was not classified (speech, emote, or unrecognized)
