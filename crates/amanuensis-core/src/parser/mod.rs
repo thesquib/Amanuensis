@@ -968,6 +968,8 @@ impl LogParser {
             }
             let coin_level = self.compute_coin_level(char_id)?;
             self.db.update_coin_level(char_id, coin_level)?;
+            let interim = if coin_level == 0 { self.db.compute_interim_coin_level_from_kills(char_id)? } else { 0 };
+            self.db.update_coin_level_interim(char_id, interim)?;
         }
         Ok(())
     }

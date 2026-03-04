@@ -73,6 +73,7 @@ pub struct Character {
     pub darkstone: i64,
     pub purgatory_pendant: i64,
     pub coin_level: i64,
+    pub coin_level_interim: i64,
     // Karma
     pub good_karma: i64,
     pub bad_karma: i64,
@@ -117,6 +118,7 @@ impl Character {
             darkstone: 0,
             purgatory_pendant: 0,
             coin_level: 0,
+            coin_level_interim: 0,
             good_karma: 0,
             bad_karma: 0,
             start_date: None,

@@ -184,6 +184,29 @@ impl Database {
         self.compute_coin_level_for_char_ids(&[char_id])
     }
 
+    /// Compute interim coin level: best kill-verb creature with ≥1 kill when the
+    /// reliable threshold (≥5) is not yet met. Returns 0 if coin_level is already > 0.
+    pub fn compute_interim_coin_level_from_kills(&self, char_id: i64) -> Result<i64> {
+        self.compute_interim_coin_level_for_char_ids(&[char_id])
+    }
+
+    pub fn compute_interim_coin_level_for_char_ids(&self, char_ids: &[i64]) -> Result<i64> {
+        let placeholders = char_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT COALESCE(MAX(creature_value), 0) FROM kills
+             WHERE character_id IN ({placeholders})
+               AND (killed_count + assisted_kill_count) >= 1
+               AND creature_value >= {min_val}",
+            min_val = Self::COIN_LEVEL_MIN_VALUE,
+        );
+        let result: i64 = self.conn.query_row(
+            &sql,
+            rusqlite::params_from_iter(char_ids.iter()),
+            |row| row.get(0),
+        )?;
+        Ok(result)
+    }
+
     /// Compute coin level across a set of character IDs (for merged characters).
     pub fn compute_coin_level_for_char_ids(&self, char_ids: &[i64]) -> Result<i64> {
         let placeholders = char_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");

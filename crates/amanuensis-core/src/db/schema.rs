@@ -32,6 +32,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             darkstone INTEGER NOT NULL DEFAULT 0,
             purgatory_pendant INTEGER NOT NULL DEFAULT 0,
             coin_level INTEGER NOT NULL DEFAULT 0,
+            coin_level_interim INTEGER NOT NULL DEFAULT 0,
             good_karma INTEGER NOT NULL DEFAULT 0,
             bad_karma INTEGER NOT NULL DEFAULT 0,
             start_date TEXT,
@@ -152,6 +153,7 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE kills ADD COLUMN best_loot_value INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE kills ADD COLUMN best_loot_item TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE kills ADD COLUMN date_first_killed TEXT",
+        "ALTER TABLE characters ADD COLUMN coin_level_interim INTEGER NOT NULL DEFAULT 0",
     ];
 
     for sql in &migrations {

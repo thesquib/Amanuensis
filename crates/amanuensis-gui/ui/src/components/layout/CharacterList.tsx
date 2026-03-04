@@ -24,7 +24,8 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
   const [showMergeDialog, setShowMergeDialog] = useState(false);
 
   const filtered = characters.filter((char) => {
-    if (excludeLowCL && char.coin_level < 1) return false;
+    const displayCL = Math.max(char.coin_level, char.coin_level_interim);
+    if (excludeLowCL && displayCL < 1) return false;
     if (excludeUnknown && char.profession === "Unknown") return false;
     return true;
   });
@@ -77,7 +78,15 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
               <div className="flex items-center gap-2">
                 <ProfessionBadge profession={char.profession} />
                 <span className="text-xs text-[var(--color-text-muted)]">
-                  Lvl {char.coin_level}
+                  {(() => {
+                    const cl = char.coin_level;
+                    const interim = char.coin_level_interim;
+                    const display = Math.max(cl, interim);
+                    const estimated = cl === 0 && interim > 0;
+                    return display > 0
+                      ? `Lvl ${display}${estimated ? "*" : ""}`
+                      : "Lvl 0";
+                  })()}
                 </span>
               </div>
             </div>

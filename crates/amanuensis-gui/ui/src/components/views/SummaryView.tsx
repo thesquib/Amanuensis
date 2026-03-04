@@ -117,10 +117,9 @@ export function SummaryView() {
   } = useMemo(() => computeKillStats(kills), [kills]);
 
   // Coin level fallback: if no creature has 5+ kill-verb kills (coin_level=0),
-  // show the best available kill-verb creature with fewer kills + asterisk.
-  const coinLevelFallback = char.coin_level === 0 ? (highestKilled?.creature_value ?? 0) : 0;
-  const displayCoinLevel = char.coin_level > 0 ? char.coin_level : coinLevelFallback;
-  const coinLevelEstimated = char.coin_level === 0 && coinLevelFallback > 0;
+  // use the precomputed interim value (best kill-verb creature with ≥1 kill, value ≥50).
+  const displayCoinLevel = char.coin_level > 0 ? char.coin_level : char.coin_level_interim;
+  const coinLevelEstimated = char.coin_level === 0 && char.coin_level_interim > 0;
 
   const totalRanks = trainers.reduce(
     (sum, t) => sum + t.ranks + t.modified_ranks,
