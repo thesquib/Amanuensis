@@ -369,20 +369,6 @@ function StatsTooltip({ active, payload, label }: { active?: boolean; payload?: 
 }
 
 // ---------------------------------------------------------------------------
-// Checkbox toggle
-// ---------------------------------------------------------------------------
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--color-text-muted)]">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 accent-[var(--color-accent)]" />
-      {label}
-    </label>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Chart section wrapper
 // ---------------------------------------------------------------------------
 
@@ -402,8 +388,6 @@ function ChartSection({ title, children }: { title: string; children: React.Reac
 export function CVGraphView() {
   const { kills, trainers, lastys, characters, selectedCharacterId } = useStore();
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
-  const [showTrainers, setShowTrainers] = useState(false);
-  const [showStats, setShowStats] = useState(false);
 
   useEffect(() => {
     getTrainerDbInfo().then(setTrainerDb).catch(() => {});
@@ -423,9 +407,9 @@ export function CVGraphView() {
   );
 
   const cvData = useMemo(() => buildCVTimeline(kills, trainers), [kills, trainers]);
-  const trainerData = useMemo(() => showTrainers ? buildTrainerTimeline(trainers, topTrainerNames) : [], [trainers, topTrainerNames, showTrainers]);
-  const studiesData = useMemo(() => (showTrainers && isRanger) ? buildStudiesTimeline(lastys) : [], [lastys, showTrainers, isRanger]);
-  const statsData = useMemo(() => showStats ? buildStatsTimeline(trainers, trainerDb) : [], [trainers, trainerDb, showStats]);
+  const trainerData = useMemo(() => buildTrainerTimeline(trainers, topTrainerNames), [trainers, topTrainerNames]);
+  const studiesData = useMemo(() => isRanger ? buildStudiesTimeline(lastys) : [], [lastys, isRanger]);
+  const statsData = useMemo(() => buildStatsTimeline(trainers, trainerDb), [trainers, trainerDb]);
 
   const cvMaxCv = useMemo(() => Math.max(0, ...cvData.map((p) => Math.max(p.killCv ?? 0, p.rankCv ?? 0))), [cvData]);
   const cvYTicks = useMemo(() => yTicks(cvMaxCv, 20), [cvMaxCv]);
@@ -456,14 +440,8 @@ export function CVGraphView() {
 
   return (
     <div className="space-y-4">
-      {/* Header + toggles */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[var(--color-text)]">CV Over Time</h2>
-        <div className="flex gap-4">
-          <Toggle label="Trainers" checked={showTrainers} onChange={setShowTrainers} />
-          <Toggle label="Stats" checked={showStats} onChange={setShowStats} />
-        </div>
-      </div>
+      {/* Header */}
+      <h2 className="text-lg font-semibold text-[var(--color-text)]">CV Over Time</h2>
 
       {/* Main CV chart */}
       <ChartSection title="Coin Value">
@@ -484,7 +462,7 @@ export function CVGraphView() {
       </ChartSection>
 
       {/* Trainer ranks chart */}
-      {showTrainers && trainerData.length > 0 && (
+      {trainerData.length > 0 && (
         <ChartSection title="Individual Trainer Ranks">
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={trainerData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
@@ -505,7 +483,7 @@ export function CVGraphView() {
       )}
 
       {/* Ranger studies chart */}
-      {showTrainers && isRanger && studiesData.length > 0 && (
+      {isRanger && studiesData.length > 0 && (
         <ChartSection title="Ranger Studies">
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={studiesData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
@@ -525,7 +503,7 @@ export function CVGraphView() {
       )}
 
       {/* Stats over time */}
-      {showStats && statsData.length > 0 && (
+      {statsData.length > 0 && (
         <ChartSection title="Rank Progression">
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={statsData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
