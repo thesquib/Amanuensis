@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Component } from "react";
+import type { ReactNode } from "react";
 import { useStore } from "../../lib/store";
 import { checkForUpdate, type UpdateInfo } from "../../lib/commands";
 import { Sidebar } from "./Sidebar";
@@ -16,6 +17,37 @@ import { LogSearchView } from "../views/LogSearchView";
 import { ProcessLogsView } from "../views/ProcessLogsView";
 import { CVGraphView } from "../views/CVGraphView";
 import type { ViewType } from "../../types";
+
+class ViewErrorBoundary extends Component<
+  { children: ReactNode; view: string },
+  { error: Error | null }
+> {
+  constructor(props: { children: ReactNode; view: string }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-4 text-sm">
+          <div className="mb-2 font-semibold text-red-400">
+            Error in {this.props.view} view
+          </div>
+          <div className="mb-2 text-[var(--color-text-muted)]">
+            {this.state.error.message}
+          </div>
+          <pre className="overflow-auto rounded bg-[var(--color-card)] p-3 text-xs text-red-300">
+            {this.state.error.stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const TABS: { id: ViewType; label: string; visibleFor?: string[] }[] = [
   { id: "summary", label: "Summary" },
@@ -130,7 +162,9 @@ export function AppShell() {
             </div>
             {/* View content */}
             <div className="min-h-0 flex-1 overflow-auto p-4">
-              <ViewContent view={effectiveView} />
+              <ViewErrorBoundary view={effectiveView}>
+                <ViewContent view={effectiveView} />
+              </ViewErrorBoundary>
             </div>
           </>
         ) : (
