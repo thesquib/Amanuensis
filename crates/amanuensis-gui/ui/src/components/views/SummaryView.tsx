@@ -217,6 +217,12 @@ export function SummaryView() {
             <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">
               {coinLevelEstimated ? <span className="text-[var(--color-accent)]">*not enough data yet</span> : "Highest Kill"}
             </div>
+            {highestKilled && (
+              <div className="mt-2 flex items-center gap-1.5">
+                <CreatureImage creatureName={highestKilled.creature_name} className="h-6 w-auto" />
+                <span className="text-xs text-[var(--color-text-muted)] truncate">{highestKilled.creature_name}</span>
+              </div>
+            )}
           </div>
           <div className="mt-3 border-t border-[var(--color-border)] pt-3">
             <div className="mt-1 text-4xl font-bold">{Math.round(slaughterPoints / 150).toLocaleString()}</div>
