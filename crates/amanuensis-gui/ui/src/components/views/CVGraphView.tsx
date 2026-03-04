@@ -160,9 +160,15 @@ function buildTrainerTimeline(trainers: Trainer[], topNames: string[]): TrainerP
 
   // Prepend an origin point one day before the earliest trainer date, all trainers at 0.
   // This ensures lines step up from 0 rather than appearing flat from the start.
-  const firstD = new Date(allDates[0] + "T12:00:00");
+  // Use numeric Date constructor (not string parsing) to avoid Safari/WebKit Invalid Date issues.
+  const [fy, fm, fd] = allDates[0].split("-").map(Number);
+  const firstD = new Date(fy, fm - 1, fd);
   firstD.setDate(firstD.getDate() - 1);
-  const originDate = firstD.toISOString().slice(0, 10);
+  const originDate = [
+    firstD.getFullYear(),
+    String(firstD.getMonth() + 1).padStart(2, "0"),
+    String(firstD.getDate()).padStart(2, "0"),
+  ].join("-");
 
   const originPoint: TrainerPoint = { date: originDate };
   for (const name of topNames) originPoint[name] = 0;

@@ -1,0 +1,29 @@
+# Rust build output
+target/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Original app (reference only, not source)
+Scribius.app/
+
+# Local files
+newicon.png
+reference/
+screenshots/
+scripts/
+Bestiary_2026_Feb_Dump.xlsx
+clnet_bestiary_2025_02_16.xml
+
+# Frontend build output
+crates/amanuensis-gui/ui/dist/
+crates/amanuensis-gui/ui/node_modules/
+
+# TypeScript incremental build info
+*.tsbuildinfo
