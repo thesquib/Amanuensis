@@ -43,6 +43,14 @@ impl Database {
             .map(|c| format!(", {c} = NULLIF(MAX(COALESCE(kills.{c}, ''), COALESCE(excluded.{c}, '')), '')"))
             .unwrap_or_default();
 
+        // Track first-kill date only for the kill verb (not slaughter/vanquish/dispatch/death)
+        let is_kill_verb = field == "killed_count" || field == "assisted_kill_count";
+        let date_first_killed_insert = if is_kill_verb { ", date_first_killed" } else { "" };
+        let date_first_killed_value = if is_kill_verb { ", NULLIF(?4, '')" } else { "" };
+        let date_first_killed_update = if is_kill_verb {
+            ", date_first_killed = COALESCE(NULLIF(kills.date_first_killed, ''), NULLIF(excluded.date_first_killed, ''))"
+        } else { "" };
+
         let is_death = field == "killed_by_count";
 
         if is_death {
@@ -67,11 +75,11 @@ impl Database {
                    date_last = NULLIF(MAX(COALESCE(kills.date_last, ''), COALESCE(excluded.date_last, '')), '')";
 
             let sql = format!(
-                "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert})
-                 VALUES (?1, ?2, 1, ?3, NULLIF(?4, ''), NULLIF(?4, ''){date_col_value})
+                "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert}{date_first_killed_insert})
+                 VALUES (?1, ?2, 1, ?3, NULLIF(?4, ''), NULLIF(?4, ''){date_col_value}{date_first_killed_value})
                  ON CONFLICT(character_id, creature_name) DO UPDATE SET
                     {field} = {field} + 1,
-                    creature_value = MAX(kills.creature_value, excluded.creature_value){date_update}{date_col_update}",
+                    creature_value = MAX(kills.creature_value, excluded.creature_value){date_update}{date_col_update}{date_first_killed_update}",
             );
             self.conn.execute(
                 &sql,
@@ -88,7 +96,7 @@ impl Database {
                     killed_count, slaughtered_count, vanquished_count, dispatched_count,
                     assisted_kill_count, assisted_slaughter_count, assisted_vanquish_count, assisted_dispatch_count,
                     killed_by_count, date_first, date_last, creature_value,
-                    date_last_killed, date_last_slaughtered, date_last_vanquished, date_last_dispatched,
+                    date_first_killed, date_last_killed, date_last_slaughtered, date_last_vanquished, date_last_dispatched,
                     COALESCE(best_loot_value, 0), COALESCE(best_loot_item, '')
              FROM kills WHERE character_id = ?1
              ORDER BY (killed_count + slaughtered_count + vanquished_count + dispatched_count +
@@ -112,12 +120,13 @@ impl Database {
                 date_first: row.get(12)?,
                 date_last: row.get(13)?,
                 creature_value: row.get(14)?,
-                date_last_killed: row.get(15)?,
-                date_last_slaughtered: row.get(16)?,
-                date_last_vanquished: row.get(17)?,
-                date_last_dispatched: row.get(18)?,
-                best_loot_value: row.get(19)?,
-                best_loot_item: row.get(20)?,
+                date_first_killed: row.get(15)?,
+                date_last_killed: row.get(16)?,
+                date_last_slaughtered: row.get(17)?,
+                date_last_vanquished: row.get(18)?,
+                date_last_dispatched: row.get(19)?,
+                best_loot_value: row.get(20)?,
+                best_loot_item: row.get(21)?,
             })
         })?;
 
@@ -165,9 +174,12 @@ impl Database {
     /// Excludes trivial low-level creatures (rats worth 2, jellyfish worth 8, etc.).
     const COIN_LEVEL_MIN_VALUE: i32 = 50;
 
-    /// Compute coin level as the highest creature_value among all personal kills
-    /// (killed, slaughtered, vanquished, or dispatched — not assists or deaths).
-    /// Returns 0 if no personal kills of meaningful value recorded.
+    /// Minimum kill-verb count (solo + assisted) required for a creature to contribute to coin level.
+    /// Prevents one-off GM spawns or unusual encounters from skewing the value.
+    const COIN_LEVEL_MIN_KILLS: i64 = 5;
+
+    /// Compute coin level as the highest creature_value among creatures killed (verb: kill/killed)
+    /// at least COIN_LEVEL_MIN_KILLS times (solo + assisted). Returns 0 if none qualify.
     pub fn compute_coin_level_from_kills(&self, char_id: i64) -> Result<i64> {
         self.compute_coin_level_for_char_ids(&[char_id])
     }
@@ -178,9 +190,10 @@ impl Database {
         let sql = format!(
             "SELECT COALESCE(MAX(creature_value), 0) FROM kills
              WHERE character_id IN ({placeholders})
-               AND (killed_count + slaughtered_count + vanquished_count + dispatched_count) > 0
-               AND creature_value >= {min}",
-            min = Self::COIN_LEVEL_MIN_VALUE,
+               AND (killed_count + assisted_kill_count) >= {min_kills}
+               AND creature_value >= {min_val}",
+            min_kills = Self::COIN_LEVEL_MIN_KILLS,
+            min_val = Self::COIN_LEVEL_MIN_VALUE,
         );
         let result: i64 = self.conn.query_row(
             &sql,

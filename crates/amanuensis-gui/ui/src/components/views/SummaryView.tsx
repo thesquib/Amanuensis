@@ -116,6 +116,12 @@ export function SummaryView() {
     highestLootKill,
   } = useMemo(() => computeKillStats(kills), [kills]);
 
+  // Coin level fallback: if no creature has 5+ kill-verb kills (coin_level=0),
+  // show the best available kill-verb creature with fewer kills + asterisk.
+  const coinLevelFallback = char.coin_level === 0 ? (highestKilled?.creature_value ?? 0) : 0;
+  const displayCoinLevel = char.coin_level > 0 ? char.coin_level : coinLevelFallback;
+  const coinLevelEstimated = char.coin_level === 0 && coinLevelFallback > 0;
+
   const totalRanks = trainers.reduce(
     (sum, t) => sum + t.ranks + t.modified_ranks,
     0,
@@ -206,8 +212,12 @@ export function SummaryView() {
         <div className="rounded-lg bg-[var(--color-card)] p-4 flex flex-col justify-between">
           <div>
             <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)]">Coin Level</div>
-            <div className="mt-1 text-4xl font-bold">{char.coin_level.toLocaleString()}</div>
-            <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">Highest Kill</div>
+            <div className="mt-1 text-4xl font-bold">
+              {displayCoinLevel.toLocaleString()}{coinLevelEstimated && <span className="text-[var(--color-accent)] text-2xl">*</span>}
+            </div>
+            <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">
+              {coinLevelEstimated ? <span className="text-[var(--color-accent)]">*not enough data yet</span> : "Highest Kill"}
+            </div>
           </div>
           <div className="mt-3 border-t border-[var(--color-border)] pt-3">
             <div className="mt-1 text-4xl font-bold">{Math.round(slaughterPoints / 150).toLocaleString()}</div>

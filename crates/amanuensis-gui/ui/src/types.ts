@@ -51,6 +51,7 @@ export interface Kill {
   assisted_dispatch_count: number;
   killed_by_count: number;
   date_first: string | null;
+  date_first_killed: string | null;
   date_last: string | null;
   creature_value: number;
   date_last_killed: string | null;

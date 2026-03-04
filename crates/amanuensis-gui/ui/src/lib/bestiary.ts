@@ -25,3 +25,17 @@ export function getCreatureImageUrl(name: string): string | null {
 export function getCreatureFamily(name: string): string {
   return bestiaryMap[name]?.family ?? "";
 }
+
+export const NON_STUFFABLE_FAMILIES = new Set([
+  "Ethereal",
+  "Insubstantial Undine",
+  "Substantial Undine",
+  "Skeletal Undine",
+  "Demonic Undine",
+]);
+
+/** Returns false for ethereal/undine creatures whose bestiary values are unreliable for CV tracking. */
+export function isStuffable(name: string): boolean {
+  const family = bestiaryMap[name]?.family ?? "";
+  return !NON_STUFFABLE_FAMILIES.has(family);
+}

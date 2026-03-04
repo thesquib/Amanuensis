@@ -41,26 +41,6 @@ const columns = [
     },
   ),
   columnHelper.accessor(
-    (row) => row.slaughtered_count + row.assisted_slaughter_count,
-    {
-      id: "slaughtered",
-      header: "Slaughtered",
-      cell: (info) => {
-        const row = info.row.original;
-        const total = row.slaughtered_count + row.assisted_slaughter_count;
-        const date = row.date_last_slaughtered;
-        return (
-          <span title={date ? `Last slaughter: ${formatDate(date)}` : undefined}>
-            {total.toLocaleString()}
-            {row.slaughtered_count > 0 && total !== row.slaughtered_count && (
-              <span className="text-[var(--color-text-muted)]"> ({row.slaughtered_count})</span>
-            )}
-          </span>
-        );
-      },
-    },
-  ),
-  columnHelper.accessor(
     (row) => row.killed_count + row.assisted_kill_count,
     {
       id: "killed",
@@ -94,6 +74,26 @@ const columns = [
             {total.toLocaleString()}
             {row.dispatched_count > 0 && total !== row.dispatched_count && (
               <span className="text-[var(--color-text-muted)]"> ({row.dispatched_count})</span>
+            )}
+          </span>
+        );
+      },
+    },
+  ),
+  columnHelper.accessor(
+    (row) => row.slaughtered_count + row.assisted_slaughter_count,
+    {
+      id: "slaughtered",
+      header: "Slaughtered",
+      cell: (info) => {
+        const row = info.row.original;
+        const total = row.slaughtered_count + row.assisted_slaughter_count;
+        const date = row.date_last_slaughtered;
+        return (
+          <span title={date ? `Last slaughter: ${formatDate(date)}` : undefined}>
+            {total.toLocaleString()}
+            {row.slaughtered_count > 0 && total !== row.slaughtered_count && (
+              <span className="text-[var(--color-text-muted)]"> ({row.slaughtered_count})</span>
             )}
           </span>
         );

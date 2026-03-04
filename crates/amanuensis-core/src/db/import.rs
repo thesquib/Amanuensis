@@ -429,17 +429,18 @@ fn import_kills(
             .and_then(coredata_timestamp_to_date);
 
         let date_last = coredata_timestamp_to_date(last_enc_ts);
+        let date_first_killed = if first_kill_ts != 0.0 { coredata_timestamp_to_date(first_kill_ts) } else { None };
 
         dst.execute(
             "INSERT OR IGNORE INTO kills (
                 character_id, creature_name,
                 killed_count, slaughtered_count, dispatched_count, vanquished_count,
-                killed_by_count, creature_value, date_first, date_last
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                killed_by_count, creature_value, date_first, date_first_killed, date_last
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 new_char_id, creature_name,
                 killed, slaughtered, dispatched, vanquished,
-                killed_by, creature_value, date_first, date_last,
+                killed_by, creature_value, date_first, date_first_killed, date_last,
             ],
         )?;
 

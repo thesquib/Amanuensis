@@ -12,6 +12,7 @@ import {
 import { useStore } from "../../lib/store";
 import { getTrainerDbInfo } from "../../lib/commands";
 import { SP_COSTS, RACE_SP, computeFighterStats } from "../../lib/fighterStats";
+import { isStuffable } from "../../lib/bestiary";
 import type { TrainerInfo, Kill, Trainer, Lasty } from "../../types";
 
 // ---------------------------------------------------------------------------
@@ -61,17 +62,25 @@ function buildCVTimeline(
   kills: Kill[],
   trainers: Trainer[],
 ): CVPoint[] {
-  // Kill CV: running max of creature_value (killed + assisted_kill), sorted by date_first
+  // Kill CV: running max of creature_value for kills with verb "kill/killed", sorted by date_first_killed.
+  // Falls back to date_last_killed if date_first_killed is unavailable (e.g. imported from Scribius).
   const killSteps: { date: string; cv: number; creature: string }[] = [];
   const sortedKills = kills
-    .filter((k) => k.date_first != null && (k.killed_count + k.assisted_kill_count) > 0)
-    .sort((a, b) => a.date_first!.localeCompare(b.date_first!));
+    .filter((k) => (k.killed_count + k.assisted_kill_count) >= 5
+      && (k.date_first_killed ?? k.date_last_killed) != null
+      && isStuffable(k.creature_name))
+    .sort((a, b) => {
+      const da = (a.date_first_killed ?? a.date_last_killed)!;
+      const db = (b.date_first_killed ?? b.date_last_killed)!;
+      return da.localeCompare(db);
+    });
 
   let runningMax = 0;
   for (const k of sortedKills) {
     if (k.creature_value > runningMax) {
       runningMax = k.creature_value;
-      killSteps.push({ date: k.date_first!.slice(0, 10), cv: k.creature_value, creature: k.creature_name });
+      const date = (k.date_first_killed ?? k.date_last_killed)!;
+      killSteps.push({ date: date.slice(0, 10), cv: k.creature_value, creature: k.creature_name });
     }
   }
 
@@ -156,18 +165,18 @@ function buildTrainerTimeline(trainers: Trainer[], topNames: string[]): TrainerP
 
   if (datedTrainers.length === 0) return [];
 
-  const allDates = [...new Set(datedTrainers.map((t) => t.date_of_last_rank!.slice(0, 10)))].sort();
+  // Monthly granularity: one point per month that has at least one rank event.
+  const allMonths = [...new Set(datedTrainers.map((t) => t.date_of_last_rank!.slice(0, 7)))].sort();
 
-  // Prepend an origin point one day before the earliest trainer date, all trainers at 0.
-  // This ensures lines step up from 0 rather than appearing flat from the start.
+  // Prepend an origin point one month before the earliest, all trainers at 0.
   // Use numeric Date constructor (not string parsing) to avoid Safari/WebKit Invalid Date issues.
-  const [fy, fm, fd] = allDates[0].split("-").map(Number);
-  const firstD = new Date(fy, fm - 1, fd);
-  firstD.setDate(firstD.getDate() - 1);
+  const [fy, fm] = allMonths[0].split("-").map(Number);
+  const firstD = new Date(fy, fm - 1, 1);
+  firstD.setMonth(firstD.getMonth() - 1);
   const originDate = [
     firstD.getFullYear(),
     String(firstD.getMonth() + 1).padStart(2, "0"),
-    String(firstD.getDate()).padStart(2, "0"),
+    "01",
   ].join("-");
 
   const originPoint: TrainerPoint = { date: originDate };
@@ -176,15 +185,14 @@ function buildTrainerTimeline(trainers: Trainer[], topNames: string[]): TrainerP
   const current: Record<string, number> = {};
   const result: TrainerPoint[] = [originPoint];
 
-  for (const date of allDates) {
+  for (const month of allMonths) {
     for (const t of datedTrainers) {
-      if (t.date_of_last_rank!.slice(0, 10) === date) {
+      if (t.date_of_last_rank!.slice(0, 7) === month) {
         current[t.trainer_name] = (current[t.trainer_name] ?? 0) + (t.ranks + t.modified_ranks);
       }
     }
-    const point: TrainerPoint = { date };
+    const point: TrainerPoint = { date: month + "-01" };
     for (const name of topNames) {
-      // Use 0 for trainers not yet reached their date (not null) so lines stay at 0
       point[name] = current[name] ?? 0;
     }
     result.push(point);
@@ -199,30 +207,31 @@ function buildStudiesTimeline(lastys: Lasty[]): StudiesPoint[] {
       .filter((l) => l.lasty_type === type && l.finished && l.completed_date)
       .sort((a, b) => a.completed_date!.localeCompare(b.completed_date!));
 
-  const movs = byType("Movements").map((l, i) => ({ date: l.completed_date!.slice(0, 10), count: i + 1, creature: l.creature_name }));
-  const befs = byType("Befriend").map((l, i) => ({ date: l.completed_date!.slice(0, 10), count: i + 1, creature: l.creature_name }));
-  const morphs = byType("Morph").map((l, i) => ({ date: l.completed_date!.slice(0, 10), count: i + 1, creature: l.creature_name }));
+  // Every completion event becomes its own point; use full datetime as key for uniqueness.
+  const movs  = byType("Movements").map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "mov"   as const }));
+  const befs  = byType("Befriend") .map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "bef"   as const }));
+  const morphs = byType("Morph")   .map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "morph" as const }));
 
-  const allDates = [...new Set([...movs, ...befs, ...morphs].map((s) => s.date))].sort();
-  if (allDates.length === 0) return [];
+  const allEvents = [...movs, ...befs, ...morphs].sort((a, b) => a.date.localeCompare(b.date));
+  if (allEvents.length === 0) return [];
 
   let lm = 0, lb = 0, lmo = 0;
 
-  return allDates.map((date) => {
-    const m = movs.filter((s) => s.date === date);
-    const b = befs.filter((s) => s.date === date);
-    const mo = morphs.filter((s) => s.date === date);
-    if (m.length) lm = m[m.length - 1].count;
-    if (b.length) lb = b[b.length - 1].count;
-    if (mo.length) lmo = mo[mo.length - 1].count;
+  return allEvents.map((ev) => {
+    let movCreature: string | undefined;
+    let befCreature: string | undefined;
+    let morphCreature: string | undefined;
+    if (ev.kind === "mov")   { lm  = ev.count; movCreature   = ev.creature; }
+    if (ev.kind === "bef")   { lb  = ev.count; befCreature   = ev.creature; }
+    if (ev.kind === "morph") { lmo = ev.count; morphCreature = ev.creature; }
     return {
-      date,
+      date: ev.date,
       movements: lm,
       befriends: lb,
       morphs: lmo,
-      ...(m.length && { movementCreature: m[m.length - 1].creature }),
-      ...(b.length && { befriendCreature: b[b.length - 1].creature }),
-      ...(mo.length && { morphCreature: mo[mo.length - 1].creature }),
+      ...(movCreature   !== undefined && { movementCreature: movCreature }),
+      ...(befCreature   !== undefined && { befriendCreature: befCreature }),
+      ...(morphCreature !== undefined && { morphCreature }),
     };
   });
 }
@@ -233,19 +242,20 @@ function buildStatsTimeline(trainers: Trainer[], trainerDb: TrainerInfo[]): Stat
     .filter((t) => t.date_of_last_rank != null && (t.ranks + t.modified_ranks) > 0)
     .sort((a, b) => a.date_of_last_rank!.localeCompare(b.date_of_last_rank!));
 
-  const allDates = [...new Set(datedTrainers.map((t) => t.date_of_last_rank!.slice(0, 10)))].sort();
-  if (allDates.length === 0) return [];
+  // Monthly granularity: one point per month with at least one rank event.
+  const allMonths = [...new Set(datedTrainers.map((t) => t.date_of_last_rank!.slice(0, 7)))].sort();
+  if (allMonths.length === 0) return [];
 
-  return allDates.map((date) => {
+  return allMonths.map((month) => {
     const ranksAtDate = new Map<string, number>();
     for (const t of datedTrainers) {
-      if (t.date_of_last_rank!.slice(0, 10) <= date) {
+      if (t.date_of_last_rank!.slice(0, 7) <= month) {
         ranksAtDate.set(t.trainer_name, (ranksAtDate.get(t.trainer_name) ?? 0) + (t.ranks + t.modified_ranks));
       }
     }
     const stats = computeFighterStats(ranksAtDate, multMap);
     return {
-      date,
+      date: month + "-01",
       trainedRanks: stats.trainedRanks,
       effectiveRanks: Math.round(stats.effectiveRanks),
       slaughterRanks: Math.round(stats.slaughterPoints / 150),
@@ -431,7 +441,7 @@ export function CVGraphView() {
   const trainerXTicks = useMemo(() => pickXTicks(trainerData.map((d) => d.date as string)), [trainerData]);
 
   const studiesMax = useMemo(() => Math.max(5, ...studiesData.map((p) => Math.max(p.movements, p.befriends, p.morphs))), [studiesData]);
-  const studiesXTicks = useMemo(() => pickXTicks(studiesData.map((d) => d.date)), [studiesData]);
+  const studiesXTicks = useMemo(() => pickXTicks(studiesData.map((d) => d.date), 12), [studiesData]);
 
   const statsMax = useMemo(() => statsData.length ? Math.max(100, ...statsData.map((p) => Math.max(p.trainedRanks, p.effectiveRanks))) : 100, [statsData]);
   const statsXTicks = useMemo(() => pickXTicks(statsData.map((d) => d.date)), [statsData]);
@@ -481,7 +491,8 @@ export function CVGraphView() {
               {topTrainerNames.map((name, i) => (
                 <Line key={name} type="stepAfter" dataKey={name} name={name}
                   stroke={TRAINER_COLORS[i % TRAINER_COLORS.length]}
-                  dot={false} activeDot={{ r: 4 }} />
+                  dot={{ r: 2, strokeWidth: 0, fill: TRAINER_COLORS[i % TRAINER_COLORS.length] }}
+                  activeDot={{ r: 4 }} />
               ))}
             </LineChart>
           </ResponsiveContainer>
@@ -500,9 +511,9 @@ export function CVGraphView() {
                 tick={{ fill: "var(--color-text-muted)", fontSize: 11 }} />
               <Tooltip content={<StudiesTooltip />} />
               <Legend wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 12 }} />
-              <Line type="stepAfter" dataKey="movements" name="Movements" stroke="#34d399" dot={false} activeDot={{ r: 4 }} connectNulls />
-              <Line type="stepAfter" dataKey="befriends" name="Befriends" stroke="#60a5fa" dot={false} activeDot={{ r: 4 }} connectNulls />
-              <Line type="stepAfter" dataKey="morphs" name="Morphs" stroke="#f472b6" dot={false} activeDot={{ r: 4 }} connectNulls />
+              <Line type="stepAfter" dataKey="movements" name="Movements" stroke="#34d399" dot={{ r: 3, strokeWidth: 0, fill: "#34d399" }} activeDot={{ r: 5 }} connectNulls />
+              <Line type="stepAfter" dataKey="befriends" name="Befriends" stroke="#60a5fa" dot={{ r: 3, strokeWidth: 0, fill: "#60a5fa" }} activeDot={{ r: 5 }} connectNulls />
+              <Line type="stepAfter" dataKey="morphs" name="Morphs" stroke="#f472b6" dot={{ r: 3, strokeWidth: 0, fill: "#f472b6" }} activeDot={{ r: 5 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </ChartSection>
@@ -521,10 +532,10 @@ export function CVGraphView() {
                 tick={{ fill: "var(--color-text-muted)", fontSize: 11 }} />
               <Tooltip content={<StatsTooltip />} />
               <Legend wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 12 }} />
-              <Line type="stepAfter" dataKey="trainedRanks" name="Trained Ranks" stroke="#fbbf24" dot={false} activeDot={{ r: 4 }} connectNulls />
-              <Line type="stepAfter" dataKey="effectiveRanks" name="Effective Ranks" stroke="#34d399" dot={false} activeDot={{ r: 4 }} connectNulls />
+              <Line type="stepAfter" dataKey="trainedRanks" name="Trained Ranks" stroke="#fbbf24" dot={{ r: 2, strokeWidth: 0, fill: "#fbbf24" }} activeDot={{ r: 4 }} connectNulls />
+              <Line type="stepAfter" dataKey="effectiveRanks" name="Effective Ranks" stroke="#34d399" dot={{ r: 2, strokeWidth: 0, fill: "#34d399" }} activeDot={{ r: 4 }} connectNulls />
               <Line type="stepAfter" dataKey="slaughterRanks" name="Est. Slaughter Ranks" stroke="#a78bfa"
-                strokeDasharray="5 5" dot={false} activeDot={{ r: 4 }} connectNulls />
+                strokeDasharray="5 5" dot={{ r: 2, strokeWidth: 0, fill: "#a78bfa" }} activeDot={{ r: 4 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </ChartSection>
