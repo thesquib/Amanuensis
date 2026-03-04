@@ -29,6 +29,7 @@ export interface FamilyProgress {
   is_maxed: boolean;
   total_creatures: number;
   representative_creature: string;
+  has_progress: boolean;
 }
 
 export interface MorphCandidate {
@@ -58,7 +59,7 @@ export interface RangerStats {
   morph_candidates: MorphCandidate[];
 }
 
-const EXCLUDED_FAMILIES = new Set(["--", "Uncategorized"]);
+const EXCLUDED_FAMILIES = new Set(["--", "Uncategorized", "EXTINCT", "Extinct"]);
 
 function isTargetEligible(
   name: string,
@@ -265,6 +266,7 @@ export function computeRangerStats(
         is_maxed: false,
         total_creatures: bestiaryInfo?.count ?? 0,
         representative_creature: bestiaryInfo?.representative ?? study.creature_name,
+        has_progress: true,
       });
     }
     const fp = familyMap.get(study.family)!;
@@ -279,9 +281,30 @@ export function computeRangerStats(
     fp.is_maxed = fp.bonus_pct >= 50;
   }
 
-  const families = Array.from(familyMap.values()).sort((a, b) =>
-    b.bonus_pct - a.bonus_pct || a.family.localeCompare(b.family),
-  );
+  // Add zero-progress entries for all bestiary families not yet studied
+  for (const [family, info] of allBestiaryFamilies) {
+    if (familyMap.has(family)) continue;
+    if (EXCLUDED_FAMILIES.has(family)) continue;
+    familyMap.set(family, {
+      family,
+      movements_completed: 0,
+      befriends_completed: 0,
+      morphs_completed: 0,
+      bonus_pct: 0,
+      is_maxed: false,
+      total_creatures: info.count,
+      representative_creature: info.representative,
+      has_progress: false,
+    });
+  }
+
+  const studiedFamilies = Array.from(familyMap.values())
+    .filter((fp) => fp.has_progress)
+    .sort((a, b) => b.bonus_pct - a.bonus_pct || a.family.localeCompare(b.family));
+  const unstudiedFamilies = Array.from(familyMap.values())
+    .filter((fp) => !fp.has_progress)
+    .sort((a, b) => a.family.localeCompare(b.family));
+  const families = [...studiedFamilies, ...unstudiedFamilies];
 
   // Build morph candidates: creatures with value > 0 not yet morph-completed
   const studiedCreatures = new Set(creatureLastys.keys());
