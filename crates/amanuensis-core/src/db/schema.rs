@@ -56,6 +56,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             assisted_dispatch_count INTEGER NOT NULL DEFAULT 0,
             killed_by_count INTEGER NOT NULL DEFAULT 0,
             date_first TEXT,
+            date_first_killed TEXT,
             date_last TEXT,
             creature_value INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (character_id) REFERENCES characters(id),
@@ -150,6 +151,7 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE trainers ADD COLUMN effective_multiplier REAL NOT NULL DEFAULT 1.0",
         "ALTER TABLE kills ADD COLUMN best_loot_value INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE kills ADD COLUMN best_loot_item TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE kills ADD COLUMN date_first_killed TEXT",
     ];
 
     for sql in &migrations {

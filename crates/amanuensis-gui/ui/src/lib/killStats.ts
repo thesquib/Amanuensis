@@ -1,4 +1,5 @@
 import type { Kill } from "../types";
+import { isStuffable } from "./bestiary";
 
 /** Total solo kills (killed + slaughtered + vanquished + dispatched). */
 export function soloKillCount(k: Kill): number {
@@ -107,7 +108,7 @@ export function computeKillStats(kills: Kill[]): KillStats {
 
     if (total > 0 && k.creature_value > (highestKill?.creature_value ?? 0)) highestKill = k;
 
-    if (k.killed_count + k.assisted_kill_count > 0 && k.creature_value > (highestKilled?.creature_value ?? 0)) highestKilled = k;
+    if (k.killed_count + k.assisted_kill_count > 0 && isStuffable(k.creature_name) && k.creature_value > (highestKilled?.creature_value ?? 0)) highestKilled = k;
     if (k.slaughtered_count + k.assisted_slaughter_count > 0 && k.creature_value > (highestSlaughtered?.creature_value ?? 0)) highestSlaughtered = k;
     if (k.vanquished_count + k.assisted_vanquish_count > 0 && k.creature_value > (highestVanquished?.creature_value ?? 0)) highestVanquished = k;
     if (k.dispatched_count + k.assisted_dispatch_count > 0 && k.creature_value > (highestDispatched?.creature_value ?? 0)) highestDispatched = k;
