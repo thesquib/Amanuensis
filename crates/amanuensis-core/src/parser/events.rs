@@ -110,6 +110,14 @@ pub enum LogEvent {
     /// character_name is who the greeting was addressed to (may differ from log owner).
     /// rank_max=None means the trainer is maxed.
     TrainerCheckpoint { trainer_name: String, character_name: String, rank_min: i64, rank_max: Option<i64> },
+    /// Trainer simple greeting (bow sequence step 1): Trainer says, "Hail, Name."
+    /// character_name is who the greeting was addressed to.
+    TrainerGreetingSimple { trainer_name: String, character_name: String },
+    /// Trainer bow (bow sequence step 2): "Trainer bows." or "Trainer bows deeply."
+    TrainerBow { trainer_name: String },
+    /// Trainer checkpoint message without greeting prefix (bow sequence step 3):
+    /// Trainer says, "{known_checkpoint_message}" — character name comes from the preceding greeting.
+    TrainerCheckpointUnhailed { trainer_name: String, rank_min: i64, rank_max: Option<i64> },
     /// Line was not classified (speech, emote, or unrecognized)
     Ignored,
 }

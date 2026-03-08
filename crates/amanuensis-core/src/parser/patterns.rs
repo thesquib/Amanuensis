@@ -91,6 +91,19 @@ pub static UNTRAINED: Lazy<Regex> =
 pub static TRAINER_GREETING: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^(.+?) says(?:\s+in\s+\S+)?, "Hail, ([^."]+)\.\s+(.+)"$"#).expect("regex compile error"));
 
+/// Trainer simple greeting (bow sequence): Trainer says, "Hail, Name."
+/// No rank message — the rank message comes in a separate line after a bow.
+pub static TRAINER_GREETING_SIMPLE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"^(.+?) says(?:\s+in\s+\S+)?, "Hail, ([^."]+)\."$"#).expect("regex compile error"));
+
+/// Trainer bow: "Trainer bows." or "Trainer bows deeply."
+pub static TRAINER_BOW: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"^(.+?) bows(?: deeply)?\.?$"#).expect("regex compile error"));
+
+/// Generic NPC speech: Trainer says, "{message}"
+pub static NPC_SPEECH: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"^(.+?) says(?:\s+in\s+\S+)?, "(.+)"$"#).expect("regex compile error"));
+
 // === Speech/emote patterns to skip ===
 pub static SPEECH: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^.+ (says|exclaims|yells|ponders|thinks|asks), ""#).expect("regex compile error"));
@@ -514,5 +527,42 @@ mod tests {
     fn test_trainer_greeting_no_match_without_hail() {
         // A greeting without "Hail, " should NOT match TRAINER_GREETING
         assert!(TRAINER_GREETING.captures(r#"Histia says, "Nice to see you, Gandor.""#).is_none());
+    }
+
+    #[test]
+    fn test_trainer_greeting_simple_matches() {
+        let caps = TRAINER_GREETING_SIMPLE.captures(r#"Regia says, "Hail, Gandor.""#).unwrap();
+        assert_eq!(&caps[1], "Regia");
+        assert_eq!(&caps[2], "Gandor");
+    }
+
+    #[test]
+    fn test_trainer_greeting_simple_no_match_with_message() {
+        // Full greeting with rank message should NOT match TRAINER_GREETING_SIMPLE
+        assert!(TRAINER_GREETING_SIMPLE.captures(r#"Histia says, "Hail, Gandor. You have attained tremendous skill.""#).is_none());
+    }
+
+    #[test]
+    fn test_trainer_bow_matches() {
+        let caps = TRAINER_BOW.captures("Regia bows.").unwrap();
+        assert_eq!(&caps[1], "Regia");
+    }
+
+    #[test]
+    fn test_trainer_bow_deeply_matches() {
+        let caps = TRAINER_BOW.captures("Regia bows deeply.").unwrap();
+        assert_eq!(&caps[1], "Regia");
+    }
+
+    #[test]
+    fn test_trainer_bow_no_match_to_person() {
+        // "bows to" should NOT match TRAINER_BOW
+        assert!(TRAINER_BOW.captures("V'wuntuuhun III bows to Muwe.").is_none());
+    }
+
+    #[test]
+    fn test_trainer_bow_no_match_elegantly() {
+        // "bows elegantly" should NOT match TRAINER_BOW
+        assert!(TRAINER_BOW.captures("Omegus bows elegantly from the waist.").is_none());
     }
 }

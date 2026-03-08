@@ -71,6 +71,31 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
                 return LogEvent::TrainerCheckpoint { trainer_name, character_name, rank_min, rank_max };
             }
         }
+        // Simple greeting: "Trainer says, "Hail, Name."" — no rank message on this line.
+        // Bow sequence step 1.
+        if let Some(caps) = patterns::TRAINER_GREETING_SIMPLE.captures(message) {
+            return LogEvent::TrainerGreetingSimple {
+                trainer_name: caps[1].to_string(),
+                character_name: caps[2].to_string(),
+            };
+        }
+    }
+
+    // Trainer bow: "Trainer bows." or "Trainer bows deeply." — bow sequence step 2.
+    if let Some(caps) = patterns::TRAINER_BOW.captures(message) {
+        return LogEvent::TrainerBow {
+            trainer_name: caps[1].to_string(),
+        };
+    }
+
+    // Trainer checkpoint unhailed: standalone rank message spoken by trainer (bow sequence step 3).
+    // Must run before the speech filter. Check TRAINER_GREETING_SIMPLE already handled "Hail, Name."
+    if let Some(caps) = patterns::NPC_SPEECH.captures(message) {
+        let trainer_name = caps[1].to_string();
+        let spoken = &caps[2];
+        if let Some((rank_min, rank_max)) = crate::data::lookup_checkpoint_message(spoken) {
+            return LogEvent::TrainerCheckpointUnhailed { trainer_name, rank_min, rank_max };
+        }
     }
 
     // Skip speech and emotes early (very common)
@@ -1165,6 +1190,73 @@ mod tests {
                 rank_min: 100,
                 rank_max: Some(149),
             } if trainer_name == "Histia" && character_name == "Bork"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_greeting_simple_classifies() {
+        let db = test_db();
+        let event = classify_line(r#"Regia says, "Hail, Gandor.""#, &db);
+        assert!(matches!(
+            event,
+            LogEvent::TrainerGreetingSimple {
+                ref trainer_name,
+                ref character_name,
+            } if trainer_name == "Regia" && character_name == "Gandor"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_bow_classifies() {
+        let db = test_db();
+        let event = classify_line("Regia bows.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::TrainerBow { ref trainer_name } if trainer_name == "Regia"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_bow_deeply_classifies() {
+        let db = test_db();
+        let event = classify_line("Regia bows deeply.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::TrainerBow { ref trainer_name } if trainer_name == "Regia"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_checkpoint_unhailed_classifies() {
+        // "You are a credit to our craft." maps to rank_min=650, rank_max=Some(699)
+        let db = test_db();
+        let event = classify_line(r#"Regia says, "You are a credit to our craft.""#, &db);
+        assert!(matches!(
+            event,
+            LogEvent::TrainerCheckpointUnhailed {
+                ref trainer_name,
+                rank_min: 650,
+                rank_max: Some(699),
+            } if trainer_name == "Regia"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_full_greeting_not_simple() {
+        // Full greeting with rank message should still produce TrainerCheckpoint, not TrainerGreetingSimple
+        let db = test_db();
+        let event = classify_line(
+            r#"Histia says, "Hail, Gandor. You keep me on my toes.""#,
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::TrainerCheckpoint {
+                ref trainer_name,
+                ref character_name,
+                rank_min: 100,
+                rank_max: Some(149),
+            } if trainer_name == "Histia" && character_name == "Gandor"
         ));
     }
 }

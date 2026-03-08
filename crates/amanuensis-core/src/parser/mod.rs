@@ -271,6 +271,11 @@ impl LogParser {
         let mut reflect_timestamp: Option<String> = None;
         let mut reflect_in_progress: HashSet<String> = HashSet::new();
 
+        // State machine for bow-sequence checkpoints: trainer_name → (char_name, bow_seen)
+        // bow_seen=false: greeting seen, awaiting bow
+        // bow_seen=true: bow seen, awaiting rank message
+        let mut pending_bow_checkpoints: HashMap<String, (String, bool)> = HashMap::new();
+
         for line in content.lines() {
             file_result.lines_parsed += 1;
 
@@ -434,6 +439,28 @@ impl LogParser {
                     if character_name.eq_ignore_ascii_case(char_name) {
                         self.db.insert_trainer_checkpoint(char_id, &trainer_name, rank_min, rank_max, &date_str)?;
                         file_result.events_found += 1;
+                    }
+                }
+
+                LogEvent::TrainerGreetingSimple { trainer_name, character_name } => {
+                    // Only track if addressed to this character
+                    if character_name.eq_ignore_ascii_case(char_name) {
+                        pending_bow_checkpoints.insert(trainer_name, (character_name, false));
+                    }
+                }
+
+                LogEvent::TrainerBow { trainer_name } => {
+                    if let Some(entry) = pending_bow_checkpoints.get_mut(&trainer_name) {
+                        entry.1 = true; // bow seen
+                    }
+                }
+
+                LogEvent::TrainerCheckpointUnhailed { trainer_name, rank_min, rank_max } => {
+                    if let Some((_char_name_for_trainer, bow_seen)) = pending_bow_checkpoints.remove(&trainer_name) {
+                        if bow_seen {
+                            self.db.insert_trainer_checkpoint(char_id, &trainer_name, rank_min, rank_max, &date_str)?;
+                            file_result.events_found += 1;
+                        }
                     }
                 }
 
