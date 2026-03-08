@@ -12,7 +12,6 @@ use super::Database;
 ///
 /// A combo trainer is excluded if **any** of its component trainers has
 /// non-zero effective ranks in the same set.
-#[allow(dead_code)]
 pub fn coin_level_from_trainers(trainers: &[Trainer], trainer_db: &TrainerDb) -> i64 {
     let active: HashSet<&str> = trainers
         .iter()

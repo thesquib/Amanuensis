@@ -7,7 +7,7 @@ use crate::models::*;
 mod character;
 mod checkpoint;
 mod kill;
-mod trainer;
+pub mod trainer;
 mod lasty;
 mod pet;
 mod log_file;

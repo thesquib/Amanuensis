@@ -96,9 +96,11 @@ pub fn import_scribius(
         conn.execute_batch("COMMIT")?;
     }
 
-    // Recalculate coin_level from kills: highest creature_value among personal kills.
+    // Compute coin_level from imported trainer ranks (Scribius kills table is empty;
+    // trainer-weighted sum is the best available approximation for imported data).
     for &new_id in pk_map.values() {
-        let coin_level = dst.compute_coin_level_from_kills(new_id)?;
+        let trainers = dst.get_trainers(new_id)?;
+        let coin_level = crate::db::queries::trainer::coin_level_from_trainers(&trainers, &trainer_db);
         dst.conn().execute(
             "UPDATE characters SET coin_level = ?1 WHERE id = ?2",
             params![coin_level, new_id],
