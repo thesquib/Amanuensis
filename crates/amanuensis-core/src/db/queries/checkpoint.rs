@@ -23,15 +23,18 @@ impl Database {
     }
 
     /// Get the most recent checkpoint for each trainer for a character.
+    /// "Most recent" is by log timestamp (the date/time from the log file), not insertion order.
     pub fn get_latest_trainer_checkpoints(&self, char_id: i64) -> Result<Vec<TrainerCheckpoint>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, character_id, trainer_name, rank_min, rank_max, timestamp
              FROM trainer_checkpoints
              WHERE character_id = ?1
-               AND id = (
-                 SELECT MAX(id) FROM trainer_checkpoints t2
+               AND rowid = (
+                 SELECT t2.rowid FROM trainer_checkpoints t2
                  WHERE t2.character_id = trainer_checkpoints.character_id
                    AND t2.trainer_name = trainer_checkpoints.trainer_name
+                 ORDER BY t2.timestamp DESC, t2.id DESC
+                 LIMIT 1
                )
              ORDER BY trainer_name",
         )?;
