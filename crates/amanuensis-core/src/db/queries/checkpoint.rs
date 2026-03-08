@@ -101,3 +101,69 @@ impl Database {
         Ok(rows.filter_map(|r| r.ok()).collect())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::Database;
+
+    #[test]
+    fn test_insert_and_get_latest() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Fen").unwrap();
+
+        db.insert_trainer_checkpoint(char_id, "Histia", 0, Some(9), "2024-01-01 12:00:00").unwrap();
+        db.insert_trainer_checkpoint(char_id, "Histia", 10, Some(19), "2024-01-02 12:00:00").unwrap();
+
+        let checkpoints = db.get_latest_trainer_checkpoints(char_id).unwrap();
+        assert_eq!(checkpoints.len(), 1, "Should return exactly one row per trainer");
+        assert_eq!(checkpoints[0].trainer_name, "Histia");
+        assert_eq!(checkpoints[0].rank_min, 10, "Should return the most recent checkpoint");
+    }
+
+    #[test]
+    fn test_get_latest_isolates_by_character() {
+        let db = Database::open_in_memory().unwrap();
+        let char_a = db.get_or_create_character("CharA").unwrap();
+        let char_b = db.get_or_create_character("CharB").unwrap();
+
+        db.insert_trainer_checkpoint(char_a, "Histia", 50, Some(99), "2024-01-01 12:00:00").unwrap();
+        db.insert_trainer_checkpoint(char_b, "Histia", 100, Some(149), "2024-01-02 12:00:00").unwrap();
+
+        let checkpoints_a = db.get_latest_trainer_checkpoints(char_a).unwrap();
+        assert_eq!(checkpoints_a.len(), 1);
+        assert_eq!(checkpoints_a[0].rank_min, 50, "CharA should only see their own checkpoint");
+
+        let checkpoints_b = db.get_latest_trainer_checkpoints(char_b).unwrap();
+        assert_eq!(checkpoints_b.len(), 1);
+        assert_eq!(checkpoints_b[0].rank_min, 100, "CharB should only see their own checkpoint");
+    }
+
+    #[test]
+    fn test_get_all_chronological() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Fen").unwrap();
+
+        db.insert_trainer_checkpoint(char_id, "Histia", 0, Some(9), "2024-01-01 12:00:00").unwrap();
+        db.insert_trainer_checkpoint(char_id, "Histia", 10, Some(19), "2024-01-02 12:00:00").unwrap();
+        db.insert_trainer_checkpoint(char_id, "Histia", 20, Some(29), "2024-01-03 12:00:00").unwrap();
+
+        let checkpoints = db.get_all_trainer_checkpoints(char_id).unwrap();
+        assert_eq!(checkpoints.len(), 3);
+        assert_eq!(checkpoints[0].rank_min, 0);
+        assert_eq!(checkpoints[1].rank_min, 10);
+        assert_eq!(checkpoints[2].rank_min, 20, "Should be returned in ascending timestamp order");
+    }
+
+    #[test]
+    fn test_rank_max_none_roundtrips() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Fen").unwrap();
+
+        db.insert_trainer_checkpoint(char_id, "Histia", 5750, None, "2024-01-01 12:00:00").unwrap();
+
+        let checkpoints = db.get_all_trainer_checkpoints(char_id).unwrap();
+        assert_eq!(checkpoints.len(), 1);
+        assert_eq!(checkpoints[0].rank_min, 5750);
+        assert_eq!(checkpoints[0].rank_max, None, "rank_max=None should roundtrip as None");
+    }
+}

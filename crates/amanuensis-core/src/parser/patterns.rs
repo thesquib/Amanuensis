@@ -493,4 +493,26 @@ mod tests {
         // Self-recovery should NOT match lines that have "Your share is" suffix
         assert!(SELF_RECOVERY.captures("* You recover the Dark Vermine fur, worth 20c. Your share is 10c.").is_none());
     }
+
+    #[test]
+    fn test_trainer_greeting_basic() {
+        let caps = TRAINER_GREETING.captures(r#"Histia says, "Hail, Gandor. You keep me on my toes.""#).unwrap();
+        assert_eq!(&caps[1], "Histia");
+        assert_eq!(&caps[2], "Gandor");
+        assert_eq!(&caps[3], "You keep me on my toes.");
+    }
+
+    #[test]
+    fn test_trainer_greeting_in_language() {
+        let caps = TRAINER_GREETING.captures(r#"Histia says in common, "Hail, Gandor. You keep me on my toes.""#).unwrap();
+        assert_eq!(&caps[1], "Histia");
+        assert_eq!(&caps[2], "Gandor");
+        assert_eq!(&caps[3], "You keep me on my toes.");
+    }
+
+    #[test]
+    fn test_trainer_greeting_no_match_without_hail() {
+        // A greeting without "Hail, " should NOT match TRAINER_GREETING
+        assert!(TRAINER_GREETING.captures(r#"Histia says, "Nice to see you, Gandor.""#).is_none());
+    }
 }

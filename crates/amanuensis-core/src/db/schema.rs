@@ -222,7 +222,9 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         );
         -- Purge checkpoints that were recorded before the character-name filter existed.
         -- name_filtered=0 means the row was inserted by old code (no name check).
-        -- New inserts always set name_filtered=1, so this DELETE is a no-op after the first run.
+        -- This DELETE runs on every database open (migrate_tables is called at startup),
+        -- but is a no-op once all pre-filter rows are gone, since all new inserts
+        -- explicitly set name_filtered=1.
         DELETE FROM trainer_checkpoints WHERE name_filtered = 0;",
     )?;
 
@@ -272,5 +274,50 @@ mod tests {
         // Migrate twice — should not error
         migrate_tables(&conn).unwrap();
         migrate_tables(&conn).unwrap();
+    }
+
+    #[test]
+    fn test_migrate_purges_unfiltered_checkpoints() {
+        let conn = Connection::open_in_memory().unwrap();
+        create_tables(&conn).unwrap();
+        migrate_tables(&conn).unwrap();
+
+        // Insert a character so we can satisfy the FK
+        conn.execute(
+            "INSERT INTO characters (name) VALUES ('TestChar')",
+            [],
+        ).unwrap();
+        let char_id: i64 = conn.last_insert_rowid();
+
+        // Insert a row with name_filtered=0 (pre-filter, should be purged)
+        conn.execute(
+            "INSERT INTO trainer_checkpoints (character_id, trainer_name, rank_min, rank_max, timestamp, name_filtered)
+             VALUES (?1, 'Histia', 0, 9, '2024-01-01 12:00:00', 0)",
+            rusqlite::params![char_id],
+        ).unwrap();
+
+        // Insert a row with name_filtered=1 (new-style, should be kept)
+        conn.execute(
+            "INSERT INTO trainer_checkpoints (character_id, trainer_name, rank_min, rank_max, timestamp, name_filtered)
+             VALUES (?1, 'Histia', 10, 19, '2024-01-02 12:00:00', 1)",
+            rusqlite::params![char_id],
+        ).unwrap();
+
+        // Run migrate_tables again — should purge name_filtered=0 rows
+        migrate_tables(&conn).unwrap();
+
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM trainer_checkpoints WHERE name_filtered = 0",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(count, 0, "Rows with name_filtered=0 should have been purged");
+
+        let kept: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM trainer_checkpoints WHERE name_filtered = 1",
+            [],
+            |row| row.get(0),
+        ).unwrap();
+        assert_eq!(kept, 1, "Row with name_filtered=1 should still be present");
     }
 }

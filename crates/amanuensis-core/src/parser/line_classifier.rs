@@ -60,7 +60,14 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
             let trainer_name = caps[1].to_string();
             let character_name = caps[2].to_string();
             let rank_message = &caps[3];
-            if let Some((rank_min, rank_max)) = crate::data::lookup_checkpoint_message(rank_message) {
+            let checkpoint = crate::data::lookup_checkpoint_message(rank_message)
+                .or_else(|| {
+                    // Try matching just the first sentence if the full capture has trailing text
+                    rank_message.find(". ").and_then(|i| {
+                        crate::data::lookup_checkpoint_message(&rank_message[..i + 1])
+                    })
+                });
+            if let Some((rank_min, rank_max)) = checkpoint {
                 return LogEvent::TrainerCheckpoint { trainer_name, character_name, rank_min, rank_max };
             }
         }
@@ -1109,6 +1116,55 @@ mod tests {
                 loot_type: LootType::Mandible,
                 ..
             }
+        ));
+    }
+
+    #[test]
+    fn test_trainer_greeting_classifies_checkpoint() {
+        // "You keep me on my toes." maps to rank_min=100, rank_max=Some(149)
+        let db = test_db();
+        let event = classify_line(
+            r#"Histia says, "Hail, Gandor. You keep me on my toes.""#,
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::TrainerCheckpoint {
+                ref trainer_name,
+                ref character_name,
+                rank_min: 100,
+                rank_max: Some(149),
+            } if trainer_name == "Histia" && character_name == "Gandor"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_greeting_unknown_phrase_ignored() {
+        let db = test_db();
+        let event = classify_line(
+            r#"Histia says, "Hail, Gandor. Nice weather today.""#,
+            &db,
+        );
+        assert!(matches!(event, LogEvent::Ignored));
+    }
+
+    #[test]
+    fn test_trainer_greeting_other_player_classified_with_their_name() {
+        // The classifier extracts whatever name appears after "Hail, ";
+        // filtering by current character is done in mod.rs, not here.
+        let db = test_db();
+        let event = classify_line(
+            r#"Histia says, "Hail, Bork. You keep me on my toes.""#,
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::TrainerCheckpoint {
+                ref trainer_name,
+                ref character_name,
+                rank_min: 100,
+                rank_max: Some(149),
+            } if trainer_name == "Histia" && character_name == "Bork"
         ));
     }
 }

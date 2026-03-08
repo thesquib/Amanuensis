@@ -123,19 +123,19 @@ function buildCVTimeline(kills: Kill[], trainers: Trainer[]): CVPoint[] {
   const spTarget =
     (RACE_SP +
       trainers.reduce((sum, t) => {
-        const sp = SP_COSTS[t.trainer_name] ?? 0;
+        const sp = SP_COSTS[t.trainer_name] ?? 20;
         return sum + (t.ranks + t.modified_ranks) * sp;
       }, 0)) /
     150;
 
   const trainerSteps: { date: string; cv: number }[] = [];
   const datedTrainers = trainers
-    .filter((t) => t.date_of_last_rank != null && (t.ranks + t.modified_ranks) > 0 && (SP_COSTS[t.trainer_name] ?? 0) > 0)
+    .filter((t) => t.date_of_last_rank != null && (t.ranks + t.modified_ranks) > 0 && (SP_COSTS[t.trainer_name] ?? 20) > 0)
     .sort((a, b) => a.date_of_last_rank!.localeCompare(b.date_of_last_rank!));
 
   let cumulative = rankCvBase;
   for (const t of datedTrainers) {
-    cumulative += (t.ranks + t.modified_ranks) * (SP_COSTS[t.trainer_name] ?? 0) / 150;
+    cumulative += (t.ranks + t.modified_ranks) * (SP_COSTS[t.trainer_name] ?? 20) / 150;
     trainerSteps.push({ date: t.date_of_last_rank!.slice(0, 10), cv: cumulative });
   }
 
