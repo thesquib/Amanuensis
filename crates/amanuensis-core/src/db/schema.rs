@@ -138,6 +138,8 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             name_filtered INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (character_id) REFERENCES characters(id)
         );
+        CREATE INDEX IF NOT EXISTS idx_trainer_checkpoints_lookup
+            ON trainer_checkpoints (character_id, trainer_name, timestamp DESC, id DESC);
         ",
     )?;
     Ok(())
@@ -225,7 +227,9 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         -- This DELETE runs on every database open (migrate_tables is called at startup),
         -- but is a no-op once all pre-filter rows are gone, since all new inserts
         -- explicitly set name_filtered=1.
-        DELETE FROM trainer_checkpoints WHERE name_filtered = 0;",
+        DELETE FROM trainer_checkpoints WHERE name_filtered = 0;
+        CREATE INDEX IF NOT EXISTS idx_trainer_checkpoints_lookup
+            ON trainer_checkpoints (character_id, trainer_name, timestamp DESC, id DESC);",
     )?;
 
     Ok(())
