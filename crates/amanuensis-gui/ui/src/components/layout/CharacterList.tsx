@@ -25,9 +25,8 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
   const [showMergeDialog, setShowMergeDialog] = useState(false);
 
   const filtered = characters.filter((char) => {
-    const tsCL = char.id !== null ? (coinLevelByCharId[char.id] ?? -1) : -1;
-    const displayCL = tsCL >= 0 ? tsCL : Math.max(char.coin_level, char.coin_level_interim);
-    if (excludeLowCL && displayCL < 1) return false;
+    // Filter uses DB value — avoids characters disappearing when clicked and TS recomputes
+    if (excludeLowCL && Math.max(char.coin_level, char.coin_level_interim) < 1) return false;
     if (excludeUnknown && char.profession === "Unknown") return false;
     return true;
   });
