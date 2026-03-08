@@ -55,6 +55,10 @@ interface AppStore {
   activeView: ViewType;
   setActiveView: (view: ViewType) => void;
 
+  // TS-computed coin level per character (stuffable filter applied)
+  coinLevelByCharId: Record<number, number>;
+  setCoinLevelForChar: (charId: number, value: number) => void;
+
   // Character data cache
   kills: Kill[];
   setKills: (kills: Kill[]) => void;
@@ -149,6 +153,10 @@ export const useStore = create<AppStore>((set) => ({
 
   activeView: "summary",
   setActiveView: (view) => set({ activeView: view }),
+
+  coinLevelByCharId: {},
+  setCoinLevelForChar: (charId, value) =>
+    set((state) => ({ coinLevelByCharId: { ...state.coinLevelByCharId, [charId]: value } })),
 
   kills: [],
   setKills: (kills) => set({ kills }),

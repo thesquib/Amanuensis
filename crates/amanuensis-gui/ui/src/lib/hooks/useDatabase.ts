@@ -16,6 +16,7 @@ import {
   importScribiusDb,
   getProcessLogs,
 } from "../commands";
+import { computeKillStats } from "../killStats";
 
 export function useDatabase() {
   const {
@@ -32,6 +33,7 @@ export function useDatabase() {
     setLastys,
     setLogLineCount,
     setProcessLogs,
+    setCoinLevelForChar,
   } = useStore();
 
   const loadCharacterData = useCallback(
@@ -46,8 +48,10 @@ export function useDatabase() {
       setTrainers(trainers);
       setPets(pets);
       setLastys(lastys);
+      const stats = computeKillStats(kills);
+      setCoinLevelForChar(charId, stats.coinLevelKill?.creature_value ?? 0);
     },
-    [setKills, setTrainers, setPets, setLastys],
+    [setKills, setTrainers, setPets, setLastys, setCoinLevelForChar],
   );
 
   const handleSelectCharacter = useCallback(

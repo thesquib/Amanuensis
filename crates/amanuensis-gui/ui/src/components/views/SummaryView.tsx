@@ -33,6 +33,7 @@ export function SummaryView() {
     setTrainers,
     setPets,
     setLastys,
+    setCoinLevelForChar,
   } = useStore();
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
   const [mergeSources, setMergeSources] = useState<Character[]>([]);
@@ -81,12 +82,14 @@ export function SummaryView() {
           setTrainers(t);
           setPets(p);
           setLastys(l);
+          const stats = computeKillStats(k);
+          setCoinLevelForChar(selectedCharacterId, stats.coinLevelKill?.creature_value ?? 0);
         }
       } catch (e) {
         console.error("Unmerge failed:", e);
       }
     },
-    [selectedCharacterId, setCharacters, setKills, setTrainers, setPets, setLastys],
+    [selectedCharacterId, setCharacters, setKills, setTrainers, setPets, setLastys, setCoinLevelForChar],
   );
 
   const handleProfessionOverride = useCallback(

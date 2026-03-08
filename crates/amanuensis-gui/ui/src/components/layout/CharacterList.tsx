@@ -19,12 +19,14 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
     excludeUnknown,
     setExcludeUnknown,
     dbPath,
+    coinLevelByCharId,
   } = useStore();
 
   const [showMergeDialog, setShowMergeDialog] = useState(false);
 
   const filtered = characters.filter((char) => {
-    const displayCL = Math.max(char.coin_level, char.coin_level_interim);
+    const tsCL = char.id !== null ? (coinLevelByCharId[char.id] ?? -1) : -1;
+    const displayCL = tsCL >= 0 ? tsCL : Math.max(char.coin_level, char.coin_level_interim);
     if (excludeLowCL && displayCL < 1) return false;
     if (excludeUnknown && char.profession === "Unknown") return false;
     return true;
@@ -79,6 +81,11 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
                 <ProfessionBadge profession={char.profession} />
                 <span className="text-xs text-[var(--color-text-muted)]">
                   {(() => {
+                    const tsCL = char.id !== null ? coinLevelByCharId[char.id] : undefined;
+                    if (tsCL !== undefined) {
+                      return tsCL > 0 ? `Lvl ${tsCL}` : "Lvl 0";
+                    }
+                    // Fallback while character data hasn't been loaded yet
                     const cl = char.coin_level;
                     const interim = char.coin_level_interim;
                     const display = Math.max(cl, interim);
