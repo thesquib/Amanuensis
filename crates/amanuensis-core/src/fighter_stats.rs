@@ -52,7 +52,9 @@ fn sp_cost(trainer: &str) -> Option<i64> {
         "Anemia" => Some(24),
         "Rodnus" => Some(20),
         "Erthron" => Some(29),
-        _ => None,
+        // Unknown trainers: use low-medium estimate based on known trainer distribution
+        // (mean ~21.4, median 22, mode 20 across 25 known trainers)
+        _ => Some(20),
     }
 }
 
@@ -440,8 +442,8 @@ mod tests {
         let multipliers = HashMap::new();
         let stats = compute_fighter_stats(&ranks, &multipliers);
 
-        // Unknown trainer contributes no stat formulas and no SP
-        assert_eq!(stats.slaughter_points, RACE_SP);
+        // Unknown trainer contributes no stat formulas but uses the default SP estimate (20/rank)
+        assert_eq!(stats.slaughter_points, RACE_SP + 50 * 20);
         assert_eq!(stats.trained_ranks, 50);
         // Effective ranks default to multiplier 1.0
         assert!((stats.effective_ranks - 50.0).abs() < 0.01);
