@@ -127,6 +127,23 @@ impl Database {
         Ok(())
     }
 
+    /// Set (or clear) a manual profession override for a character.
+    /// Pass `None` to clear the override and revert to auto-detection on next scan.
+    /// When setting a non-null value, also immediately updates the `profession` column.
+    pub fn set_profession_override(&self, char_id: i64, profession: Option<&str>) -> Result<()> {
+        self.conn.execute(
+            "UPDATE characters SET profession_override = ?1 WHERE id = ?2",
+            params![profession, char_id],
+        )?;
+        if let Some(prof) = profession {
+            self.conn.execute(
+                "UPDATE characters SET profession = ?1 WHERE id = ?2",
+                params![prof, char_id],
+            )?;
+        }
+        Ok(())
+    }
+
     /// Get a character by ID (internal helper).
     pub fn get_character_by_id(&self, char_id: i64) -> Result<Option<Character>> {
         let sql = format!("SELECT {CHARACTER_COLUMNS} FROM characters WHERE id = ?1");

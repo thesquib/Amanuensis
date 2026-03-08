@@ -131,8 +131,7 @@
     "profession": "Healer"
   },
   "¥Your mind seems keener.": {
-    "trainer": "Master Mentus",
-    "profession": "Mystic"
+    "trainer": "Master Mentus"
   },
   "¥Your body feels stronger.": {
     "trainer": "Master Bodrus",
@@ -185,7 +184,7 @@
     "profession": "Mystic"
   },
   "¥You notice that you can augment others to a greater degree.": {
-    "trainer": "Pontifen",
+    "trainer": "Quantos",
     "profession": "Mystic"
   },
   "¥You notice that you can enhance others to a greater degree.": {
@@ -290,7 +289,8 @@
     "profession": "Bloodmage"
   },
   "¥You learn how to better utilize your fell blade.": {
-    "trainer": "Champion Blade"
+    "trainer": "Fellblade",
+    "profession": "Bloodmage"
   },
   "¥You learn how to better utilize your gossamer.": {
     "trainer": "Gossamer",
@@ -377,8 +377,8 @@
     "profession": "Bloodmage"
   },
   "¥You lose some of your grasp of backstabbing.": {
-    "trainer": "Champion Blade Decay",
-    "profession": "Champion"
+    "trainer": "Fellblade Decay",
+    "profession": "Bloodmage"
   },
   "¥You lose some of your grasp of controlled swings.": {
     "trainer": "Gossamer Decay",

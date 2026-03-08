@@ -41,6 +41,9 @@ pub struct LogParser {
     abandoned_studies: RefCell<HashMap<i64, HashSet<String>>>,
     /// Rank override config per character, loaded before scanning.
     override_configs: RefCell<HashMap<i64, OverrideConfig>>,
+    /// Most recent Ranger reflect snapshot per character: char_id → (timestamp, finished_creatures).
+    /// Only the newest reflect is applied (it is the most complete list).
+    last_reflect: RefCell<HashMap<i64, (String, Vec<String>)>>,
 }
 
 impl LogParser {
@@ -53,6 +56,7 @@ impl LogParser {
             db,
             abandoned_studies: RefCell::new(HashMap::new()),
             override_configs: RefCell::new(HashMap::new()),
+            last_reflect: RefCell::new(HashMap::new()),
         })
     }
 
@@ -226,6 +230,8 @@ impl LogParser {
                     }
                 }
             }
+            // Apply only the most recent reflect output for this character
+            self.flush_reflect_lastys(char_id)?;
             result.characters += 1;
         }
 
@@ -256,6 +262,14 @@ impl LogParser {
         let filename_date = parse_filename_date(filename_only);
         let mut current_date: String = filename_date.clone().unwrap_or_default();
         let mut had_real_timestamp = false;
+
+        // State for parsing Ranger reflect creature list (multi-line).
+        // reflect_in_progress: creatures seen in "currently studying/remembering" lines just
+        // before the header — these are known in-progress and excluded from finished marking.
+        let mut collecting_studied = false;
+        let mut studied_creatures: Vec<String> = Vec::new();
+        let mut reflect_timestamp: Option<String> = None;
+        let mut reflect_in_progress: HashSet<String> = HashSet::new();
 
         for line in content.lines() {
             file_result.lines_parsed += 1;
@@ -290,14 +304,80 @@ impl LogParser {
                 first_date_str = Some(date_str.clone());
             }
 
+            // Ranger reflect state machine: collect creature list lines
+            if collecting_studied {
+                match &event {
+                    LogEvent::Ignored
+                        if !message.starts_with('¥') && !message.starts_with('•') =>
+                    {
+                        let trimmed = message.trim();
+                        let is_last = trimmed.ends_with('.');
+                        let is_continuation = trimmed.ends_with(',');
+                        if !trimmed.is_empty() && (is_last || is_continuation) {
+                            let part = trimmed.trim_end_matches(['.', ',']).trim();
+                            for name in part.split(", ") {
+                                let name = name.trim();
+                                if !name.is_empty() {
+                                    studied_creatures.push(name.to_string());
+                                }
+                            }
+                            if is_last {
+                                collecting_studied = false;
+                                let ts = reflect_timestamp
+                                    .take()
+                                    .unwrap_or_else(|| date_str.clone());
+                                // Exclude creatures still in progress (studying/remembering)
+                                let finished: Vec<String> = studied_creatures
+                                    .drain(..)
+                                    .filter(|c| !reflect_in_progress.contains(c))
+                                    .collect();
+                                // Keep only the most recent reflect (latest timestamp)
+                                let mut last = self.last_reflect.borrow_mut();
+                                let entry = last
+                                    .entry(char_id)
+                                    .or_insert_with(|| (String::new(), Vec::new()));
+                                if ts > entry.0 {
+                                    entry.0 = ts;
+                                    entry.1 = finished;
+                                }
+                            }
+                            continue;
+                        }
+                        // Doesn't look like creature list — abort collection
+                        collecting_studied = false;
+                        studied_creatures.clear();
+                    }
+                    _ => {
+                        // Any real event aborts collection; fall through to process it normally
+                        collecting_studied = false;
+                        studied_creatures.clear();
+                    }
+                }
+            }
+
             match event {
                 LogEvent::Ignored
                 | LogEvent::CoinBalance { .. }
                 | LogEvent::ExperienceGain
                 | LogEvent::ClanningChange { .. }
                 | LogEvent::Disconnect
-                | LogEvent::StudyProgress { .. }
                 | LogEvent::Recovered { .. } => {}
+
+                LogEvent::StudyProgress { creature, .. } => {
+                    // Track as in-progress — these lines precede the reflect header and identify
+                    // creatures that are not yet finished (excluded from finished marking later).
+                    reflect_in_progress.insert(creature.clone());
+                    self.db.upsert_lasty(char_id, &creature, "Movements", &date_str)?;
+                    file_result.events_found += 1;
+                }
+
+                LogEvent::ReflectStudiedHeader => {
+                    collecting_studied = true;
+                    studied_creatures.clear();
+                    reflect_timestamp = Some(date_str.clone());
+                    // reflect_in_progress carries the studying/remembering creatures from above;
+                    // do NOT clear it here — they were captured just before this header.
+                }
 
                 LogEvent::Login { .. } | LogEvent::Reconnect { .. } => {
                     found_login = true;
@@ -346,6 +426,13 @@ impl LogParser {
                         let multiplier = self.trainer_db.get_multiplier(&trainer_name);
                         self.db
                             .upsert_trainer_rank(char_id, &trainer_name, &date_str, multiplier)?;
+                        file_result.events_found += 1;
+                    }
+                }
+
+                LogEvent::TrainerCheckpoint { trainer_name, character_name, rank_min, rank_max } => {
+                    if character_name.eq_ignore_ascii_case(char_name) {
+                        self.db.insert_trainer_checkpoint(char_id, &trainer_name, rank_min, rank_max, &date_str)?;
                         file_result.events_found += 1;
                     }
                 }
@@ -598,6 +685,35 @@ impl LogParser {
         Ok(file_result)
     }
 
+    /// Apply the most recent Ranger reflect data for a character, upserting all
+    /// finished creatures as Movements lastys.  Called after all files for the character
+    /// have been scanned so that only the most recent (most complete) reflect is used.
+    fn flush_reflect_lastys(&self, char_id: i64) -> Result<()> {
+        let snapshot = self.last_reflect.borrow_mut().remove(&char_id);
+        if let Some((timestamp, creatures)) = snapshot {
+            for creature in &creatures {
+                self.db.finish_lasty_from_reflect(char_id, creature, "Movements", &timestamp)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Flush reflect data for ALL characters (used when files are not grouped by character).
+    fn flush_all_reflect_lastys(&self) -> Result<()> {
+        let snapshots: Vec<(i64, String, Vec<String>)> = self
+            .last_reflect
+            .borrow_mut()
+            .drain()
+            .map(|(id, (ts, creatures))| (id, ts, creatures))
+            .collect();
+        for (char_id, timestamp, creatures) in snapshots {
+            for creature in &creatures {
+                self.db.finish_lasty_from_reflect(char_id, creature, "Movements", &timestamp)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Determine profession for a character based on their trained trainers.
     /// Uses the original app's logic: check each trainer against the profession mapping,
     /// and use the first profession-bearing trainer found (last-writer-wins through iteration).
@@ -612,7 +728,34 @@ impl LogParser {
         let mut bloodmage_ranks: i64 = 0;
         let mut champion_ranks: i64 = 0;
 
+        // Track most recent rank date per specialization (A: date-based tiebreaker)
+        let mut ranger_last: Option<String> = None;
+        let mut bloodmage_last: Option<String> = None;
+        let mut champion_last: Option<String> = None;
+
+        // C: Decay trainer ranks to subtract from specialization totals
+        let mut gossamer_decay_ranks: i64 = 0;
+        let mut bloodblade_decay_ranks: i64 = 0;
+        let mut fellblade_decay_ranks: i64 = 0;
+
         for t in &trainers {
+            // C: Track decay trainers separately; do not count them toward profession totals
+            match t.trainer_name.as_str() {
+                "Gossamer Decay" => {
+                    gossamer_decay_ranks += t.ranks + t.modified_ranks;
+                    continue;
+                }
+                "Bloodblade Decay" => {
+                    bloodblade_decay_ranks += t.ranks + t.modified_ranks;
+                    continue;
+                }
+                "Fellblade Decay" => {
+                    fellblade_decay_ranks += t.ranks + t.modified_ranks;
+                    continue;
+                }
+                _ => {}
+            }
+
             if let Some(prof) = self.trainer_db.get_profession(&t.trainer_name) {
                 let total = t.ranks + t.modified_ranks;
                 if total > 0 {
@@ -620,28 +763,66 @@ impl LogParser {
                         "Fighter" => fighter_ranks += total,
                         "Healer" => healer_ranks += total,
                         "Mystic" => mystic_ranks += total,
-                        "Ranger" => ranger_ranks += total,
-                        "Bloodmage" => bloodmage_ranks += total,
-                        "Champion" => champion_ranks += total,
+                        "Ranger" => {
+                            ranger_ranks += total;
+                            // A: track most recent rank date for tiebreaking
+                            if let Some(date) = &t.date_of_last_rank {
+                                if ranger_last.as_deref() < Some(date.as_str()) {
+                                    ranger_last = Some(date.clone());
+                                }
+                            }
+                        }
+                        "Bloodmage" => {
+                            bloodmage_ranks += total;
+                            if let Some(date) = &t.date_of_last_rank {
+                                if bloodmage_last.as_deref() < Some(date.as_str()) {
+                                    bloodmage_last = Some(date.clone());
+                                }
+                            }
+                        }
+                        "Champion" => {
+                            champion_ranks += total;
+                            if let Some(date) = &t.date_of_last_rank {
+                                if champion_last.as_deref() < Some(date.as_str()) {
+                                    champion_last = Some(date.clone());
+                                }
+                            }
+                        }
                         _ => {}
                     }
                 }
             }
         }
 
+        // C: Subtract decay ranks from specialization totals (floor at 0)
+        ranger_ranks = (ranger_ranks - gossamer_decay_ranks).max(0);
+        bloodmage_ranks = (bloodmage_ranks - bloodblade_decay_ranks - fellblade_decay_ranks).max(0);
+
         // Specialization-wins logic: if any Fighter specialization has ranks,
         // pick the specialization with the most ranks (specialists also train
         // base Fighter trainers, so Fighter would always outnumber them in a
         // simple majority vote).
         if ranger_ranks > 0 || bloodmage_ranks > 0 || champion_ranks > 0 {
-            // Pick highest specialization; tie-break: Ranger > Bloodmage > Champion
-            if ranger_ranks >= bloodmage_ranks && ranger_ranks >= champion_ranks {
-                return Ok(Profession::Ranger);
+            let max_spec = ranger_ranks.max(bloodmage_ranks).max(champion_ranks);
+
+            // A: Collect tied specializations, then tiebreak by most recent rank date.
+            // Push in priority order (Ranger > Bloodmage > Champion) so stable sort
+            // preserves the original priority when dates are also equal.
+            let mut tied: Vec<(Profession, Option<String>)> = Vec::new();
+            if ranger_ranks == max_spec {
+                tied.push((Profession::Ranger, ranger_last));
             }
-            if bloodmage_ranks >= champion_ranks {
-                return Ok(Profession::Bloodmage);
+            if bloodmage_ranks == max_spec {
+                tied.push((Profession::Bloodmage, bloodmage_last));
             }
-            return Ok(Profession::Champion);
+            if champion_ranks == max_spec {
+                tied.push((Profession::Champion, champion_last));
+            }
+
+            // Sort descending by date (most recent first); stable sort preserves
+            // insertion order on equal dates, giving Ranger > Bloodmage > Champion fallback.
+            tied.sort_by(|a, b| b.1.cmp(&a.1));
+            return Ok(tied.into_iter().next().map(|(p, _)| p).unwrap_or(Profession::Unknown));
         }
 
         // No specialization — use base class majority vote
@@ -808,6 +989,8 @@ impl LogParser {
                     }
                 }
             }
+            // Apply only the most recent reflect output for this character
+            self.flush_reflect_lastys(char_id)?;
             result.characters += 1;
         }
 
@@ -926,6 +1109,9 @@ impl LogParser {
             }
         }
 
+        // Files may span multiple characters; flush all accumulated reflect data at the end
+        self.flush_all_reflect_lastys()?;
+
         Ok(())
     }
 
@@ -984,8 +1170,11 @@ impl LogParser {
         let chars = self.db.list_characters()?;
         for c in &chars {
             let char_id = c.id.unwrap();
-            // Only use trainer-based detection if no direct profession was set
-            if c.profession == Profession::Unknown {
+            // B: If a manual override is set, apply it (takes priority over auto-detection)
+            if let Some(override_prof) = &c.profession_override {
+                self.db.update_character_profession(char_id, override_prof)?;
+            } else if c.profession == Profession::Unknown {
+                // Only use trainer-based detection if no direct profession was set
                 let profession = self.determine_profession(char_id)?;
                 if profession != Profession::Unknown {
                     self.db.update_character_profession(char_id, profession.as_str())?;

@@ -42,6 +42,7 @@ export interface Character {
   iron_ore_found: number;
   wood_taken: number;
   wood_useless: number;
+  profession_override: string | null;
 }
 
 /** Mirrors Rust `Kill` struct */
@@ -160,6 +161,16 @@ export interface ProcessLog {
   created_at: string;
   level: string;
   message: string;
+}
+
+/** Mirrors Rust `TrainerCheckpoint` struct */
+export interface TrainerCheckpoint {
+  id: number | null;
+  character_id: number;
+  trainer_name: string;
+  rank_min: number;
+  rank_max: number | null;
+  timestamp: string;
 }
 
 export type ViewType =

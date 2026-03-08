@@ -4,6 +4,7 @@ import { useStore } from "../../lib/store";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import {
   clearRankOverrides,
+  getTrainerCheckpoints,
   getTrainerDbInfo,
   getTrainers,
   listCharacters,
@@ -11,7 +12,7 @@ import {
 } from "../../lib/commands";
 import { PROFESSION_ORDER, STORAGE_KEYS } from "../../lib/constants";
 import { todayMDYY } from "../../lib/dateUtils";
-import type { Trainer, TrainerInfo } from "../../types";
+import type { Trainer, TrainerCheckpoint, TrainerInfo } from "../../types";
 
 type RankMode = "modifier" | "override" | "override_until_date";
 
@@ -147,6 +148,7 @@ export function RankModifiersView() {
   const setSearchQuery = useCallback((v: string) => setRankModifiersViewState({ searchQuery: v }), [setRankModifiersViewState]);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
   const [rescanBanner, setRescanBanner] = useState(false);
+  const [checkpointMap, setCheckpointMap] = useState<Map<string, TrainerCheckpoint>>(new Map());
   const hasSavedState = useMemo(() => localStorage.getItem(STORAGE_KEYS.COLLAPSED_RANK_MODIFIERS) !== null, []);
   const [defaultsInitialized, setDefaultsInitialized] = useState(hasSavedState);
 
@@ -155,6 +157,22 @@ export function RankModifiersView() {
       .then(setTrainerDb)
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (selectedCharacterId == null) {
+      setCheckpointMap(new Map());
+      return;
+    }
+    getTrainerCheckpoints(selectedCharacterId)
+      .then((checkpoints) => {
+        const map = new Map<string, TrainerCheckpoint>();
+        for (const cp of checkpoints) {
+          map.set(cp.trainer_name, cp);
+        }
+        setCheckpointMap(map);
+      })
+      .catch(() => {});
+  }, [selectedCharacterId, trainers]);
 
   const toggleGroup = useCallback((profession: string) => {
     const next = new Set(collapsedGroups);
@@ -427,6 +445,9 @@ export function RankModifiersView() {
                           <th className="w-24 px-3 py-2 text-right font-medium">
                             Effective
                           </th>
+                          <th className="w-28 px-3 py-2 text-right font-medium">
+                            Checkpoint
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -477,6 +498,29 @@ export function RankModifiersView() {
                                   const weighted =
                                     Math.round(eff * t.multiplier * 10) / 10;
                                   return weighted % 1 === 0 ? weighted : weighted.toFixed(1);
+                                })()}
+                              </td>
+                              <td className="px-3 py-1.5 text-right">
+                                {(() => {
+                                  const cp = checkpointMap.get(t.name);
+                                  if (!cp) {
+                                    return <span className="text-[var(--color-text-muted)]">—</span>;
+                                  }
+                                  const inRange = eff >= cp.rank_min && (cp.rank_max === null || eff <= cp.rank_max);
+                                  const rangeText = cp.rank_max === null ? "Maxed" : `${cp.rank_min}–${cp.rank_max}`;
+                                  return (
+                                    <span
+                                      className={inRange ? "text-green-400" : "text-amber-400"}
+                                      title={(() => {
+                                        const d = cp.timestamp.slice(0, 10).split("-");
+                                        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                                        const label = `${months[parseInt(d[1]) - 1]} ${parseInt(d[2])}, ${d[0]}`;
+                                        return `Checkpoint from ${label} — ${rangeText}`;
+                                      })()}
+                                    >
+                                      {rangeText}
+                                    </span>
+                                  );
                                 })()}
                               </td>
                             </tr>

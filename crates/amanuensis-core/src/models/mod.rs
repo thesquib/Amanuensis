@@ -1,4 +1,5 @@
 pub mod character;
+pub mod checkpoint;
 pub mod kill;
 pub mod lasty;
 pub mod log_meta;
@@ -7,6 +8,7 @@ pub mod process_log;
 pub mod trainer;
 
 pub use character::{Character, Profession};
+pub use checkpoint::TrainerCheckpoint;
 pub use kill::Kill;
 pub use lasty::{Lasty, LastyType};
 pub use log_meta::LogMeta;

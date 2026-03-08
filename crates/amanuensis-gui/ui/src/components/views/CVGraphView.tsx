@@ -10,10 +10,10 @@ import {
   Legend,
 } from "recharts";
 import { useStore } from "../../lib/store";
-import { getTrainerDbInfo } from "../../lib/commands";
+import { getAllTrainerCheckpoints, getTrainerDbInfo } from "../../lib/commands";
 import { SP_COSTS, RACE_SP, computeFighterStats } from "../../lib/fighterStats";
 import { isStuffable } from "../../lib/bestiary";
-import type { TrainerInfo, Kill, Trainer, Lasty } from "../../types";
+import type { TrainerInfo, Kill, Trainer, Lasty, TrainerCheckpoint } from "../../types";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,15 +55,49 @@ const TRAINER_COLORS = [
 ];
 
 // ---------------------------------------------------------------------------
+// Formatters & helpers
+// ---------------------------------------------------------------------------
+
+function formatDateTick(dateStr: string): string {
+  const parts = dateStr.split("-");
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[parseInt(parts[1]) - 1]} '${parts[0].slice(2)}`;
+}
+
+/** Returns all YYYY-MM-01 dates from minDate to maxDate (inclusive). */
+function buildMonthlyTicks(minDate: string, maxDate: string): string[] {
+  const ticks: string[] = [];
+  const [minY, minM] = minDate.slice(0, 7).split("-").map(Number);
+  const [maxY, maxM] = maxDate.slice(0, 7).split("-").map(Number);
+  let y = minY, m = minM;
+  while (y < maxY || (y === maxY && m <= maxM)) {
+    ticks.push(`${y}-${String(m).padStart(2, "0")}-01`);
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return ticks;
+}
+
+/**
+ * Adaptive tick subset: every month up to 24 months, every quarter up to 60,
+ * every 6 months otherwise. Always includes the first and last tick.
+ */
+function buildAdaptiveTicks(minDate: string, maxDate: string): string[] {
+  const all = buildMonthlyTicks(minDate, maxDate);
+  if (all.length === 0) return [];
+  const step = all.length <= 24 ? 1 : all.length <= 60 ? 3 : 6;
+  const ticks = all.filter((_, i) => i % step === 0);
+  const last = all[all.length - 1];
+  if (ticks[ticks.length - 1] !== last) ticks.push(last);
+  return ticks;
+}
+
+// ---------------------------------------------------------------------------
 // Data builders
 // ---------------------------------------------------------------------------
 
-function buildCVTimeline(
-  kills: Kill[],
-  trainers: Trainer[],
-): CVPoint[] {
-  // Kill CV: running max of creature_value for kills with verb "kill/killed", sorted by date_first_killed.
-  // Falls back to date_last_killed if date_first_killed is unavailable (e.g. imported from Scribius).
+function buildCVTimeline(kills: Kill[], trainers: Trainer[]): CVPoint[] {
+  // Kill CV: running max of creature_value for kills with verb "kill/killed"
   const killSteps: { date: string; cv: number; creature: string }[] = [];
   const sortedKills = kills
     .filter((k) => (k.killed_count + k.assisted_kill_count) >= 5
@@ -84,10 +118,8 @@ function buildCVTimeline(
     }
   }
 
-  // Rank CV: Est. Slaughter Points / 150 — same formula as Summary "Ranks"
-  // RACE_SP is a constant baseline present from the start
+  // Rank CV: Est. Slaughter Points / 150
   const rankCvBase = RACE_SP / 150;
-
   const spTarget =
     (RACE_SP +
       trainers.reduce((sum, t) => {
@@ -109,7 +141,6 @@ function buildCVTimeline(
 
   if (killSteps.length === 0 && trainerSteps.length === 0) return [];
 
-  // Prepend a baseline rank CV point at the earliest known date
   const allKnownDates = [...killSteps.map((p) => p.date), ...trainerSteps.map((p) => p.date)].sort();
   const earliestDate = allKnownDates[0];
   const latestDate = allKnownDates[allKnownDates.length - 1];
@@ -118,17 +149,19 @@ function buildCVTimeline(
     trainerSteps.unshift({ date: earliestDate, cv: rankCvBase });
   }
 
-  // Undated SP trainers: add remainder at latest date
   const remainder = spTarget - cumulative;
   if (remainder > 0.01 && latestDate) {
     trainerSteps.push({ date: latestDate, cv: spTarget });
   }
 
-  // Merge into unified forward-filled timeline
-  const allDates = [...new Set([
+  // Merge event dates with monthly filler dates
+  const eventDates = [...new Set([
     ...killSteps.map((p) => p.date),
     ...trainerSteps.map((p) => p.date),
   ])].sort();
+
+  const monthlyFiller = buildMonthlyTicks(eventDates[0], eventDates[eventDates.length - 1]);
+  const allDates = [...new Set([...eventDates, ...monthlyFiller])].sort();
 
   let lastKill: number | null = null;
   let lastRank: number | null = null;
@@ -165,12 +198,10 @@ function buildTrainerTimeline(trainers: Trainer[], topNames: string[]): TrainerP
 
   if (datedTrainers.length === 0) return [];
 
-  // Monthly granularity: one point per month that has at least one rank event.
-  const allMonths = [...new Set(datedTrainers.map((t) => t.date_of_last_rank!.slice(0, 7)))].sort();
+  const eventMonths = [...new Set(datedTrainers.map((t) => t.date_of_last_rank!.slice(0, 7)))].sort();
 
-  // Prepend an origin point one month before the earliest, all trainers at 0.
-  // Use numeric Date constructor (not string parsing) to avoid Safari/WebKit Invalid Date issues.
-  const [fy, fm] = allMonths[0].split("-").map(Number);
+  // Origin: one month before first event
+  const [fy, fm] = eventMonths[0].split("-").map(Number);
   const firstD = new Date(fy, fm - 1, 1);
   firstD.setMonth(firstD.getMonth() - 1);
   const originDate = [
@@ -182,16 +213,22 @@ function buildTrainerTimeline(trainers: Trainer[], topNames: string[]): TrainerP
   const originPoint: TrainerPoint = { date: originDate };
   for (const name of topNames) originPoint[name] = 0;
 
+  // All months from first event to last event
+  const firstEventDate = eventMonths[0] + "-01";
+  const lastEventDate = eventMonths[eventMonths.length - 1] + "-01";
+  const allMonthDates = buildMonthlyTicks(firstEventDate, lastEventDate);
+
   const current: Record<string, number> = {};
   const result: TrainerPoint[] = [originPoint];
 
-  for (const month of allMonths) {
+  for (const monthDate of allMonthDates) {
+    const month = monthDate.slice(0, 7);
     for (const t of datedTrainers) {
       if (t.date_of_last_rank!.slice(0, 7) === month) {
         current[t.trainer_name] = (current[t.trainer_name] ?? 0) + (t.ranks + t.modified_ranks);
       }
     }
-    const point: TrainerPoint = { date: month + "-01" };
+    const point: TrainerPoint = { date: monthDate };
     for (const name of topNames) {
       point[name] = current[name] ?? 0;
     }
@@ -207,17 +244,15 @@ function buildStudiesTimeline(lastys: Lasty[]): StudiesPoint[] {
       .filter((l) => l.lasty_type === type && l.finished && l.completed_date)
       .sort((a, b) => a.completed_date!.localeCompare(b.completed_date!));
 
-  // Every completion event becomes its own point; use full datetime as key for uniqueness.
-  const movs  = byType("Movements").map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "mov"   as const }));
-  const befs  = byType("Befriend") .map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "bef"   as const }));
-  const morphs = byType("Morph")   .map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "morph" as const }));
+  const movs   = byType("Movements").map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "mov"   as const }));
+  const befs   = byType("Befriend") .map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "bef"   as const }));
+  const morphs = byType("Morph")    .map((l, i) => ({ date: l.completed_date!, count: i + 1, creature: l.creature_name, kind: "morph" as const }));
 
   const allEvents = [...movs, ...befs, ...morphs].sort((a, b) => a.date.localeCompare(b.date));
   if (allEvents.length === 0) return [];
 
   let lm = 0, lb = 0, lmo = 0;
-
-  return allEvents.map((ev) => {
+  const eventPoints: StudiesPoint[] = allEvents.map((ev) => {
     let movCreature: string | undefined;
     let befCreature: string | undefined;
     let morphCreature: string | undefined;
@@ -234,6 +269,25 @@ function buildStudiesTimeline(lastys: Lasty[]): StudiesPoint[] {
       ...(morphCreature !== undefined && { morphCreature }),
     };
   });
+
+  // Add monthly filler points (forward-filled)
+  const dates = eventPoints.map(p => p.date);
+  const minDate = dates[0].slice(0, 10);
+  const maxDate = dates[dates.length - 1].slice(0, 10);
+  const monthly = buildMonthlyTicks(minDate, maxDate);
+  const existingPrefixes = new Set(dates.map(d => d.slice(0, 10)));
+  const missingMonths = monthly.filter(m => !existingPrefixes.has(m));
+
+  if (missingMonths.length === 0) return eventPoints;
+
+  const sorted = [...eventPoints];
+  const fillers: StudiesPoint[] = missingMonths.map(m => {
+    const before = sorted.filter(p => p.date.slice(0, 10) <= m);
+    const last = before.length > 0 ? before[before.length - 1] : { movements: 0, befriends: 0, morphs: 0 };
+    return { date: m, movements: last.movements, befriends: last.befriends, morphs: last.morphs };
+  });
+
+  return [...sorted, ...fillers].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function buildStatsTimeline(trainers: Trainer[], trainerDb: TrainerInfo[]): StatsPoint[] {
@@ -242,11 +296,15 @@ function buildStatsTimeline(trainers: Trainer[], trainerDb: TrainerInfo[]): Stat
     .filter((t) => t.date_of_last_rank != null && (t.ranks + t.modified_ranks) > 0)
     .sort((a, b) => a.date_of_last_rank!.localeCompare(b.date_of_last_rank!));
 
-  // Monthly granularity: one point per month with at least one rank event.
-  const allMonths = [...new Set(datedTrainers.map((t) => t.date_of_last_rank!.slice(0, 7)))].sort();
-  if (allMonths.length === 0) return [];
+  const eventMonths = [...new Set(datedTrainers.map((t) => t.date_of_last_rank!.slice(0, 7)))].sort();
+  if (eventMonths.length === 0) return [];
 
-  return allMonths.map((month) => {
+  const firstDate = eventMonths[0] + "-01";
+  const lastDate = eventMonths[eventMonths.length - 1] + "-01";
+  const allMonthDates = buildMonthlyTicks(firstDate, lastDate);
+
+  return allMonthDates.map((monthDate) => {
+    const month = monthDate.slice(0, 7);
     const ranksAtDate = new Map<string, number>();
     for (const t of datedTrainers) {
       if (t.date_of_last_rank!.slice(0, 7) <= month) {
@@ -255,7 +313,7 @@ function buildStatsTimeline(trainers: Trainer[], trainerDb: TrainerInfo[]): Stat
     }
     const stats = computeFighterStats(ranksAtDate, multMap);
     return {
-      date: month + "-01",
+      date: monthDate,
       trainedRanks: stats.trainedRanks,
       effectiveRanks: Math.round(stats.effectiveRanks),
       slaughterRanks: Math.round(stats.slaughterPoints / 150),
@@ -263,24 +321,53 @@ function buildStatsTimeline(trainers: Trainer[], trainerDb: TrainerInfo[]): Stat
   });
 }
 
-// ---------------------------------------------------------------------------
-// Formatters & helpers
-// ---------------------------------------------------------------------------
+function buildCheckpointTimeline(
+  checkpoints: TrainerCheckpoint[],
+  topNames: string[],
+): TrainerPoint[] {
+  const relevant = checkpoints.filter(cp => topNames.includes(cp.trainer_name));
+  if (relevant.length === 0) return [];
 
-function formatDateTick(dateStr: string): string {
-  const [year, month] = dateStr.split("-");
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  return `${months[parseInt(month) - 1]} ${year}`;
-}
+  const sorted = [...relevant].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  const eventDates = [...new Set(sorted.map(cp => cp.timestamp.slice(0, 10)))].sort();
+  if (eventDates.length === 0) return [];
 
-function pickXTicks(dates: string[], count = 8): string[] {
-  if (dates.length === 0) return [];
-  if (dates.length <= count) return dates;
-  const step = Math.floor(dates.length / (count - 1));
-  const ticks: string[] = [];
-  for (let i = 0; i < dates.length; i += step) ticks.push(dates[i]);
-  if (ticks[ticks.length - 1] !== dates[dates.length - 1]) ticks.push(dates[dates.length - 1]);
-  return ticks;
+  const minDate = eventDates[0];
+  const maxDate = eventDates[eventDates.length - 1];
+  const monthlyFiller = buildMonthlyTicks(minDate, maxDate);
+
+  // Origin: one month before first event, all trainers null
+  const [fy, fm] = minDate.split("-").map(Number);
+  const firstD = new Date(fy, fm - 1, 1);
+  firstD.setMonth(firstD.getMonth() - 1);
+  const originDate = `${firstD.getFullYear()}-${String(firstD.getMonth() + 1).padStart(2, "0")}-01`;
+  const originPoint: TrainerPoint = { date: originDate };
+  for (const name of topNames) originPoint[name] = null;
+
+  const allDates = [...new Set([...eventDates, ...monthlyFiller])].sort();
+
+  // Forward-fill per trainer; tag event dates with `${name}_evt = 1`
+  const current: Record<string, number | null> = {};
+  for (const name of topNames) current[name] = null;
+
+  const result: TrainerPoint[] = [originPoint];
+  for (const date of allDates) {
+    const eventsOnDate = new Set<string>();
+    for (const cp of sorted) {
+      if (cp.timestamp.slice(0, 10) === date) {
+        current[cp.trainer_name] = cp.rank_min;
+        eventsOnDate.add(cp.trainer_name);
+      }
+    }
+    const point: TrainerPoint = { date };
+    for (const name of topNames) {
+      point[name] = current[name];
+      point[`${name}_evt`] = eventsOnDate.has(name) ? 1 : 0;
+    }
+    result.push(point);
+  }
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -384,6 +471,37 @@ function StatsTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
+function CheckpointTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number | null; name: string; color: string; payload: TrainerPoint }>; label?: string }) {
+  if (!active || !payload?.length || !label) return null;
+  const entries = payload.filter((p) => p.value != null && p.value > 0);
+  if (entries.length === 0) return null;
+  const hasAnyEvent = entries.some((e) => e.payload[`${e.name}_evt`] === 1);
+  return (
+    <div className="rounded border border-[var(--color-border)] bg-[var(--color-card)] p-2 text-sm shadow-md">
+      <div className="mb-1 font-medium text-[var(--color-text)]">
+        {formatDateTick(label)}
+        {!hasAnyEvent && <span className="ml-1 text-xs text-[var(--color-text-muted)]">(no observation)</span>}
+      </div>
+      {entries.map((e) => {
+        const isEvent = e.payload[`${e.name}_evt`] === 1;
+        return (
+          <div key={e.name} style={{ color: e.color }}>
+            {e.name}: <span className="font-semibold">≥{e.value}</span>
+            {isEvent && <span className="ml-1 text-xs opacity-70">● observed</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Custom dot: only renders at actual observation points
+function CheckpointDot({ cx, cy, payload, dataKey, fill }: { cx?: number; cy?: number; payload?: TrainerPoint; dataKey?: string; fill?: string }) {
+  if (!cx || !cy || !payload || !dataKey) return null;
+  if (payload[`${dataKey}_evt`] !== 1) return null;
+  return <circle cx={cx} cy={cy} r={5} fill={fill} stroke="var(--color-card)" strokeWidth={1.5} />;
+}
+
 // ---------------------------------------------------------------------------
 // Chart section wrapper
 // ---------------------------------------------------------------------------
@@ -404,10 +522,19 @@ function ChartSection({ title, children }: { title: string; children: React.Reac
 export function CVGraphView() {
   const { kills, trainers, lastys, characters, selectedCharacterId } = useStore();
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
+  const [allCheckpoints, setAllCheckpoints] = useState<TrainerCheckpoint[]>([]);
 
   useEffect(() => {
     getTrainerDbInfo().then(setTrainerDb).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (selectedCharacterId == null) {
+      setAllCheckpoints([]);
+      return;
+    }
+    getAllTrainerCheckpoints(selectedCharacterId).then(setAllCheckpoints).catch(() => {});
+  }, [selectedCharacterId]);
 
   const profession = characters.find((c) => c.id === selectedCharacterId)?.profession ?? "";
   const isRanger = profession === "Ranger";
@@ -422,14 +549,59 @@ export function CVGraphView() {
     [trainers],
   );
 
+  // Top checkpoint trainers (by max observed rank_min, capped at 10)
+  const checkpointTopNames = useMemo(() => {
+    const byTrainer = new Map<string, number>();
+    for (const cp of allCheckpoints) {
+      const cur = byTrainer.get(cp.trainer_name) ?? 0;
+      if (cp.rank_min > cur) byTrainer.set(cp.trainer_name, cp.rank_min);
+    }
+    return [...byTrainer.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name]) => name);
+  }, [allCheckpoints]);
+
   const cvData = useMemo(() => buildCVTimeline(kills, trainers), [kills, trainers]);
   const trainerData = useMemo(() => buildTrainerTimeline(trainers, topTrainerNames), [trainers, topTrainerNames]);
   const studiesData = useMemo(() => isRanger ? buildStudiesTimeline(lastys) : [], [lastys, isRanger]);
   const statsData = useMemo(() => buildStatsTimeline(trainers, trainerDb), [trainers, trainerDb]);
+  const checkpointData = useMemo(() => buildCheckpointTimeline(allCheckpoints, checkpointTopNames), [allCheckpoints, checkpointTopNames]);
 
+  // Tick arrays (adaptive monthly)
+  const cvXTicks = useMemo(() => {
+    const dates = cvData.map(d => d.date);
+    if (!dates.length) return [];
+    return buildAdaptiveTicks(dates[0], dates[dates.length - 1]);
+  }, [cvData]);
+
+  const trainerXTicks = useMemo(() => {
+    const dates = trainerData.map(d => d.date as string).filter(Boolean);
+    if (!dates.length) return [];
+    return buildAdaptiveTicks(dates[0], dates[dates.length - 1]);
+  }, [trainerData]);
+
+  const studiesXTicks = useMemo(() => {
+    const dates = studiesData.map(d => d.date).filter(Boolean);
+    if (!dates.length) return [];
+    return buildAdaptiveTicks(dates[0].slice(0, 10), dates[dates.length - 1].slice(0, 10));
+  }, [studiesData]);
+
+  const statsXTicks = useMemo(() => {
+    const dates = statsData.map(d => d.date).filter(Boolean);
+    if (!dates.length) return [];
+    return buildAdaptiveTicks(dates[0], dates[dates.length - 1]);
+  }, [statsData]);
+
+  const checkpointXTicks = useMemo(() => {
+    const dates = checkpointData.map(d => d.date as string).filter(Boolean);
+    if (!dates.length) return [];
+    return buildAdaptiveTicks(dates[0], dates[dates.length - 1]);
+  }, [checkpointData]);
+
+  // Y ticks
   const cvMaxCv = useMemo(() => Math.max(0, ...cvData.map((p) => Math.max(p.killCv ?? 0, p.rankCv ?? 0))), [cvData]);
   const cvYTicks = useMemo(() => yTicks(cvMaxCv, 20), [cvMaxCv]);
-  const cvXTicks = useMemo(() => pickXTicks(cvData.map((d) => d.date)), [cvData]);
 
   const trainerMax = useMemo(() => {
     if (!trainerData.length) return 100;
@@ -438,13 +610,18 @@ export function CVGraphView() {
     ));
   }, [trainerData, topTrainerNames]);
   const trainerYTicks = useMemo(() => yTicks(trainerMax, 50), [trainerMax]);
-  const trainerXTicks = useMemo(() => pickXTicks(trainerData.map((d) => d.date as string)), [trainerData]);
 
   const studiesMax = useMemo(() => Math.max(5, ...studiesData.map((p) => Math.max(p.movements, p.befriends, p.morphs))), [studiesData]);
-  const studiesXTicks = useMemo(() => pickXTicks(studiesData.map((d) => d.date), 12), [studiesData]);
 
   const statsMax = useMemo(() => statsData.length ? Math.max(100, ...statsData.map((p) => Math.max(p.trainedRanks, p.effectiveRanks))) : 100, [statsData]);
-  const statsXTicks = useMemo(() => pickXTicks(statsData.map((d) => d.date)), [statsData]);
+
+  const checkpointMax = useMemo(() => {
+    if (!checkpointData.length) return 100;
+    return Math.max(100, ...checkpointData.flatMap(p =>
+      checkpointTopNames.map(n => (p[n] as number | null) ?? 0)
+    ));
+  }, [checkpointData, checkpointTopNames]);
+  const checkpointYTicks = useMemo(() => yTicks(checkpointMax, 50), [checkpointMax]);
 
   if (cvData.length === 0) {
     return (
@@ -496,6 +673,34 @@ export function CVGraphView() {
               ))}
             </LineChart>
           </ResponsiveContainer>
+        </ChartSection>
+      )}
+
+      {/* Checkpoint progression chart */}
+      {checkpointData.length > 0 && checkpointTopNames.length > 0 && (
+        <ChartSection title="Trainer Checkpoint Progression">
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={checkpointData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+              <XAxis dataKey="date" ticks={checkpointXTicks} tickFormatter={formatDateTick}
+                tick={{ fill: "var(--color-text-muted)", fontSize: 11 }} stroke="var(--color-border)" />
+              <YAxis ticks={checkpointYTicks} tick={<CustomYTick step={100} />} stroke="var(--color-border)" width={42} />
+              <Tooltip content={<CheckpointTooltip />} />
+              <Legend wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 11 }} />
+              {checkpointTopNames.map((name, i) => {
+                const color = TRAINER_COLORS[i % TRAINER_COLORS.length];
+                return (
+                  <Line key={name} type="stepAfter" dataKey={name} name={name}
+                    stroke={color} strokeWidth={1.5}
+                    dot={<CheckpointDot fill={color} />}
+                    activeDot={{ r: 5 }} connectNulls />
+                );
+              })}
+            </LineChart>
+          </ResponsiveContainer>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+            Observed rank minimums from trainer greeting messages. Each dot is an actual checkpoint recorded from logs.
+          </p>
         </ChartSection>
       )}
 

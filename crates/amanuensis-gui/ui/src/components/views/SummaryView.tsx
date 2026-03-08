@@ -15,6 +15,7 @@ import {
   getTrainers,
   getPets,
   getLastys,
+  setProfessionOverride,
 } from "../../lib/commands";
 import { computeKillStats } from "../../lib/killStats";
 import { computeFighterStats } from "../../lib/fighterStats";
@@ -86,6 +87,20 @@ export function SummaryView() {
       }
     },
     [selectedCharacterId, setCharacters, setKills, setTrainers, setPets, setLastys],
+  );
+
+  const handleProfessionOverride = useCallback(
+    async (profession: string | null) => {
+      if (selectedCharacterId === null) return;
+      try {
+        await setProfessionOverride(selectedCharacterId, profession);
+        const chars = await listCharacters();
+        setCharacters(chars);
+      } catch (e) {
+        console.error("Profession override failed:", e);
+      }
+    },
+    [selectedCharacterId, setCharacters],
   );
 
   const baseChar = characters.find((c) => c.id === selectedCharacterId);
@@ -170,6 +185,19 @@ export function SummaryView() {
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold">{char.name}</h2>
             <ProfessionBadge profession={char.profession} />
+            <select
+              value={baseChar?.profession_override ?? ""}
+              onChange={(e) =>
+                handleProfessionOverride(e.target.value || null)
+              }
+              className="rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-0.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              title="Override auto-detected profession"
+            >
+              <option value="">Auto</option>
+              {["Fighter","Healer","Mystic","Ranger","Bloodmage","Champion"].map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
           </div>
           {char.start_date && (
             <p className="text-[var(--color-text-muted)] mt-1 text-sm">

@@ -274,7 +274,9 @@ mod tests {
         assert_eq!(db.get_profession("Master Bodrus"), Some("Fighter"));
         assert_eq!(db.get_profession("Rodnus"), Some("Healer"));
         assert_eq!(db.get_profession("Master Spirtus"), Some("Healer"));
-        assert_eq!(db.get_profession("Master Mentus"), Some("Mystic"));
+        assert_eq!(db.get_profession("Master Mentus"), None);
+        assert_eq!(db.get_profession("Fellblade"), Some("Bloodmage"));
+        assert_eq!(db.get_profession("Fellblade Decay"), Some("Bloodmage"));
         assert_eq!(db.get_profession("Gossamer"), Some("Ranger"));
 
         // Language trainers

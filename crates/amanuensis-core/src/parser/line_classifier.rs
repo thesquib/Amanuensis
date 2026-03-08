@@ -53,6 +53,19 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         return LogEvent::Untrained;
     }
 
+    // Trainer rank checkpoint: trainer greets character with rank status message.
+    // Fast pre-check on "Hail, " before running the regex (common in training logs).
+    if message.contains("\"Hail, ") {
+        if let Some(caps) = patterns::TRAINER_GREETING.captures(message) {
+            let trainer_name = caps[1].to_string();
+            let character_name = caps[2].to_string();
+            let rank_message = &caps[3];
+            if let Some((rank_min, rank_max)) = crate::data::lookup_checkpoint_message(rank_message) {
+                return LogEvent::TrainerCheckpoint { trainer_name, character_name, rank_min, rank_max };
+            }
+        }
+    }
+
     // Skip speech and emotes early (very common)
     if patterns::SPEECH.is_match(message) || patterns::EMOTE.is_match(message) {
         return LogEvent::Ignored;
@@ -352,6 +365,11 @@ fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         return LogEvent::LastyCompleted {
             trainer: caps[1].to_string(),
         };
+    }
+
+    // Ranger reflect: studied creature list header
+    if patterns::REFLECT_STUDIED_HEADER.is_match(body) {
+        return LogEvent::ReflectStudiedHeader;
     }
 
     // Skip known non-trainer ¥ messages

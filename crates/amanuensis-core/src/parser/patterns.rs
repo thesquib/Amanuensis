@@ -87,6 +87,10 @@ pub static ESTEEM_GAIN: Lazy<Regex> =
 pub static UNTRAINED: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^Untrainus says, ".+, your mind is less cluttered now\."$"#).expect("regex compile error"));
 
+// === Trainer rank checkpoint (greeting with rank status message) ===
+pub static TRAINER_GREETING: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"^(.+?) says(?:\s+in\s+\S+)?, "Hail, ([^."]+)\.\s+(.+)"$"#).expect("regex compile error"));
+
 // === Speech/emote patterns to skip ===
 pub static SPEECH: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"^.+ (says|exclaims|yells|ponders|thinks|asks), ""#).expect("regex compile error"));
@@ -132,6 +136,11 @@ pub static LASTY_BEGIN_STUDY: Lazy<Regex> =
 // Progress: "You have {amount} left to learn about the (movements|ways|essence) of the {creature}."
 pub static LASTY_LEARN_PROGRESS: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You have .+ (?:left )?to learn about the (movements|ways|essence) of the (.+)\.$").expect("regex compile error"));
+
+// === Ranger reflect: studied header ===
+// "You have studied the following creatures:" — precedes a multi-line creature list
+pub static REFLECT_STUDIED_HEADER: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You have studied the following creatures:$").expect("regex compile error"));
 
 // === Study abandon (¥-prefixed) ===
 pub static STUDY_ABANDON: Lazy<Regex> =

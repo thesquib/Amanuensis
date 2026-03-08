@@ -47,7 +47,8 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             gold_ore_found INTEGER NOT NULL DEFAULT 0,
             iron_ore_found INTEGER NOT NULL DEFAULT 0,
             wood_taken INTEGER NOT NULL DEFAULT 0,
-            wood_useless INTEGER NOT NULL DEFAULT 0
+            wood_useless INTEGER NOT NULL DEFAULT 0,
+            profession_override TEXT
         );
 
         CREATE TABLE IF NOT EXISTS kills (
@@ -126,6 +127,17 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             level TEXT NOT NULL,
             message TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS trainer_checkpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER NOT NULL,
+            trainer_name TEXT NOT NULL,
+            rank_min INTEGER NOT NULL,
+            rank_max INTEGER,
+            timestamp TEXT NOT NULL,
+            name_filtered INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (character_id) REFERENCES characters(id)
+        );
         ",
     )?;
     Ok(())
@@ -168,6 +180,10 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE characters ADD COLUMN iron_ore_found INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN wood_taken INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN wood_useless INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN profession_override TEXT",
+        // Marks rows inserted after the character-name filter was added.
+        // Existing rows (recorded before the filter) default to 0 and are purged below.
+        "ALTER TABLE trainer_checkpoints ADD COLUMN name_filtered INTEGER NOT NULL DEFAULT 0",
     ];
 
     for sql in &migrations {
@@ -185,6 +201,7 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
     }
 
     // Create FTS5 table for full-text log search (idempotent via IF NOT EXISTS)
+    // Also create trainer_checkpoints table (idempotent via IF NOT EXISTS)
     conn.execute_batch(
         "CREATE VIRTUAL TABLE IF NOT EXISTS log_lines USING fts5(
             content,
@@ -192,7 +209,21 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
             timestamp UNINDEXED,
             file_path UNINDEXED,
             tokenize='unicode61'
-        );",
+        );
+        CREATE TABLE IF NOT EXISTS trainer_checkpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER NOT NULL,
+            trainer_name TEXT NOT NULL,
+            rank_min INTEGER NOT NULL,
+            rank_max INTEGER,
+            timestamp TEXT NOT NULL,
+            name_filtered INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (character_id) REFERENCES characters(id)
+        );
+        -- Purge checkpoints that were recorded before the character-name filter existed.
+        -- name_filtered=0 means the row was inserted by old code (no name check).
+        -- New inserts always set name_filtered=1, so this DELETE is a no-op after the first run.
+        DELETE FROM trainer_checkpoints WHERE name_filtered = 0;",
     )?;
 
     Ok(())

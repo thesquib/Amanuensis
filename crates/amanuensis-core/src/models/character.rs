@@ -96,6 +96,8 @@ pub struct Character {
     // Wood gathering
     pub wood_taken: i64,
     pub wood_useless: i64,
+    // Manual profession override (set by user in GUI to correct auto-detection)
+    pub profession_override: Option<String>,
 }
 
 impl Character {
@@ -143,6 +145,7 @@ impl Character {
             iron_ore_found: 0,
             wood_taken: 0,
             wood_useless: 0,
+            profession_override: None,
         }
     }
 }

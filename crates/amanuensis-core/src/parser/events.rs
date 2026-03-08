@@ -102,8 +102,14 @@ pub enum LogEvent {
     WoodTaken,
     /// Wood useless: "You find that the wood is useless."
     WoodUseless,
+    /// Ranger reflect: "You have studied the following creatures:" header
+    ReflectStudiedHeader,
     /// Character was untrained by Untrainus
     Untrained,
+    /// Trainer rank checkpoint: trainer greeting with rank status message.
+    /// character_name is who the greeting was addressed to (may differ from log owner).
+    /// rank_max=None means the trainer is maxed.
+    TrainerCheckpoint { trainer_name: String, character_name: String, rank_min: i64, rank_max: Option<i64> },
     /// Line was not classified (speech, emote, or unrecognized)
     Ignored,
 }

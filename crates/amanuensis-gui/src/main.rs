@@ -28,6 +28,7 @@ fn main() {
             commands::rescan_logs,
             commands::scan_files,
             commands::clear_rank_overrides,
+            commands::set_profession_override,
             commands::import_scribius_db,
             commands::get_default_db_path,
             commands::check_db_exists,
@@ -42,6 +43,8 @@ fn main() {
             commands::get_character_portrait_path,
             commands::check_for_update,
             commands::reveal_database,
+            commands::get_trainer_checkpoints,
+            commands::get_all_trainer_checkpoints,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

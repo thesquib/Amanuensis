@@ -48,6 +48,30 @@ impl Database {
         Ok(())
     }
 
+    /// Mark a lasty as finished from reflect data.
+    /// Unlike finish_lasty, this preserves an existing completed_date (only sets it if NULL),
+    /// so a more precise log-derived date is never overwritten by the reflect timestamp.
+    pub fn finish_lasty_from_reflect(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+        lasty_type: &str,
+        date: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count, finished,
+                                 first_seen_date, last_seen_date, completed_date)
+             VALUES (?1, ?2, ?3, 1, 1, ?4, ?4, ?4)
+             ON CONFLICT(character_id, creature_name) DO UPDATE SET
+                message_count = message_count + 1,
+                finished = 1,
+                last_seen_date = excluded.last_seen_date,
+                completed_date = COALESCE(lastys.completed_date, excluded.completed_date)",
+            params![char_id, creature_name, lasty_type, date],
+        )?;
+        Ok(())
+    }
+
     /// Mark a lasty as completed (by trainer name — we find the most recent unfinished lasty).
     pub fn complete_lasty(&self, char_id: i64, _trainer: &str) -> Result<()> {
         // Mark the most recently updated unfinished lasty as complete

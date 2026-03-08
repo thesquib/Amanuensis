@@ -3,6 +3,7 @@ import type {
   Character,
   Kill,
   Trainer,
+  TrainerCheckpoint,
   Pet,
   Lasty,
   ScanResult,
@@ -70,6 +71,13 @@ export async function setRankOverride(
     modifiedRanks,
     overrideDate: overrideDate ?? null,
   });
+}
+
+export async function setProfessionOverride(
+  charId: number,
+  profession: string | null,
+): Promise<void> {
+  return invoke("set_profession_override", { charId, profession });
 }
 
 export async function scanLogs(
@@ -179,4 +187,12 @@ export async function revealDatabase(path: string): Promise<void> {
 
 export async function getProcessLogs(): Promise<ProcessLog[]> {
   return invoke("get_process_logs");
+}
+
+export async function getTrainerCheckpoints(charId: number): Promise<TrainerCheckpoint[]> {
+  return invoke("get_trainer_checkpoints", { charId });
+}
+
+export async function getAllTrainerCheckpoints(charId: number): Promise<TrainerCheckpoint[]> {
+  return invoke("get_all_trainer_checkpoints", { charId });
 }

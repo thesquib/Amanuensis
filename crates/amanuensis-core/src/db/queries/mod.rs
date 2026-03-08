@@ -5,6 +5,7 @@ use crate::error::Result;
 use crate::models::*;
 
 mod character;
+mod checkpoint;
 mod kill;
 mod trainer;
 mod lasty;
@@ -27,7 +28,7 @@ const CHARACTER_COLUMNS: &str =
      coin_level, coin_level_interim, good_karma, bad_karma, start_date,
      fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count, ore_found,
      tin_ore_found, copper_ore_found, gold_ore_found, iron_ore_found,
-     wood_taken, wood_useless";
+     wood_taken, wood_useless, profession_override";
 
 /// Map a rusqlite row (from a CHARACTER_COLUMNS projection) to a Character.
 fn map_character_row(row: &Row<'_>) -> rusqlite::Result<Character> {
@@ -74,6 +75,7 @@ fn map_character_row(row: &Row<'_>) -> rusqlite::Result<Character> {
         iron_ore_found: row.get(39)?,
         wood_taken: row.get(40)?,
         wood_useless: row.get(41)?,
+        profession_override: row.get(42)?,
     })
 }
 
