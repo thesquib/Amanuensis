@@ -11,7 +11,7 @@ pub fn parse_filename_date(filename: &str) -> Option<String> {
     // inner = "YYYY:MM:DD HH.MM.SS"
     let (date_part, time_part) = inner.split_once(' ')?;
     // date_part = "YYYY:MM:DD", time_part = "HH.MM.SS"
-    let date = date_part.replace(':', "-").replace('_', "-");
+    let date = date_part.replace([':', '_'], "-");
     let time = time_part.replace('.', ":");
     // Validate it looks like a real date (basic sanity: 4-digit year, valid format)
     if date.len() < 8 || !date.contains('-') { return None; }
