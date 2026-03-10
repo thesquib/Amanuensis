@@ -293,6 +293,14 @@ export function SummaryView() {
             <div className="text-sm font-semibold">{char.bad_karma.toLocaleString()}</div>
           </div>
           <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Gave Good Karma</div>
+            <div className="text-sm font-semibold">{char.gave_good_karma.toLocaleString()}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Gave Bad Karma</div>
+            <div className="text-sm font-semibold">{char.gave_bad_karma.toLocaleString()}</div>
+          </div>
+          <div className="flex items-center justify-between gap-2">
             <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Esteem</div>
             <div className="text-sm font-semibold">{char.esteem.toLocaleString()}</div>
           </div>

@@ -29,6 +29,8 @@ export interface Character {
   coin_level_interim: number;
   good_karma: number;
   bad_karma: number;
+  gave_good_karma: number;
+  gave_bad_karma: number;
   start_date: string | null;
   fur_worth: number;
   mandible_worth: number;
