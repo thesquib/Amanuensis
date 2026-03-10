@@ -370,6 +370,8 @@ impl Database {
                 merged.purgatory_pendant += source.purgatory_pendant;
                 merged.good_karma += source.good_karma;
                 merged.bad_karma += source.bad_karma;
+                merged.gave_good_karma += source.gave_good_karma;
+                merged.gave_bad_karma += source.gave_bad_karma;
                 merged.fur_worth += source.fur_worth;
                 merged.mandible_worth += source.mandible_worth;
                 merged.blood_worth += source.blood_worth;

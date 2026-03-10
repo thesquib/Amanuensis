@@ -16,6 +16,11 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
             good: &caps[1] == "good",
         };
     }
+    if let Some(caps) = patterns::KARMA_GIVEN.captures(message) {
+        return LogEvent::KarmaGiven {
+            good: &caps[1] == "good",
+        };
+    }
 
     // Apply-learning bonus rank (NPC speech containing the confirmation)
     // Check "much more" (full) before "more" (partial) since "much more" contains "more"
@@ -295,6 +300,8 @@ fn strip_article(name: &str) -> String {
     if let Some(rest) = name.strip_prefix("an ") {
         rest.to_string()
     } else if let Some(rest) = name.strip_prefix("a ") {
+        rest.to_string()
+    } else if let Some(rest) = name.strip_prefix("the ") {
         rest.to_string()
     } else {
         name.to_string()
@@ -885,6 +892,57 @@ mod tests {
     }
 
     #[test]
+    fn test_study_abandon_old_article() {
+        // Old log format uses "a" instead of "the"
+        let db = test_db();
+        let event = classify_line("¥You abandon your study of a Rat.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::StudyAbandon { ref creature } if creature == "Rat"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_befriend_old_article() {
+        // Old log format: "befriend a {creature}" instead of "befriend the {creature}"
+        let db = test_db();
+        let event = classify_line("¥You learn to befriend a Maha Ruknee.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyFinished {
+                ref creature,
+                ref lasty_type
+            } if creature == "Maha Ruknee" && lasty_type == "Befriend"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_morph_old_article() {
+        let db = test_db();
+        let event = classify_line("¥You learn to assume the form of an Orga Anger.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyFinished {
+                ref creature,
+                ref lasty_type
+            } if creature == "Orga Anger" && lasty_type == "Morph"
+        ));
+    }
+
+    #[test]
+    fn test_lasty_movements_old_article() {
+        let db = test_db();
+        let event = classify_line("¥You learn to fight a Large Vermine more effectively.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::LastyFinished {
+                ref creature,
+                ref lasty_type
+            } if creature == "Large Vermine" && lasty_type == "Movements"
+        ));
+    }
+
+    #[test]
     fn test_study_abandon_bullet() {
         let db = test_db();
         let event = classify_line("•You abandon your study of the Maha Ruknee.", &db);
@@ -943,7 +1001,7 @@ mod tests {
             LogEvent::SoloKill {
                 ref creature,
                 verb: KillVerb::Killed
-            } if creature == "the Ramandu"
+            } if creature == "Ramandu"
         ));
     }
 
@@ -956,7 +1014,7 @@ mod tests {
             LogEvent::AssistedKill {
                 ref creature,
                 verb: KillVerb::Vanquished
-            } if creature == "the Ramandu"
+            } if creature == "Ramandu"
         ));
     }
 
@@ -992,6 +1050,20 @@ mod tests {
         let db = test_db();
         let event = classify_line("You just received anonymous good karma.", &db);
         assert!(matches!(event, LogEvent::KarmaReceived { good: true }));
+    }
+
+    #[test]
+    fn test_karma_given_good() {
+        let db = test_db();
+        let event = classify_line("You gave good karma to Farb.", &db);
+        assert!(matches!(event, LogEvent::KarmaGiven { good: true }));
+    }
+
+    #[test]
+    fn test_karma_given_bad() {
+        let db = test_db();
+        let event = classify_line("You gave bad karma to Troll.", &db);
+        assert!(matches!(event, LogEvent::KarmaGiven { good: false }));
     }
 
     #[test]

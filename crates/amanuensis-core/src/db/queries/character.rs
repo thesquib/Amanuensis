@@ -69,7 +69,7 @@ impl Database {
             "bells_used", "bells_broken", "chains_used", "chains_broken",
             "shieldstones_used", "shieldstones_broken", "ethereal_portals",
             "darkstone", "purgatory_pendant", "coin_level",
-            "good_karma", "bad_karma",
+            "good_karma", "bad_karma", "gave_good_karma", "gave_bad_karma",
             "fur_worth", "mandible_worth", "blood_worth", "eps_broken",
             "untraining_count", "ore_found",
             "tin_ore_found", "copper_ore_found", "gold_ore_found", "iron_ore_found",

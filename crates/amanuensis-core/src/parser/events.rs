@@ -91,6 +91,8 @@ pub enum LogEvent {
     ApplyLearningRank { character_name: String, trainer_name: String, is_full: bool },
     /// Karma received: "You just received good/bad karma from {name}."
     KarmaReceived { good: bool },
+    /// Karma given: "You gave good/bad karma to {name}."
+    KarmaGiven { good: bool },
     /// Esteem gain: "* You gain esteem." or "* You gain experience and esteem."
     EsteemGain,
     /// Profession announcement from NPC (circle test or "become a" message)

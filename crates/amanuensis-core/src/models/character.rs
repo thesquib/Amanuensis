@@ -77,6 +77,8 @@ pub struct Character {
     // Karma
     pub good_karma: i64,
     pub bad_karma: i64,
+    pub gave_good_karma: i64,
+    pub gave_bad_karma: i64,
     // Start date (earliest login timestamp)
     pub start_date: Option<String>,
     // Loot worth (total recovered value, not just share)
@@ -135,6 +137,8 @@ impl Character {
             coin_level_interim: 0,
             good_karma: 0,
             bad_karma: 0,
+            gave_good_karma: 0,
+            gave_bad_karma: 0,
             start_date: None,
             fur_worth: 0,
             mandible_worth: 0,

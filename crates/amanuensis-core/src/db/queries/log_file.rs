@@ -70,7 +70,7 @@ impl Database {
                darkstone=0, purgatory_pendant=0, coin_level=0,
                ore_found=0, tin_ore_found=0, copper_ore_found=0, gold_ore_found=0, iron_ore_found=0,
                wood_taken=0, wood_useless=0,
-               good_karma=0, bad_karma=0, start_date=NULL,
+               good_karma=0, bad_karma=0, gave_good_karma=0, gave_bad_karma=0, start_date=NULL,
                fur_worth=0, mandible_worth=0, blood_worth=0,
                eps_broken=0, untraining_count=0, profession='Unknown';
              UPDATE trainers SET

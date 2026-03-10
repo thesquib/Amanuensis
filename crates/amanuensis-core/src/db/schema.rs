@@ -35,6 +35,8 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             coin_level_interim INTEGER NOT NULL DEFAULT 0,
             good_karma INTEGER NOT NULL DEFAULT 0,
             bad_karma INTEGER NOT NULL DEFAULT 0,
+            gave_good_karma INTEGER NOT NULL DEFAULT 0,
+            gave_bad_karma INTEGER NOT NULL DEFAULT 0,
             start_date TEXT,
             fur_worth INTEGER NOT NULL DEFAULT 0,
             mandible_worth INTEGER NOT NULL DEFAULT 0,
@@ -151,6 +153,8 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
     let migrations = [
         "ALTER TABLE characters ADD COLUMN good_karma INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN bad_karma INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN gave_good_karma INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE characters ADD COLUMN gave_bad_karma INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN start_date TEXT",
         "ALTER TABLE characters ADD COLUMN fur_worth INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN mandible_worth INTEGER NOT NULL DEFAULT 0",

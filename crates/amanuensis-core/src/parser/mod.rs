@@ -634,6 +634,12 @@ impl LogParser {
                         .increment_character_field(char_id, field, 1)?;
                     file_result.events_found += 1;
                 }
+                LogEvent::KarmaGiven { good } => {
+                    let field = if good { "gave_good_karma" } else { "gave_bad_karma" };
+                    self.db
+                        .increment_character_field(char_id, field, 1)?;
+                    file_result.events_found += 1;
+                }
                 LogEvent::EsteemGain => {
                     self.db
                         .increment_character_field(char_id, "esteem", 1)?;
@@ -1727,6 +1733,48 @@ mod tests {
         assert_eq!(finished.len(), 3);
     }
 
+    #[test]
+    fn test_lasty_old_article_format() {
+        // Old CL client used "a/an" instead of "the" in lasty messages.
+        // CR-only line endings (old Mac format).
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let mut bytes = Vec::new();
+        // Befriend with "a" article + CR line ending
+        bytes.extend_from_slice(b"1/1/01 1:00:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You learn to befriend a Maha Ruknee.");
+        bytes.push(b'\r');
+        // Morph with "an" article
+        bytes.extend_from_slice(b"1/1/01 1:01:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You learn to assume the form of an Orga Anger.");
+        bytes.push(b'\r');
+        // Movements with "a" article
+        bytes.extend_from_slice(b"1/1/01 1:02:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You learn to fight a Large Vermine more effectively.");
+        bytes.push(b'\r');
+        // Study abandon with "a" article
+        bytes.extend_from_slice(b"1/1/01 1:03:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You abandon your study of a Rat.");
+        bytes.push(b'\r');
+
+        fs::write(char_dir.join("CL Log 2001_01_01 01.00.00"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char_id = parser.db().get_or_create_character("TestChar").unwrap();
+        let lastys = parser.db().get_lastys(char_id).unwrap();
+        assert_eq!(lastys.len(), 3);
+        assert!(lastys.iter().any(|l| l.creature_name == "Maha Ruknee" && l.lasty_type == "Befriend"));
+        assert!(lastys.iter().any(|l| l.creature_name == "Orga Anger" && l.lasty_type == "Morph"));
+        assert!(lastys.iter().any(|l| l.creature_name == "Large Vermine" && l.lasty_type == "Movements"));
+    }
+
     /// Helper: build a log file with the given ¥-prefixed rank messages (as raw bytes).
     fn build_rank_log(messages: &[&[u8]], count_each: usize) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -2129,6 +2177,10 @@ mod tests {
 1/1/24 1:00:00p You just received good karma from Donk.
 1/1/24 1:01:00p You just received good karma from Pip.
 1/1/24 1:02:00p You just received bad karma from Troll.
+1/1/24 1:03:00p You gave good karma to Donk.
+1/1/24 1:04:00p You gave good karma to Pip.
+1/1/24 1:05:00p You gave bad karma to Troll.
+1/1/24 1:06:00p You gave bad karma to Bully.
 ";
         fs::write(
             char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
@@ -2143,6 +2195,8 @@ mod tests {
         let char = parser.db().get_character("TestChar").unwrap().unwrap();
         assert_eq!(char.good_karma, 2);
         assert_eq!(char.bad_karma, 1);
+        assert_eq!(char.gave_good_karma, 2);
+        assert_eq!(char.gave_bad_karma, 2);
     }
 
     #[test]

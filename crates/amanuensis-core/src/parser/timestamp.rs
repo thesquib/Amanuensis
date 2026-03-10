@@ -11,7 +11,7 @@ pub fn parse_filename_date(filename: &str) -> Option<String> {
     // inner = "YYYY:MM:DD HH.MM.SS"
     let (date_part, time_part) = inner.split_once(' ')?;
     // date_part = "YYYY:MM:DD", time_part = "HH.MM.SS"
-    let date = date_part.replace(':', "-");
+    let date = date_part.replace(':', "-").replace('_', "-");
     let time = time_part.replace('.', ":");
     // Validate it looks like a real date (basic sanity: 4-digit year, valid format)
     if date.len() < 8 || !date.contains('-') { return None; }
@@ -175,6 +175,20 @@ mod tests {
     fn test_24h_midnight() {
         let (dt, _) = parse_timestamp("1/1/26 0:00:00 Hello").unwrap();
         assert_eq!(dt.hour(), 0);
+    }
+
+    #[test]
+    fn test_filename_date_colon_separator() {
+        // Old Mac client used colons: "CL Log 2001:04:18 21.21.44" (colons invalid on Windows)
+        let result = parse_filename_date("CL Log 2001:04:18 21.21.44").unwrap();
+        assert_eq!(result, "2001-04-18 21:21:44");
+    }
+
+    #[test]
+    fn test_filename_date_underscore_separator() {
+        // Fallback: underscores in place of colons (e.g. copied to Windows and back)
+        let result = parse_filename_date("CL Log 2001_04_18 21.21.44").unwrap();
+        assert_eq!(result, "2001-04-18 21:21:44");
     }
 
     #[test]
