@@ -80,6 +80,23 @@ impl Database {
         Ok(())
     }
 
+    /// Delete all data: characters, trainers, kills, pets, lastys, log files, process logs.
+    /// This is a full wipe — no data is preserved. Use reset_log_data to keep rank overrides.
+    pub fn delete_all_data(&self) -> Result<()> {
+        self.conn.execute_batch(
+            "DELETE FROM kills;
+             DELETE FROM lastys;
+             DELETE FROM pets;
+             DELETE FROM log_files;
+             DELETE FROM log_lines;
+             DELETE FROM process_logs;
+             DELETE FROM trainer_checkpoints;
+             DELETE FROM trainers;
+             DELETE FROM characters;",
+        )?;
+        Ok(())
+    }
+
     /// Clear all user-controlled rank override data, resetting trainers back to
     /// modifier mode with zero modified ranks.  Recomputes coin_level for all
     /// characters afterwards.

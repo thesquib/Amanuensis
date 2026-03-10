@@ -1,15 +1,20 @@
 use chrono::NaiveDateTime;
 
 /// Extract a date string from a CL Log filename.
-/// Format: `CL Log YYYY:MM:DD HH.MM.SS.txt` → `"YYYY-MM-DD HH:MM:SS"`
-/// Returns None if the filename doesn't match the expected pattern.
+/// Handles both modern format (`CL Log YYYY:MM:DD HH.MM.SS.txt`) and old Mac client
+/// format (`CL Log YYYY:MM:DD HH.MM.SS` — no .txt extension).
+/// Returns `"YYYY-MM-DD HH:MM:SS"` or None if the filename doesn't match.
 pub fn parse_filename_date(filename: &str) -> Option<String> {
-    let inner = filename.strip_prefix("CL Log ")?.strip_suffix(".txt")?;
+    let after_prefix = filename.strip_prefix("CL Log ")?;
+    // Strip optional .txt suffix
+    let inner = after_prefix.strip_suffix(".txt").unwrap_or(after_prefix);
     // inner = "YYYY:MM:DD HH.MM.SS"
     let (date_part, time_part) = inner.split_once(' ')?;
     // date_part = "YYYY:MM:DD", time_part = "HH.MM.SS"
     let date = date_part.replace(':', "-");
     let time = time_part.replace('.', ":");
+    // Validate it looks like a real date (basic sanity: 4-digit year, valid format)
+    if date.len() < 8 || !date.contains('-') { return None; }
     Some(format!("{date} {time}"))
 }
 

@@ -40,13 +40,22 @@ impl Database {
         }
     }
 
-    /// List all characters (excludes characters that have been merged into another).
+    /// List all characters (excludes merged-into characters and unscanned ghost rows).
+    /// Characters with logins=0 are hidden — they are empty placeholder rows kept only
+    /// to preserve rank overrides across rescans, and should not appear in the UI.
     pub fn list_characters(&self) -> Result<Vec<Character>> {
         let sql = format!(
-            "SELECT {CHARACTER_COLUMNS} FROM characters WHERE merged_into IS NULL ORDER BY name"
+            "SELECT {CHARACTER_COLUMNS}, \
+             (SELECT COALESCE(SUM(ranks + apply_learning_ranks + modified_ranks), 0) \
+              FROM trainers WHERE character_id = characters.id) as total_ranks \
+             FROM characters WHERE merged_into IS NULL AND logins > 0 ORDER BY name"
         );
         let mut stmt = self.conn.prepare(&sql)?;
-        let chars = stmt.query_map([], map_character_row)?;
+        let chars = stmt.query_map([], |row| {
+            let mut c = map_character_row(row)?;
+            c.total_ranks = row.get(43)?;
+            Ok(c)
+        })?;
         Ok(chars.filter_map(|r| r.ok()).collect())
     }
 

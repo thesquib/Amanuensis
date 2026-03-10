@@ -121,6 +121,10 @@ export async function resetDatabase(): Promise<void> {
   return invoke("reset_database");
 }
 
+export async function deleteAllData(): Promise<void> {
+  return invoke("delete_all_data");
+}
+
 export async function rescanLogs(
   folder: string,
   recursive: boolean = false,

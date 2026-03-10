@@ -98,6 +98,9 @@ pub struct Character {
     pub wood_useless: i64,
     // Manual profession override (set by user in GUI to correct auto-detection)
     pub profession_override: Option<String>,
+    // Total trainer ranks (sum of ranks + apply_learning_ranks + modified_ranks across all trainers)
+    #[serde(default)]
+    pub total_ranks: i64,
 }
 
 impl Character {
@@ -146,6 +149,7 @@ impl Character {
             wood_taken: 0,
             wood_useless: 0,
             profession_override: None,
+            total_ranks: 0,
         }
     }
 }

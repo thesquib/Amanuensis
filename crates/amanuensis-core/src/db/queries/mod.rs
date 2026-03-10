@@ -76,6 +76,7 @@ fn map_character_row(row: &Row<'_>) -> rusqlite::Result<Character> {
         wood_taken: row.get(40)?,
         wood_useless: row.get(41)?,
         profession_override: row.get(42)?,
+        total_ranks: 0,
     })
 }
 
@@ -311,8 +312,16 @@ mod tests {
     #[test]
     fn test_list_characters() {
         let db = Database::open_in_memory().unwrap();
-        db.get_or_create_character("Fen").unwrap();
-        db.get_or_create_character("pip").unwrap();
+        let fen_id = db.get_or_create_character("Fen").unwrap();
+        let pip_id = db.get_or_create_character("pip").unwrap();
+
+        // Characters with logins=0 are hidden (ghost rows from reset)
+        let chars = db.list_characters().unwrap();
+        assert_eq!(chars.len(), 0);
+
+        // Once logged in, they appear
+        db.increment_character_field(fen_id, "logins", 1).unwrap();
+        db.increment_character_field(pip_id, "logins", 1).unwrap();
         let chars = db.list_characters().unwrap();
         assert_eq!(chars.len(), 2);
     }
@@ -578,11 +587,13 @@ mod tests {
         let db = Database::open_in_memory().unwrap();
         let id_a = db.get_or_create_character("CharA").unwrap();
         let id_b = db.get_or_create_character("CharB").unwrap();
+        db.increment_character_field(id_a, "logins", 1).unwrap();
+        db.increment_character_field(id_b, "logins", 1).unwrap();
 
         // Merge B into A
         db.merge_characters(&[id_b], id_a).unwrap();
 
-        // list_characters should NOT return CharB
+        // list_characters should NOT return CharB (merged) nor zero-login chars
         let chars = db.list_characters().unwrap();
         assert_eq!(chars.len(), 1);
         assert_eq!(chars[0].name, "CharA");

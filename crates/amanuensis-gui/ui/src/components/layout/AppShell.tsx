@@ -94,7 +94,7 @@ function ViewContent({ view }: { view: ViewType }) {
 }
 
 export function AppShell() {
-  const { activeView, setActiveView, selectedCharacterId, characters, dbPath, processLogs } =
+  const { activeView, setActiveView, selectedCharacterId, characters, dbPath, processLogs, warnsDismissed } =
     useStore();
 
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -134,7 +134,7 @@ export function AppShell() {
                   tab.visibleFor.includes(selectedCharacter.profession),
               ).map((tab) => {
                 const errorCount = tab.id === "process-logs"
-                  ? processLogs.filter((l) => l.level === "error" || l.level === "warn").length
+                  ? processLogs.filter((l) => l.level === "error" || (!warnsDismissed && l.level === "warn")).length
                   : 0;
                 return (
                   <button

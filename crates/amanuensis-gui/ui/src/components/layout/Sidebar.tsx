@@ -3,16 +3,19 @@ import { useStore } from "../../lib/store";
 import { useDatabase } from "../../lib/hooks/useDatabase";
 import { useScan } from "../../lib/hooks/useScan";
 import { revealDatabase } from "../../lib/commands";
+import { listCharacters } from "../../lib/commands";
 import { ProgressBar } from "../shared/ProgressBar";
 import { CharacterList } from "./CharacterList";
+import { MergeDialog } from "../shared/MergeDialog";
 import type { Theme } from "../../lib/store";
 
 export function Sidebar() {
-  const { dbPath, logFolder, scannedLogCount, recursiveScan, setRecursiveScan, indexLogLines, setIndexLogLines, theme, setTheme } = useStore();
+  const { dbPath, logFolder, scannedLogCount, recursiveScan, setRecursiveScan, indexLogLines, setIndexLogLines, theme, setTheme, characters, setCharacters } = useStore();
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
 
-  const { handleOpenDb, handleReset, handleImportScribius, handleSelectCharacter, ensureDb, isScanning } = useDatabase();
+  const { handleOpenDb, handleReset, handleDeleteAll, handleImportScribius, handleSelectCharacter, ensureDb, isScanning } = useDatabase();
 
   const { scanProgress, handleScanFolder, handleScanFiles, handleRescanLogs } = useScan(
     async (chars) => {
@@ -45,9 +48,6 @@ export function Sidebar() {
 
       {/* Actions */}
       <div className="flex flex-col gap-2 border-b border-[var(--color-border)] p-3">
-        <button onClick={handleOpenDb} disabled={isScanning} className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50">
-          Open Database
-        </button>
         <button onClick={() => handleScanFolder(ensureDb)} disabled={isScanning} className="rounded bg-[var(--color-accent)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/80 disabled:opacity-50">
           {isScanning ? "Scanning..." : "Scan Log Folder(s)"}
         </button>
@@ -65,6 +65,9 @@ export function Sidebar() {
         </button>
         {advancedOpen && (
           <div className="flex flex-col gap-2">
+            <button onClick={handleOpenDb} disabled={isScanning} className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50">
+              Open Database
+            </button>
             <button onClick={() => handleScanFiles(ensureDb)} disabled={isScanning} className="rounded bg-[var(--color-accent)]/80 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/60 disabled:opacity-50">
               Scan Specific Log Files
             </button>
@@ -79,6 +82,15 @@ export function Sidebar() {
             <button onClick={handleImportScribius} disabled={isScanning} className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50">
               Import Scribius DB
             </button>
+            {characters.length >= 2 && (
+              <button
+                onClick={() => setShowMergeDialog(true)}
+                disabled={isScanning}
+                className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50"
+              >
+                Merge Characters...
+              </button>
+            )}
             <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
               <input type="checkbox" checked={indexLogLines} onChange={(e) => setIndexLogLines(e.target.checked)} disabled={isScanning} className="accent-[var(--color-accent)]" />
               Index logs for search
@@ -112,6 +124,16 @@ export function Sidebar() {
                 >
                   Reset Database
                 </button>
+                <button
+                  onClick={handleDeleteAll}
+                  disabled={isScanning}
+                  className="mt-1 w-full rounded px-2 py-1 text-xs disabled:opacity-50"
+                  style={{ backgroundColor: "var(--color-danger-bg)", color: "var(--color-danger)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--color-danger-bg-hover)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--color-danger-bg)")}
+                >
+                  Delete All Data
+                </button>
               </div>
             )}
           </div>
@@ -127,6 +149,21 @@ export function Sidebar() {
 
       {/* Character list */}
       <CharacterList onSelectCharacter={handleSelectCharacter} />
+
+      {showMergeDialog && (
+        <MergeDialog
+          characters={characters}
+          onClose={() => setShowMergeDialog(false)}
+          onMerged={async () => {
+            setShowMergeDialog(false);
+            const chars = await listCharacters();
+            setCharacters(chars);
+            if (chars.length > 0 && chars[0].id !== null) {
+              await handleSelectCharacter(chars[0].id);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

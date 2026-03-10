@@ -68,13 +68,39 @@ fn patch_mac_roman_bytes(line: &[u8]) -> Vec<u8> {
         .collect()
 }
 
+/// Normalize line endings to LF before decoding.
+/// Handles old Mac CR-only files and Windows CRLF files.
+/// \r\n → \n, bare \r → \n.
+fn normalize_line_endings(bytes: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\r' {
+            out.push(b'\n');
+            // Skip the \n in \r\n so we don't emit a double newline
+            if i + 1 < bytes.len() && bytes[i + 1] == b'\n' {
+                i += 1;
+            }
+        } else {
+            out.push(bytes[i]);
+        }
+        i += 1;
+    }
+    out
+}
+
 /// Decode log file bytes, handling mixed encoding (some lines UTF-8, some Windows-1252).
 ///
 /// Strategy:
-/// 1. Fast path: if the entire file is valid UTF-8, use it directly.
-/// 2. Mixed encoding: decode line-by-line — try UTF-8 first for each line, fall back to W1252
+/// 1. Normalize line endings (old Mac CR, Windows CRLF → LF).
+/// 2. Fast path: if the entire file is valid UTF-8, use it directly.
+/// 3. Mixed encoding: decode line-by-line — try UTF-8 first for each line, fall back to W1252
 ///    with Mac Roman patching for the 5 bytes that W1252 leaves undefined.
 pub fn decode_log_bytes(bytes: &[u8]) -> String {
+    // Normalize CR-only (old Mac) and CRLF (Windows) to LF
+    let normalized = normalize_line_endings(bytes);
+    let bytes = normalized.as_slice();
+
     // Fast path: if entire file is valid UTF-8, use it directly
     if let Ok(s) = std::str::from_utf8(bytes) {
         return s.to_string();
@@ -227,6 +253,33 @@ mod tests {
         bytes.extend_from_slice(b"two");
         let result = decode_log_bytes(&bytes);
         assert!(result.contains("one\u{2014}two"), "Expected em dash, got: {}", result);
+    }
+
+    #[test]
+    fn test_cr_only_line_endings() {
+        // Old Mac client uses bare CR (\r) instead of LF or CRLF
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"1/1/24 1:00:00p Welcome to Clan Lord, Fen!");
+        bytes.push(b'\r'); // old Mac line ending
+        bytes.push(0xA5); // ¥ prefix
+        bytes.extend_from_slice(b"Your combat ability improves.");
+        let result = decode_log_bytes(&bytes);
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines.len(), 2, "CR should be treated as line separator");
+        assert!(lines[0].contains("Welcome to Clan Lord"), "First line: {}", lines[0]);
+        assert!(lines[1].starts_with('¥'), "Second line should have ¥: {}", lines[1]);
+    }
+
+    #[test]
+    fn test_crlf_line_endings() {
+        // Windows CRLF should not produce blank lines
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"line one\r\nline two\r\n");
+        let result = decode_log_bytes(&bytes);
+        let lines: Vec<&str> = result.lines().collect();
+        assert_eq!(lines.len(), 2, "CRLF should produce exactly 2 lines, not 4");
+        assert_eq!(lines[0], "line one");
+        assert_eq!(lines[1], "line two");
     }
 
     #[test]

@@ -187,12 +187,17 @@ impl LogParser {
             let char_id = self.db.get_or_create_character(&char_name)?;
             self.load_override_config(char_id)?;
 
+            let mut char_files_scanned: usize = 0;
+            let mut char_files_skipped: usize = 0;
+            let mut char_events_found: usize = 0;
+
             for log_path in &log_files {
                 let path_str = log_path.to_string_lossy().to_string();
 
                 // Skip by path (fast check for exact same file)
                 if !force && self.db.is_log_scanned(&path_str)? {
                     result.skipped += 1;
+                    char_files_skipped += 1;
                     continue;
                 }
 
@@ -201,7 +206,12 @@ impl LogParser {
                     Ok(b) => b,
                     Err(e) => {
                         log::warn!("Error reading {}: {}", path_str, e);
+                        let _ = self.db.add_process_log(
+                            "error",
+                            &format!("Could not read file: {} — {}", path_str, e),
+                        );
                         result.errors += 1;
+                        char_files_skipped += 1;
                         continue;
                     }
                 };
@@ -210,7 +220,14 @@ impl LogParser {
                 let content_hash = hash_bytes(&bytes);
                 if !force && self.db.is_hash_scanned(&content_hash)? {
                     log::debug!("Skipping duplicate content: {}", path_str);
+                    let fname = Path::new(&path_str).file_name()
+                        .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                    let _ = self.db.add_process_log(
+                        "info",
+                        &format!("Skipped duplicate file (same content already scanned): {fname}"),
+                    );
                     result.skipped += 1;
+                    char_files_skipped += 1;
                     continue;
                 }
 
@@ -219,6 +236,17 @@ impl LogParser {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
                         result.events_found += file_result.events_found;
+                        char_files_scanned += 1;
+                        char_events_found += file_result.events_found;
+
+                        for (trainer, count) in &file_result.override_skips {
+                            let fname = Path::new(&path_str).file_name()
+                                .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                            let _ = self.db.add_process_log(
+                                "info",
+                                &format!("Skipped {count} rank(s) for {trainer} ({char_name}) — override active: {fname}"),
+                            );
+                        }
 
                         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
                         self.db
@@ -226,12 +254,24 @@ impl LogParser {
                     }
                     Err(e) => {
                         log::warn!("Error scanning {}: {}", path_str, e);
+                        let _ = self.db.add_process_log(
+                            "error",
+                            &format!("Error scanning file: {} — {}", path_str, e),
+                        );
                         result.errors += 1;
+                        char_files_skipped += 1;
                     }
                 }
             }
             // Apply only the most recent reflect output for this character
             self.flush_reflect_lastys(char_id)?;
+            let _ = self.db.add_process_log(
+                "info",
+                &format!(
+                    "Scanned {char_name}: {char_files_scanned} file(s) processed, \
+                     {char_files_skipped} skipped, {char_events_found} events found"
+                ),
+            );
             result.characters += 1;
         }
 
@@ -432,6 +472,8 @@ impl LogParser {
                         self.db
                             .upsert_trainer_rank(char_id, &trainer_name, &date_str, multiplier)?;
                         file_result.events_found += 1;
+                    } else {
+                        *file_result.override_skips.entry(trainer_name).or_insert(0) += 1;
                     }
                 }
 
@@ -445,6 +487,19 @@ impl LogParser {
                 LogEvent::TrainerGreetingSimple { trainer_name, character_name } => {
                     // Only track if addressed to this character
                     if character_name.eq_ignore_ascii_case(char_name) {
+                        pending_bow_checkpoints.insert(trainer_name, (character_name, false));
+                    }
+                }
+
+                LogEvent::TrainerGreetingWithUnknownCheckpoint { trainer_name, character_name, raw_message } => {
+                    if character_name.eq_ignore_ascii_case(char_name) {
+                        let fname = Path::new(file_path).file_name()
+                            .and_then(|n| n.to_str()).unwrap_or(file_path);
+                        let _ = self.db.add_process_log(
+                            "warn",
+                            &format!("Unrecognized trainer checkpoint from {trainer_name} in {fname}: \"{raw_message}\""),
+                        );
+                        // Still enter bow-sequence state in case this is step 1 of a bow sequence
                         pending_bow_checkpoints.insert(trainer_name, (character_name, false));
                     }
                 }
@@ -655,20 +710,22 @@ impl LogParser {
                 LogEvent::ApplyLearningRank { character_name, trainer_name, is_full } => {
                     // Only count apply-learning ranks for the current character
                     // (other characters' ranks can appear in our logs)
-                    if character_name.eq_ignore_ascii_case(char_name)
-                        && self.should_count_rank(char_id, &trainer_name, &date_str)
-                    {
-                        let multiplier = self.trainer_db.get_multiplier(&trainer_name);
-                        if is_full {
-                            // "much more" = exactly 10 confirmed bonus ranks
-                            self.db
-                                .upsert_apply_learning(char_id, &trainer_name, &date_str, 10, multiplier)?;
+                    if character_name.eq_ignore_ascii_case(char_name) {
+                        if self.should_count_rank(char_id, &trainer_name, &date_str) {
+                            let multiplier = self.trainer_db.get_multiplier(&trainer_name);
+                            if is_full {
+                                // "much more" = exactly 10 confirmed bonus ranks
+                                self.db
+                                    .upsert_apply_learning(char_id, &trainer_name, &date_str, 10, multiplier)?;
+                            } else {
+                                // "more" = 1-9 unknown bonus ranks, just count occurrences
+                                self.db
+                                    .upsert_apply_learning_unknown(char_id, &trainer_name, &date_str, multiplier)?;
+                            }
+                            file_result.events_found += 1;
                         } else {
-                            // "more" = 1-9 unknown bonus ranks, just count occurrences
-                            self.db
-                                .upsert_apply_learning_unknown(char_id, &trainer_name, &date_str, multiplier)?;
+                            *file_result.override_skips.entry(trainer_name).or_insert(0) += 1;
                         }
-                        file_result.events_found += 1;
                     }
                 }
             }
@@ -678,7 +735,7 @@ impl LogParser {
         if !had_real_timestamp {
             if filename_date.is_some() {
                 let _ = self.db.add_process_log(
-                    "warning",
+                    "warn",
                     &format!("No timestamps in log lines — used filename date: {filename_only}"),
                 );
             } else {
@@ -1361,12 +1418,18 @@ fn discover_log_folders_inner(dir: &Path, results: &mut Vec<PathBuf>) {
 }
 
 /// Find CL Log files in a directory.
+/// Matches files starting with "CL Log " regardless of extension — newer clients produce
+/// ".txt" files, but older Mac clients (pre-2007 era) produce extensionless files.
 fn find_log_files(dir: &Path) -> Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
+        // Only match regular files (not directories)
+        if !entry.file_type().map(|ft| ft.is_file()).unwrap_or(false) {
+            continue;
+        }
         let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with("CL Log ") && name.ends_with(".txt") {
+        if name.starts_with("CL Log ") {
             files.push(entry.path());
         }
     }
@@ -1387,6 +1450,7 @@ pub struct ScanResult {
 struct FileResult {
     pub lines_parsed: usize,
     pub events_found: usize,
+    pub override_skips: HashMap<String, u32>,
 }
 
 #[cfg(test)]

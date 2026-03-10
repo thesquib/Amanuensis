@@ -13,6 +13,7 @@ import {
   getPets,
   getLastys,
   resetDatabase,
+  deleteAllData,
   importScribiusDb,
   getProcessLogs,
 } from "../commands";
@@ -144,6 +145,28 @@ export function useDatabase() {
     }
   }, [dbPath, setCharacters, setScannedLogCount, setLogLineCount, handleSelectCharacter]);
 
+  const handleDeleteAll = useCallback(async () => {
+    if (!dbPath) return;
+    const confirmed = await confirm(
+      "This will permanently delete ALL data: characters, trainers, kills, pets, logs, and rank modifiers.\n\nThis cannot be undone. Are you sure?",
+      { title: "Delete All Data", kind: "warning" },
+    );
+    if (!confirmed) return;
+    try {
+      await deleteAllData();
+      setCharacters([]);
+      setScannedLogCount(0);
+      setLogLineCount(0);
+      setKills([]);
+      setTrainers([]);
+      setPets([]);
+      setLastys([]);
+      setProcessLogs([]);
+    } catch (e) {
+      console.error("Delete all data failed:", e);
+    }
+  }, [dbPath, setCharacters, setScannedLogCount, setLogLineCount, setKills, setTrainers, setPets, setLastys, setProcessLogs]);
+
   const handleImportScribius = useCallback(async () => {
     const scribiusFile = await open({
       filters: [{ name: "Scribius Database", extensions: ["db", "sqlite"] }],
@@ -183,6 +206,7 @@ export function useDatabase() {
     loadDatabase,
     handleOpenDb,
     handleReset,
+    handleDeleteAll,
     handleImportScribius,
     handleSelectCharacter,
     ensureDb,

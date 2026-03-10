@@ -118,6 +118,13 @@ pub enum LogEvent {
     /// Trainer checkpoint message without greeting prefix (bow sequence step 3):
     /// Trainer says, "{known_checkpoint_message}" — character name comes from the preceding greeting.
     TrainerCheckpointUnhailed { trainer_name: String, rank_min: i64, rank_max: Option<i64> },
+    /// TRAINER_GREETING matched (has rank text after "Hail, Name.") but rank message
+    /// not found in checkpoint DB — likely a missing entry in rankmessages.
+    TrainerGreetingWithUnknownCheckpoint {
+        trainer_name: String,
+        character_name: String,
+        raw_message: String,
+    },
     /// Line was not classified (speech, emote, or unrecognized)
     Ignored,
 }

@@ -43,6 +43,7 @@ export interface Character {
   wood_taken: number;
   wood_useless: number;
   profession_override: string | null;
+  total_ranks: number;
 }
 
 /** Mirrors Rust `Kill` struct */

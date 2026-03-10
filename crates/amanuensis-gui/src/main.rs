@@ -33,6 +33,7 @@ fn main() {
             commands::get_default_db_path,
             commands::check_db_exists,
             commands::reset_database,
+            commands::delete_all_data,
             commands::search_logs,
             commands::get_log_line_count,
             commands::get_process_logs,

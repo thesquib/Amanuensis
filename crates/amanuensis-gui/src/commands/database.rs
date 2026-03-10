@@ -39,6 +39,13 @@ pub fn reset_database(state: State<'_, AppState>) -> Result<(), String> {
     state.with_db(|db| db.reset_log_data().map_err(|e| e.to_string()))
 }
 
+/// Delete all data: completely wipes characters, trainers, kills, pets, lastys, and all logs.
+/// No data is preserved. The database file remains open and ready for a fresh scan.
+#[tauri::command]
+pub fn delete_all_data(state: State<'_, AppState>) -> Result<(), String> {
+    state.with_db(|db| db.delete_all_data().map_err(|e| e.to_string()))
+}
+
 /// Reveal the database file in the OS file manager (Finder/Explorer/Nautilus).
 #[tauri::command]
 pub fn reveal_database(path: String) -> Result<(), String> {
@@ -52,7 +59,7 @@ pub fn reveal_database(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("explorer")
-            .args(["/select,", &path])
+            .arg(format!("/select,{path}"))
             .spawn()
             .map_err(|e| e.to_string())?;
     }

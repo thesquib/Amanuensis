@@ -72,6 +72,8 @@ interface AppStore {
   // Process logs
   processLogs: ProcessLog[];
   setProcessLogs: (logs: ProcessLog[]) => void;
+  warnsDismissed: boolean;
+  setWarnsDismissed: (dismissed: boolean) => void;
 
   // Scanning
   isScanning: boolean;
@@ -168,7 +170,9 @@ export const useStore = create<AppStore>((set) => ({
   setLastys: (lastys) => set({ lastys }),
 
   processLogs: [],
-  setProcessLogs: (logs) => set({ processLogs: logs }),
+  setProcessLogs: (logs) => set({ processLogs: logs, warnsDismissed: false }),
+  warnsDismissed: false,
+  setWarnsDismissed: (dismissed) => set({ warnsDismissed: dismissed }),
 
   isScanning: false,
   setIsScanning: (scanning) => set({ isScanning: scanning }),

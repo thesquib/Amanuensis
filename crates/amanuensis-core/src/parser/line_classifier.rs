@@ -69,6 +69,13 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
                 });
             if let Some((rank_min, rank_max)) = checkpoint {
                 return LogEvent::TrainerCheckpoint { trainer_name, character_name, rank_min, rank_max };
+            } else {
+                // TRAINER_GREETING matched (has rank text) but message not in checkpoint DB
+                return LogEvent::TrainerGreetingWithUnknownCheckpoint {
+                    trainer_name,
+                    character_name,
+                    raw_message: rank_message.chars().take(120).collect(),
+                };
             }
         }
         // Simple greeting: "Trainer says, "Hail, Name."" — no rank message on this line.
@@ -1164,13 +1171,20 @@ mod tests {
     }
 
     #[test]
-    fn test_trainer_greeting_unknown_phrase_ignored() {
+    fn test_trainer_greeting_unknown_phrase_emits_unknown_checkpoint() {
         let db = test_db();
         let event = classify_line(
             r#"Histia says, "Hail, Gandor. Nice weather today.""#,
             &db,
         );
-        assert!(matches!(event, LogEvent::Ignored));
+        assert!(matches!(
+            event,
+            LogEvent::TrainerGreetingWithUnknownCheckpoint {
+                ref trainer_name,
+                ref character_name,
+                ref raw_message,
+            } if trainer_name == "Histia" && character_name == "Gandor" && raw_message == "Nice weather today."
+        ));
     }
 
     #[test]
