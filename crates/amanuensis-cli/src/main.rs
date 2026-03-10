@@ -713,7 +713,7 @@ fn cmd_search(db_path: &str, query: &str, character: Option<&str>, limit: i64) -
         None
     };
 
-    let results = db.search_log_lines(query, char_id, limit)?;
+    let results = db.search_log_lines(query, char_id, limit, true, 0, 0)?;
 
     if results.is_empty() {
         println!("No results found for '{}'.", query);
