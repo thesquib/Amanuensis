@@ -18,12 +18,13 @@ type EnrichedTrainer = Trainer & {
 const columnHelper = createColumnHelper<EnrichedTrainer>();
 
 export function TrainersView() {
-  const { trainers, trainersViewState, setTrainersViewState, selectedCharacterId } = useStore();
-  const { showZero, showEffective, searchQuery, collapsedGroups: collapsedArr } = trainersViewState;
+  const { trainers, setTrainers, trainersViewState, setTrainersViewState, selectedCharacterId } = useStore();
+  const { showZero, showEffective, searchQuery, collapsedGroups: collapsedArr, alphabetical } = trainersViewState;
   const collapsedGroups = useMemo(() => new Set(collapsedArr), [collapsedArr]);
   const setShowZero = useCallback((v: boolean) => setTrainersViewState({ showZero: v }), [setTrainersViewState]);
   const setShowEffective = useCallback((v: boolean) => setTrainersViewState({ showEffective: v }), [setTrainersViewState]);
   const setSearchQuery = useCallback((v: string) => setTrainersViewState({ searchQuery: v }), [setTrainersViewState]);
+  const setAlphabetical = useCallback((v: boolean) => setTrainersViewState({ alphabetical: v }), [setTrainersViewState]);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
 
   useEffect(() => {
@@ -162,7 +163,13 @@ export function TrainersView() {
               onBlur={(e) => {
                 if (charId === null) return;
                 const note = e.target.value.trim() || null;
-                setTrainerNote(charId, row.trainer_name, note).catch(console.error);
+                setTrainerNote(charId, row.trainer_name, note)
+                  .then(() => {
+                    setTrainers(trainers.map((t) =>
+                      t.trainer_name === row.trainer_name ? { ...t, notes: note } : t,
+                    ));
+                  })
+                  .catch(console.error);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.currentTarget.blur();
@@ -172,7 +179,7 @@ export function TrainersView() {
         },
       }),
     ],
-    [showEffective, selectedCharacterId],
+    [showEffective, selectedCharacterId, trainers, setTrainers],
   );
 
   const enrichedTrainers = useMemo(() => {
@@ -315,6 +322,15 @@ export function TrainersView() {
             />
             Show Zero Trainers
           </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={alphabetical}
+              onChange={(e) => setAlphabetical(e.target.checked)}
+              className="accent-[var(--color-accent)]"
+            />
+            Alphabetical
+          </label>
         </div>
       </div>
 
@@ -333,9 +349,18 @@ export function TrainersView() {
         )}
       </div>
 
-      {grouped.length === 0 ? (
+      {filteredTrainers.length === 0 ? (
         <div className="py-12 text-center text-[var(--color-text-muted)]">
           {searchQuery.trim() ? "No matching trainers" : "No trainer data"}
+        </div>
+      ) : alphabetical ? (
+        <div className="min-h-0 flex-1">
+          <DataTable
+            data={[...filteredTrainers].sort((a, b) =>
+              a.trainer_name.localeCompare(b.trainer_name),
+            )}
+            columns={columns}
+          />
         </div>
       ) : (
         <div className="min-h-0 flex-1 space-y-4">

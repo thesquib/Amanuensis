@@ -21,7 +21,7 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
   const [search, setSearch] = useState("");
 
   const filtered = characters.filter((char) => {
-    if (excludeLowCL && Math.max(char.coin_level, char.coin_level_interim) < 1) return false;
+    if (excludeLowCL && char.total_ranks < 1) return false;
     if (excludeUnknown && char.profession === "Unknown") return false;
     if (search && !char.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -46,7 +46,7 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
                 onChange={(e) => setExcludeLowCL(e.target.checked)}
                 className="accent-[var(--color-accent)]"
               />
-              Excl. Lvl &lt; 1
+              Excl. Rank &lt; 1
             </label>
             <label className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
               <input

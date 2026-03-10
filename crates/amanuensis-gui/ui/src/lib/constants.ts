@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   INDEX_LOGS: "amanuensis_index_logs",
   COLLAPSED_TRAINERS: "amanuensis_collapsed_trainers",
   COLLAPSED_RANK_MODIFIERS: "amanuensis_collapsed_rankModifiers",
+  TRAINERS_ALPHA_VIEW: "amanuensis_trainers_alpha_view",
 } as const;
 
 // ---------------------------------------------------------------------------

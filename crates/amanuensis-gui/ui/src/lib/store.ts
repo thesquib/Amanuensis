@@ -12,7 +12,7 @@ import type {
   ProcessLog,
 } from "../types";
 
-export type Theme = "dark" | "light" | "midnight";
+export type Theme = "dark" | "light" | "midnight" | "dark-v2" | "light-v2" | "midnight-v2";
 
 interface DataTableViewState {
   sorting: SortingState;
@@ -24,6 +24,7 @@ interface TrainersViewState {
   showEffective: boolean;
   searchQuery: string;
   collapsedGroups: string[];
+  alphabetical: boolean;
 }
 
 interface RankModifiersViewState {
@@ -229,10 +230,13 @@ export const useStore = create<AppStore>((set) => ({
       },
     })),
 
-  trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: loadCollapsedGroups(TRAINERS_COLLAPSED_KEY) ?? [] },
+  trainersViewState: { showZero: false, showEffective: false, searchQuery: "", collapsedGroups: loadCollapsedGroups(TRAINERS_COLLAPSED_KEY) ?? [], alphabetical: localStorage.getItem(STORAGE_KEYS.TRAINERS_ALPHA_VIEW) === "true" },
   setTrainersViewState: (patch) => {
     if (patch.collapsedGroups) {
       saveCollapsedGroups(TRAINERS_COLLAPSED_KEY, patch.collapsedGroups);
+    }
+    if (patch.alphabetical !== undefined) {
+      localStorage.setItem(STORAGE_KEYS.TRAINERS_ALPHA_VIEW, String(patch.alphabetical));
     }
     set((state) => ({
       trainersViewState: { ...state.trainersViewState, ...patch },

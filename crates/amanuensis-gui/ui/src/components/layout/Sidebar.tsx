@@ -39,6 +39,9 @@ export function Sidebar() {
             <option value="dark">Dark</option>
             <option value="light">Light</option>
             <option value="midnight">Midnight</option>
+            <option value="dark-v2">Dark v2</option>
+            <option value="light-v2">Light v2</option>
+            <option value="midnight-v2">Midnight v2</option>
           </select>
         </div>
         <div className="mt-1 text-xs text-[var(--color-text-muted)]">
@@ -58,9 +61,9 @@ export function Sidebar() {
         {/* Advanced section */}
         <button
           onClick={() => setAdvancedOpen((o) => !o)}
-          className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] mt-1"
+          className="flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] active:opacity-60 mt-1"
         >
-          <span className={`transition-transform ${advancedOpen ? "rotate-90" : ""}`}>▶</span>
+          <span style={{ display: "inline-block", transform: advancedOpen ? "rotate(90deg)" : "none" }}>▶</span>
           Advanced
         </button>
         {advancedOpen && (
