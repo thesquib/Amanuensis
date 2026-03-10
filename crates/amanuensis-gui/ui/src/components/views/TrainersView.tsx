@@ -228,6 +228,7 @@ export function TrainersView() {
             apply_learning_unknown_count: 0,
             rank_mode: "modifier",
             override_date: null,
+            notes: null,
             effective_multiplier: dbTrainer.multiplier,
             profession: dbTrainer.profession,
             multiplier: dbTrainer.multiplier,

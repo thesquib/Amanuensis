@@ -15,7 +15,6 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
     excludeUnknown,
     setExcludeUnknown,
     dbPath,
-    coinLevelByCharId,
   } = useStore();
 
   const [search, setSearch] = useState("");
