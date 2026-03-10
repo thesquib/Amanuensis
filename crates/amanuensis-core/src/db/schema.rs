@@ -183,6 +183,7 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE characters ADD COLUMN wood_taken INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN wood_useless INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN profession_override TEXT",
+        "ALTER TABLE trainers ADD COLUMN notes TEXT",
         // Marks rows inserted after the character-name filter was added.
         // Existing rows (recorded before the filter) default to 0 and are purged below.
         "ALTER TABLE trainer_checkpoints ADD COLUMN name_filtered INTEGER NOT NULL DEFAULT 0",

@@ -89,6 +89,8 @@ pub struct LogSearchResult {
     pub file_path: String,
     pub snippet: String,
     pub character_name: String,
+    pub context_before: Vec<String>,
+    pub context_after: Vec<String>,
 }
 
 /// Database wrapper with CRUD operations.
@@ -643,22 +645,22 @@ mod tests {
         assert_eq!(db.log_line_count().unwrap(), 3);
 
         // Search all
-        let results = db.search_log_lines("Rat", None, 10).unwrap();
+        let results = db.search_log_lines("Rat", None, 10, true, 0, 0).unwrap();
         assert_eq!(results.len(), 1);
         assert!(results[0].snippet.contains("<mark>"));
         assert_eq!(results[0].character_name, "Fen");
 
         // Search with character filter
-        let results = db.search_log_lines("Rat", Some(id), 10).unwrap();
+        let results = db.search_log_lines("Rat", Some(id), 10, true, 0, 0).unwrap();
         assert_eq!(results.len(), 1);
 
         // Search with wrong character
         let id2 = db.get_or_create_character("Pip").unwrap();
-        let results = db.search_log_lines("Rat", Some(id2), 10).unwrap();
+        let results = db.search_log_lines("Rat", Some(id2), 10, true, 0, 0).unwrap();
         assert_eq!(results.len(), 0);
 
         // Search no match
-        let results = db.search_log_lines("Dragon", None, 10).unwrap();
+        let results = db.search_log_lines("Dragon", None, 10, true, 0, 0).unwrap();
         assert_eq!(results.len(), 0);
     }
 }

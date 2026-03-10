@@ -54,6 +54,7 @@ pub struct Trainer {
     pub rank_mode: String,
     pub override_date: Option<String>,
     pub effective_multiplier: f64,
+    pub notes: Option<String>,
 }
 
 impl Trainer {
@@ -70,6 +71,7 @@ impl Trainer {
             rank_mode: RankMode::Modifier.as_str().to_string(),
             override_date: None,
             effective_multiplier: 1.0,
+            notes: None,
         }
     }
 

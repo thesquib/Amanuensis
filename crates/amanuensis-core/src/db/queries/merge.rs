@@ -240,7 +240,8 @@ impl Database {
                     SUM(apply_learning_ranks), SUM(apply_learning_unknown_count),
                     MAX(CASE WHEN character_id = {cid} THEN rank_mode ELSE 'modifier' END),
                     MAX(CASE WHEN character_id = {cid} THEN override_date ELSE NULL END),
-                    MAX(effective_multiplier)
+                    MAX(effective_multiplier),
+                    MAX(CASE WHEN character_id = {cid} THEN notes ELSE NULL END)
              FROM trainers WHERE character_id IN ({placeholders})
              GROUP BY trainer_name
              ORDER BY SUM(ranks) DESC",
@@ -260,6 +261,7 @@ impl Database {
                 rank_mode: row.get(8)?,
                 override_date: row.get(9)?,
                 effective_multiplier: row.get(10)?,
+                notes: row.get(11)?,
             })
         })?;
         Ok(trainers.filter_map(|r| r.ok()).collect())

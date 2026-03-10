@@ -85,6 +85,7 @@ export interface Trainer {
   rank_mode: "modifier" | "override" | "override_until_date";
   override_date: string | null;
   effective_multiplier: number;
+  notes: string | null;
 }
 
 /** Mirrors Rust `Pet` struct */
@@ -154,6 +155,8 @@ export interface LogSearchResult {
   file_path: string;
   snippet: string;
   character_name: string;
+  context_before: string[];
+  context_after: string[];
 }
 
 /** Mirrors Rust `ProcessLog` struct */

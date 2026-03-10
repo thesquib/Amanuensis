@@ -323,10 +323,20 @@ fn import_trainers(
     trainer_db: &TrainerDb,
     result: &mut ImportResult,
 ) -> Result<()> {
-    let mut stmt = match src.prepare(
-        "SELECT ZRELATIONSHIP, ZTRAINERNAME, ZRANKS, ZMODIFIEDRANKS, ZLASTTRAINED
-         FROM ZMODELTRAINERS",
-    ) {
+    // Check if the Scribius trainer table has a ZNOTES column (added in later versions)
+    let has_notes = src
+        .prepare("SELECT ZNOTES FROM ZMODELTRAINERS LIMIT 0")
+        .is_ok();
+
+    let sql = if has_notes {
+        "SELECT ZRELATIONSHIP, ZTRAINERNAME, ZRANKS, ZMODIFIEDRANKS, ZLASTTRAINED, ZNOTES
+         FROM ZMODELTRAINERS"
+    } else {
+        "SELECT ZRELATIONSHIP, ZTRAINERNAME, ZRANKS, ZMODIFIEDRANKS, ZLASTTRAINED, NULL
+         FROM ZMODELTRAINERS"
+    };
+
+    let mut stmt = match src.prepare(sql) {
         Ok(s) => s,
         Err(_) => return Ok(()), // Table doesn't exist
     };
@@ -338,11 +348,12 @@ fn import_trainers(
             row.get::<_, Option<i64>>(2)?.unwrap_or(0),
             row.get::<_, Option<i64>>(3)?.unwrap_or(0),
             row.get::<_, Option<f64>>(4)?.unwrap_or(0.0),
+            row.get::<_, Option<String>>(5)?,
         ))
     })?;
 
     for row in rows {
-        let (char_zpk, trainer_name, ranks, modified_ranks, last_trained_ts) = row?;
+        let (char_zpk, trainer_name, ranks, modified_ranks, last_trained_ts, notes) = row?;
 
         let Some(&new_char_id) = pk_map.get(&char_zpk) else {
             continue;
@@ -356,9 +367,9 @@ fn import_trainers(
         let multiplier = trainer_db.get_multiplier(&trainer_name);
 
         dst.execute(
-            "INSERT OR IGNORE INTO trainers (character_id, trainer_name, ranks, modified_ranks, date_of_last_rank, effective_multiplier)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![new_char_id, trainer_name, ranks, modified_ranks, date_of_last_rank, multiplier],
+            "INSERT OR IGNORE INTO trainers (character_id, trainer_name, ranks, modified_ranks, date_of_last_rank, effective_multiplier, notes)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![new_char_id, trainer_name, ranks, modified_ranks, date_of_last_rank, multiplier, notes],
         )?;
 
         result.trainers_imported += 1;

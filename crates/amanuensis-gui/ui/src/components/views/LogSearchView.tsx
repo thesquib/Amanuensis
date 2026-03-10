@@ -8,6 +8,9 @@ export function LogSearchView() {
 
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<"character" | "all">("character");
+  const [includeSpeech, setIncludeSpeech] = useState(false);
+  const [linesBefore, setLinesBefore] = useState(0);
+  const [linesAfter, setLinesAfter] = useState(0);
   const [results, setResults] = useState<LogSearchResult[]>([]);
   const [resultCount, setResultCount] = useState<number | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -19,7 +22,7 @@ export function LogSearchView() {
     setIsSearching(true);
     try {
       const charId = scope === "character" ? selectedCharacterId : null;
-      const res = await searchLogs(trimmed, charId, 200);
+      const res = await searchLogs(trimmed, charId, 200, includeSpeech, linesBefore, linesAfter);
       setResults(res);
       setResultCount(res.length);
     } catch (e) {
@@ -29,13 +32,11 @@ export function LogSearchView() {
     } finally {
       setIsSearching(false);
     }
-  }, [query, scope, selectedCharacterId]);
+  }, [query, scope, selectedCharacterId, includeSpeech, linesBefore, linesAfter]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        handleSearch();
-      }
+      if (e.key === "Enter") handleSearch();
     },
     [handleSearch],
   );
@@ -81,6 +82,42 @@ export function LogSearchView() {
         </button>
       </div>
 
+      {/* Options row */}
+      <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[var(--color-text-muted)]">
+        <label className="flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={includeSpeech}
+            onChange={(e) => setIncludeSpeech(e.target.checked)}
+            className="accent-[var(--color-accent)]"
+          />
+          Also search speech &amp; actions
+        </label>
+        <label className="flex items-center gap-1.5">
+          Include
+          <input
+            type="number"
+            min={0}
+            max={20}
+            value={linesBefore}
+            onChange={(e) => setLinesBefore(Math.max(0, Math.min(20, Number(e.target.value))))}
+            className="w-12 rounded border border-[var(--color-border)] bg-[var(--color-card)] px-1.5 py-0.5 text-center text-sm text-[var(--color-text)] outline-none"
+          />
+          lines before
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input
+            type="number"
+            min={0}
+            max={20}
+            value={linesAfter}
+            onChange={(e) => setLinesAfter(Math.max(0, Math.min(20, Number(e.target.value))))}
+            className="w-12 rounded border border-[var(--color-border)] bg-[var(--color-card)] px-1.5 py-0.5 text-center text-sm text-[var(--color-text)] outline-none"
+          />
+          lines after
+        </label>
+      </div>
+
       {/* Result count */}
       {resultCount !== null && (
         <div className="mt-2 text-xs text-[var(--color-text-muted)]">
@@ -111,10 +148,24 @@ export function LogSearchView() {
                 {r.file_path.split("/").pop()}
               </span>
             </div>
+            {r.context_before.length > 0 && (
+              <div className="mb-1 border-l-2 border-[var(--color-border)] pl-2">
+                {r.context_before.map((line, j) => (
+                  <div key={j} className="text-xs leading-relaxed text-[var(--color-text-muted)]">{line}</div>
+                ))}
+              </div>
+            )}
             <div
               className="text-sm leading-relaxed [&_mark]:rounded [&_mark]:bg-yellow-500/30 [&_mark]:px-0.5 [&_mark]:text-[var(--color-text)]"
               dangerouslySetInnerHTML={{ __html: r.snippet }}
             />
+            {r.context_after.length > 0 && (
+              <div className="mt-1 border-l-2 border-[var(--color-border)] pl-2">
+                {r.context_after.map((line, j) => (
+                  <div key={j} className="text-xs leading-relaxed text-[var(--color-text-muted)]">{line}</div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -3,7 +3,7 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
-import { getTrainerDbInfo } from "../../lib/commands";
+import { getTrainerDbInfo, setTrainerNote } from "../../lib/commands";
 import { effectiveRanks } from "../../lib/trainerUtils";
 import { PROFESSION_ORDER } from "../../lib/constants";
 import type { Trainer, TrainerInfo } from "../../types";
@@ -18,7 +18,7 @@ type EnrichedTrainer = Trainer & {
 const columnHelper = createColumnHelper<EnrichedTrainer>();
 
 export function TrainersView() {
-  const { trainers, trainersViewState, setTrainersViewState } = useStore();
+  const { trainers, trainersViewState, setTrainersViewState, selectedCharacterId } = useStore();
   const { showZero, showEffective, searchQuery, collapsedGroups: collapsedArr } = trainersViewState;
   const collapsedGroups = useMemo(() => new Set(collapsedArr), [collapsedArr]);
   const setShowZero = useCallback((v: boolean) => setTrainersViewState({ showZero: v }), [setTrainersViewState]);
@@ -148,8 +148,31 @@ export function TrainersView() {
           return val ? val.split(" ")[0] : "";
         },
       }),
+      columnHelper.accessor("notes", {
+        header: "Notes",
+        cell: (info) => {
+          const row = info.row.original;
+          const charId = selectedCharacterId;
+          return (
+            <input
+              type="text"
+              defaultValue={info.getValue() ?? ""}
+              placeholder="Add note..."
+              className="w-full min-w-[120px] rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-[var(--color-text)] placeholder-[var(--color-text-muted)]/50 outline-none hover:border-[var(--color-border)] focus:border-[var(--color-accent)] focus:bg-[var(--color-card)]"
+              onBlur={(e) => {
+                if (charId === null) return;
+                const note = e.target.value.trim() || null;
+                setTrainerNote(charId, row.trainer_name, note).catch(console.error);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+            />
+          );
+        },
+      }),
     ],
-    [showEffective],
+    [showEffective, selectedCharacterId],
   );
 
   const enrichedTrainers = useMemo(() => {

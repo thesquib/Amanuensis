@@ -101,8 +101,26 @@ export async function searchLogs(
   query: string,
   charId?: number | null,
   limit?: number,
+  includeSpeech?: boolean,
+  linesBefore?: number,
+  linesAfter?: number,
 ): Promise<LogSearchResult[]> {
-  return invoke("search_logs", { query, charId: charId ?? null, limit: limit ?? 200 });
+  return invoke("search_logs", {
+    query,
+    charId: charId ?? null,
+    limit: limit ?? 200,
+    includeSpeech: includeSpeech ?? false,
+    linesBefore: linesBefore ?? 0,
+    linesAfter: linesAfter ?? 0,
+  });
+}
+
+export async function setTrainerNote(
+  charId: number,
+  trainerName: string,
+  note: string | null,
+): Promise<void> {
+  return invoke("set_trainer_note", { charId, trainerName, note });
 }
 
 export async function getLogLineCount(): Promise<number> {

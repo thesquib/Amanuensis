@@ -57,7 +57,7 @@ impl Database {
         let mut stmt = self.conn.prepare(
             "SELECT id, character_id, trainer_name, ranks, modified_ranks, date_of_last_rank,
                     apply_learning_ranks, apply_learning_unknown_count, rank_mode, override_date,
-                    effective_multiplier
+                    effective_multiplier, notes
              FROM trainers WHERE character_id = ?1 ORDER BY ranks DESC",
         )?;
 
@@ -74,10 +74,28 @@ impl Database {
                 rank_mode: row.get(8)?,
                 override_date: row.get(9)?,
                 effective_multiplier: row.get(10)?,
+                notes: row.get(11)?,
             })
         })?;
 
         Ok(trainers.filter_map(|r| r.ok()).collect())
+    }
+
+    /// Set or clear a free-text note for a trainer.
+    /// Creates the trainer row if it doesn't exist.
+    pub fn set_trainer_note(
+        &self,
+        char_id: i64,
+        trainer_name: &str,
+        note: Option<&str>,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO trainers (character_id, trainer_name, notes)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(character_id, trainer_name) DO UPDATE SET notes = excluded.notes",
+            params![char_id, trainer_name, note],
+        )?;
+        Ok(())
     }
 
     /// Upsert apply-learning confirmed ranks (10 per "much more" event).

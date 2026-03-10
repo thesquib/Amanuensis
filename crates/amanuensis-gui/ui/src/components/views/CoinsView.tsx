@@ -13,12 +13,12 @@ const columnHelper = createColumnHelper<CoinSource>();
 
 const columns = [
   columnHelper.accessor("source", {
-    header: "Source",
+    header: "Coin Source",
     cell: (info) => info.getValue(),
   }),
   columnHelper.accessor("amount", {
     header: "Amount",
-    cell: (info) => info.getValue().toLocaleString(),
+    cell: (info) => `${info.getValue().toLocaleString()}c`,
   }),
 ];
 
@@ -30,34 +30,41 @@ export function CoinsView() {
   const sources: CoinSource[] = useMemo(
     () =>
       [
-        { source: "Picked Up", amount: char.coins_picked_up },
-        { source: "Casino Won", amount: char.casino_won },
-        { source: "Casino Lost", amount: -char.casino_lost },
-        { source: "Furs", amount: char.fur_coins },
-        { source: "Blood", amount: char.blood_coins },
-        { source: "Mandibles", amount: char.mandible_coins },
-        { source: "Bounties", amount: char.bounty_coins },
-        { source: "Chest/Studies", amount: char.chest_coins },
+        { source: "Furs I've recovered have been worth", amount: char.fur_worth },
+        { source: "Mandibles I've recovered have been worth", amount: char.mandible_worth },
+        { source: "Blood I've recovered have been worth", amount: char.blood_worth },
+        { source: "Coins I've earned from all furs", amount: char.fur_coins },
+        { source: "Coins I've earned from all mandibles", amount: char.mandible_coins },
+        { source: "Coins I've earned from all blood", amount: char.blood_coins },
+        { source: "Coins I've earned from all bounties", amount: char.bounty_coins },
+        { source: "Coins I've won on Casino Slots", amount: char.casino_won },
+        { source: "Coins I've lost on Casino Slots", amount: char.casino_lost },
+        { source: "Coins I've collected from chest", amount: char.chest_coins },
+        { source: "Coins picked up", amount: char.coins_picked_up },
         { source: "Esteem", amount: char.esteem },
         { source: "Darkstone", amount: char.darkstone },
       ].filter((s) => s.amount !== 0),
     [char],
   );
 
-  const totalCoins = sources.reduce((s, c) => s + c.amount, 0);
+  const totalCoins =
+    char.fur_coins + char.mandible_coins + char.blood_coins +
+    char.bounty_coins + char.chest_coins + char.coins_picked_up +
+    char.casino_won - char.casino_lost + char.esteem + char.darkstone;
 
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatCard label="Net Coins" value={totalCoins.toLocaleString()} />
+        <StatCard label="Net Coins" value={`${totalCoins.toLocaleString()}c`} />
         <StatCard
-          label="Coins Picked Up"
-          value={char.coins_picked_up.toLocaleString()}
+          label="Total Loot Worth"
+          value={`${(char.fur_worth + char.mandible_worth + char.blood_worth).toLocaleString()}c`}
+          sub="Furs + Mandibles + Blood (unshared value)"
         />
         <StatCard
           label="Casino Net"
-          value={(char.casino_won - char.casino_lost).toLocaleString()}
-          sub={`Won ${char.casino_won.toLocaleString()} / Lost ${char.casino_lost.toLocaleString()}`}
+          value={`${(char.casino_won - char.casino_lost).toLocaleString()}c`}
+          sub={`Won ${char.casino_won.toLocaleString()}c / Lost ${char.casino_lost.toLocaleString()}c`}
         />
       </div>
       <div className="min-h-0 flex-1">

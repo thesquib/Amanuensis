@@ -72,11 +72,34 @@ pub fn search_logs(
     query: String,
     char_id: Option<i64>,
     limit: Option<i64>,
+    include_speech: Option<bool>,
+    lines_before: Option<i64>,
+    lines_after: Option<i64>,
     state: State<'_, AppState>,
 ) -> Result<Vec<LogSearchResult>, String> {
     if query.trim().is_empty() {
         return Ok(Vec::new());
     }
     let limit = limit.unwrap_or(200);
-    state.with_db(|db| db.search_log_lines(&query, char_id, limit).map_err(|e| e.to_string()))
+    let include_speech = include_speech.unwrap_or(false);
+    let lines_before = lines_before.unwrap_or(0);
+    let lines_after = lines_after.unwrap_or(0);
+    state.with_db(|db| {
+        db.search_log_lines(&query, char_id, limit, include_speech, lines_before, lines_after)
+            .map_err(|e| e.to_string())
+    })
+}
+
+/// Set or clear a free-text note on a trainer row.
+#[tauri::command]
+pub fn set_trainer_note(
+    char_id: i64,
+    trainer_name: String,
+    note: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.with_db(|db| {
+        db.set_trainer_note(char_id, &trainer_name, note.as_deref())
+            .map_err(|e| e.to_string())
+    })
 }

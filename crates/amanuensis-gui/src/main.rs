@@ -46,6 +46,7 @@ fn main() {
             commands::reveal_database,
             commands::get_trainer_checkpoints,
             commands::get_all_trainer_checkpoints,
+            commands::set_trainer_note,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -136,71 +136,110 @@ impl Database {
     }
 
     /// Search log lines using FTS5 full-text search.
-    /// Returns results with highlighted snippets.
+    /// Returns results with highlighted snippets and optional context lines.
     pub fn search_log_lines(
         &self,
         query: &str,
         char_id: Option<i64>,
         limit: i64,
+        include_speech: bool,
+        lines_before: i64,
+        lines_after: i64,
     ) -> Result<Vec<LogSearchResult>> {
         // Escape double quotes in the query and wrap for literal matching
         let escaped = query.replace('"', "\"\"");
         let fts_query = format!("\"{}\"", escaped);
 
-        let row_mapper = |row: &rusqlite::Row| -> rusqlite::Result<LogSearchResult> {
-            // character_id may be stored as integer or text depending on how it was inserted
+        // Speech/action filter: exclude lines starting with "* " (actions) or matching speech pattern
+        // We use a NOT LIKE filter on content when include_speech = false
+        let speech_filter = if include_speech {
+            ""
+        } else {
+            " AND l.content NOT LIKE '* %' AND l.content NOT LIKE '%says, \"%' AND l.content NOT LIKE '%says in %'"
+        };
+
+        let row_mapper = |row: &rusqlite::Row| -> rusqlite::Result<(LogSearchResult, i64)> {
             let character_id: i64 = row.get::<_, i64>(1).or_else(|_| {
                 row.get::<_, String>(1).map(|s| s.parse().unwrap_or(0))
             })?;
-            Ok(LogSearchResult {
+            let rowid: i64 = row.get(6)?;
+            Ok((LogSearchResult {
                 content: row.get(0)?,
                 character_id,
                 timestamp: row.get(2)?,
                 file_path: row.get(3)?,
                 snippet: row.get(4)?,
                 character_name: row.get(5)?,
-            })
+                context_before: Vec::new(),
+                context_after: Vec::new(),
+            }, rowid))
         };
 
-        if let Some(cid) = char_id {
-            let mut stmt = self.conn.prepare(
-                "SELECT l.content, l.character_id, l.timestamp, l.file_path,
-                        snippet(log_lines, 0, '<mark>', '</mark>', '...', 64) AS snippet,
-                        COALESCE(c.name, 'Unknown') AS character_name
-                 FROM log_lines l
-                 LEFT JOIN characters c ON CAST(l.character_id AS INTEGER) = c.id
-                 WHERE log_lines MATCH ?1 AND CAST(l.character_id AS INTEGER) = ?2
-                 ORDER BY l.file_path DESC, l.rowid DESC
-                 LIMIT ?3",
-            )?;
-            let mut results = Vec::new();
-            for row in stmt.query_map(params![fts_query, cid, limit], row_mapper)? {
-                match row {
-                    Ok(r) => results.push(r),
-                    Err(e) => log::warn!("FTS5 row error: {}", e),
-                }
-            }
-            Ok(results)
+        let sql_with_char = format!(
+            "SELECT l.content, l.character_id, l.timestamp, l.file_path,
+                    snippet(log_lines, 0, '<mark>', '</mark>', '...', 64) AS snippet,
+                    COALESCE(c.name, 'Unknown') AS character_name,
+                    l.rowid
+             FROM log_lines l
+             LEFT JOIN characters c ON CAST(l.character_id AS INTEGER) = c.id
+             WHERE log_lines MATCH ?1 AND CAST(l.character_id AS INTEGER) = ?2{speech_filter}
+             ORDER BY l.file_path DESC, l.rowid DESC
+             LIMIT ?3"
+        );
+        let sql_all = format!(
+            "SELECT l.content, l.character_id, l.timestamp, l.file_path,
+                    snippet(log_lines, 0, '<mark>', '</mark>', '...', 64) AS snippet,
+                    COALESCE(c.name, 'Unknown') AS character_name,
+                    l.rowid
+             FROM log_lines l
+             LEFT JOIN characters c ON CAST(l.character_id AS INTEGER) = c.id
+             WHERE log_lines MATCH ?1{speech_filter}
+             ORDER BY l.file_path DESC, l.rowid DESC
+             LIMIT ?2"
+        );
+
+        let raw_results: Vec<(LogSearchResult, i64)> = if let Some(cid) = char_id {
+            let mut stmt = self.conn.prepare(&sql_with_char)?;
+            let rows: Vec<_> = stmt.query_map(params![fts_query, cid, limit], row_mapper)?
+                .filter_map(|r| r.ok())
+                .collect();
+            rows
         } else {
-            let mut stmt = self.conn.prepare(
-                "SELECT l.content, l.character_id, l.timestamp, l.file_path,
-                        snippet(log_lines, 0, '<mark>', '</mark>', '...', 64) AS snippet,
-                        COALESCE(c.name, 'Unknown') AS character_name
-                 FROM log_lines l
-                 LEFT JOIN characters c ON CAST(l.character_id AS INTEGER) = c.id
-                 WHERE log_lines MATCH ?1
-                 ORDER BY l.file_path DESC, l.rowid DESC
-                 LIMIT ?2",
-            )?;
-            let mut results = Vec::new();
-            for row in stmt.query_map(params![fts_query, limit], row_mapper)? {
-                match row {
-                    Ok(r) => results.push(r),
-                    Err(e) => log::warn!("FTS5 row error: {}", e),
-                }
-            }
-            Ok(results)
+            let mut stmt = self.conn.prepare(&sql_all)?;
+            let rows: Vec<_> = stmt.query_map(params![fts_query, limit], row_mapper)?
+                .filter_map(|r| r.ok())
+                .collect();
+            rows
+        };
+
+        // Fetch context lines if requested
+        if lines_before == 0 && lines_after == 0 {
+            return Ok(raw_results.into_iter().map(|(r, _)| r).collect());
         }
+
+        let mut results = Vec::with_capacity(raw_results.len());
+        let mut ctx_stmt = self.conn.prepare(
+            "SELECT content FROM log_lines WHERE file_path = ?1 AND rowid >= ?2 AND rowid <= ?3 ORDER BY rowid",
+        )?;
+
+        for (mut result, rowid) in raw_results {
+            if lines_before > 0 {
+                let before: Vec<String> = ctx_stmt
+                    .query_map(params![result.file_path, rowid - lines_before, rowid - 1], |r| r.get(0))?
+                    .filter_map(|r| r.ok())
+                    .collect();
+                result.context_before = before;
+            }
+            if lines_after > 0 {
+                let after: Vec<String> = ctx_stmt
+                    .query_map(params![result.file_path, rowid + 1, rowid + lines_after], |r| r.get(0))?
+                    .filter_map(|r| r.ok())
+                    .collect();
+                result.context_after = after;
+            }
+            results.push(result);
+        }
+        Ok(results)
     }
 
     /// Get the total number of indexed log lines.
