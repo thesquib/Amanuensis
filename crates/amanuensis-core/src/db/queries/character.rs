@@ -53,7 +53,7 @@ impl Database {
         let mut stmt = self.conn.prepare(&sql)?;
         let chars = stmt.query_map([], |row| {
             let mut c = map_character_row(row)?;
-            c.total_ranks = row.get(43)?;
+            c.total_ranks = row.get(45)?;
             Ok(c)
         })?;
         Ok(chars.filter_map(|r| r.ok()).collect())

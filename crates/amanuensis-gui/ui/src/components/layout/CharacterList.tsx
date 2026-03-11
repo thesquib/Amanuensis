@@ -10,21 +10,31 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
   const {
     characters,
     selectedCharacterId,
-    excludeLowCL,
-    setExcludeLowCL,
+    minRanks,
+    setMinRanks,
     excludeUnknown,
     setExcludeUnknown,
     dbPath,
   } = useStore();
 
   const [search, setSearch] = useState("");
+  const [ranksInput, setRanksInput] = useState(String(minRanks));
 
   const filtered = characters.filter((char) => {
-    if (excludeLowCL && char.total_ranks < 1) return false;
-    if (excludeUnknown && char.profession === "Unknown") return false;
+    if (minRanks > 0 && char.total_ranks < minRanks) return false;
+    if (excludeUnknown && (char.profession === "Unknown" || char.name.toLowerCase().startsWith("agratis"))) return false;
     if (search && !char.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  function handleRanksBlur() {
+    const n = parseInt(ranksInput, 10);
+    if (!isNaN(n) && n >= 0 && n <= 100) {
+      setMinRanks(n);
+    } else {
+      setRanksInput(String(minRanks));
+    }
+  }
 
   return (
     <>
@@ -37,15 +47,19 @@ export function CharacterList({ onSelectCharacter }: CharacterListProps) {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1 text-xs text-[var(--color-text)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-accent)]"
           />
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
             <label className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
+              Min ranks
               <input
-                type="checkbox"
-                checked={excludeLowCL}
-                onChange={(e) => setExcludeLowCL(e.target.checked)}
-                className="accent-[var(--color-accent)]"
+                type="number"
+                min={0}
+                max={100}
+                value={ranksInput}
+                onChange={(e) => setRanksInput(e.target.value)}
+                onBlur={handleRanksBlur}
+                onKeyDown={(e) => e.key === "Enter" && handleRanksBlur()}
+                className="w-12 rounded border border-[var(--color-border)] bg-[var(--color-card)] px-1 py-0.5 text-center text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-accent)]"
               />
-              Excl. Rank &lt; 1
             </label>
             <label className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
               <input

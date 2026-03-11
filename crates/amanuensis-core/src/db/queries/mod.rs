@@ -328,6 +328,16 @@ mod tests {
         db.increment_character_field(pip_id, "logins", 1).unwrap();
         let chars = db.list_characters().unwrap();
         assert_eq!(chars.len(), 2);
+
+        // total_ranks subquery must use the correct column index
+        db.upsert_trainer_rank(fen_id, "Histia", "2024-01-01", 1.0).unwrap();
+        db.upsert_trainer_rank(fen_id, "Histia", "2024-01-02", 1.0).unwrap();
+        db.upsert_trainer_rank(fen_id, "Regia", "2024-01-03", 1.0).unwrap();
+        let chars = db.list_characters().unwrap();
+        let fen = chars.iter().find(|c| c.name == "Fen").unwrap();
+        assert_eq!(fen.total_ranks, 3, "total_ranks column index is wrong — off-by-N after schema additions");
+        let pip = chars.iter().find(|c| c.name == "pip").unwrap();
+        assert_eq!(pip.total_ranks, 0);
     }
 
     #[test]

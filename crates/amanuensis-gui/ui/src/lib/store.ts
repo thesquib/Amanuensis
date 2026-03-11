@@ -91,8 +91,8 @@ interface AppStore {
   setRecursiveScan: (recursive: boolean) => void;
 
   // Character list filters
-  excludeLowCL: boolean;
-  setExcludeLowCL: (exclude: boolean) => void;
+  minRanks: number;
+  setMinRanks: (min: number) => void;
   excludeUnknown: boolean;
   setExcludeUnknown: (exclude: boolean) => void;
 
@@ -186,8 +186,8 @@ export const useStore = create<AppStore>((set) => ({
   recursiveScan: true,
   setRecursiveScan: (recursive) => set({ recursiveScan: recursive }),
 
-  excludeLowCL: true,
-  setExcludeLowCL: (exclude) => set({ excludeLowCL: exclude }),
+  minRanks: 20,
+  setMinRanks: (min) => set({ minRanks: min }),
   excludeUnknown: true,
   setExcludeUnknown: (exclude) => set({ excludeUnknown: exclude }),
 

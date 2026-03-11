@@ -6,6 +6,7 @@ use clap::{Parser, Subcommand};
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table, ContentArrangement};
 
 use amanuensis_core::{Database, LogParser, TrainerDb, import_scribius, compute_fighter_stats};
+use amanuensis_core::models::RankMode;
 
 #[derive(Parser)]
 #[command(name = "amanuensis", version, about = "Clan Lord log parser and stat tracker")]
@@ -13,6 +14,10 @@ struct Cli {
     /// Path to the SQLite database file
     #[arg(long, default_value = "amanuensis.db")]
     db: String,
+
+    /// Use the GUI's default database location instead of --db
+    #[arg(long, conflicts_with = "db")]
+    gui_db: bool,
 
     #[command(subcommand)]
     command: Commands,
@@ -145,6 +150,50 @@ enum Commands {
         /// Character name
         name: String,
     },
+    /// Show process logs from the last scan (warnings, errors, override skips)
+    Logs {
+        /// Filter by level: error, warn, info
+        #[arg(long)]
+        level: Option<String>,
+        /// Limit number of entries shown
+        #[arg(long, default_value = "200")]
+        limit: usize,
+    },
+    /// Show trainer rank checkpoints for a character
+    Checkpoints {
+        /// Character name
+        name: String,
+        /// Show all historical checkpoints (default: latest per trainer only)
+        #[arg(long)]
+        all: bool,
+        /// Filter to a specific trainer
+        #[arg(long)]
+        trainer: Option<String>,
+    },
+    /// Set rank override mode for a trainer
+    SetRankMode {
+        /// Character name
+        name: String,
+        /// Trainer name
+        trainer: String,
+        /// Mode: modifier (additive), override (manual only), override_until_date (baseline + post-cutoff)
+        mode: String,
+        /// Manual rank count (baseline for override/override_until_date modes)
+        #[arg(long, default_value_t = 0)]
+        ranks: i64,
+        /// Cutoff date for override_until_date mode (M/D/YY format, e.g. 1/15/25)
+        #[arg(long)]
+        date: Option<String>,
+    },
+    /// Set or clear the profession override for a character
+    SetProfession {
+        /// Character name
+        name: String,
+        /// Profession: fighter, healer, mystic, ranger, bloodmage, champion — or "auto" to clear
+        profession: String,
+    },
+    /// Print the path to the GUI's default database file
+    GuiDbPath,
 }
 
 fn main() {
@@ -157,33 +206,108 @@ fn main() {
     }
 }
 
+/// Return the path to the GUI's default database file.
+/// Mirrors Tauri's app_data_dir() for identifier "com.dfsw.Amanuensis".
+fn gui_db_path() -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        // ~/Library/Application Support/com.dfsw.Amanuensis/amanuensis.db
+        let home = std::env::var("HOME").ok()?;
+        Some(PathBuf::from(home)
+            .join("Library")
+            .join("Application Support")
+            .join("com.dfsw.Amanuensis")
+            .join("amanuensis.db"))
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // %APPDATA%\com.dfsw.Amanuensis\amanuensis.db
+        let appdata = std::env::var("APPDATA").ok()?;
+        Some(PathBuf::from(appdata)
+            .join("com.dfsw.Amanuensis")
+            .join("amanuensis.db"))
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // $XDG_DATA_HOME/com.dfsw.Amanuensis/amanuensis.db
+        // or ~/.local/share/com.dfsw.Amanuensis/amanuensis.db
+        let data_home = std::env::var("XDG_DATA_HOME").ok()
+            .map(PathBuf::from)
+            .or_else(|| {
+                let home = std::env::var("HOME").ok()?;
+                Some(PathBuf::from(home).join(".local").join("share"))
+            })?;
+        Some(data_home.join("com.dfsw.Amanuensis").join("amanuensis.db"))
+    }
+}
+
+fn resolve_db_path(cli: &Cli) -> amanuensis_core::Result<String> {
+    if cli.gui_db {
+        gui_db_path()
+            .map(|p| p.to_string_lossy().into_owned())
+            .ok_or_else(|| amanuensis_core::AmanuensisError::Data(
+                "Could not determine GUI database path on this platform".to_string()
+            ))
+    } else {
+        Ok(cli.db.clone())
+    }
+}
+
 fn run(cli: Cli) -> amanuensis_core::Result<()> {
+    // Handle gui-db-path before resolving the db path (it doesn't need a DB)
+    if matches!(cli.command, Commands::GuiDbPath) {
+        match gui_db_path() {
+            Some(p) => println!("{}", p.display()),
+            None => {
+                eprintln!("Could not determine GUI database path on this platform.");
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+
+    let db_path = resolve_db_path(&cli)?;
+    if cli.gui_db {
+        eprintln!("Using GUI database: {}", db_path);
+    }
+
     match cli.command {
         Commands::Scan { folder, force, recursive, no_index } => {
-            cmd_scan(&cli.db, &folder, force, recursive, no_index)
+            cmd_scan(&db_path, &folder, force, recursive, no_index)
         }
         Commands::ScanFiles { files, force, no_index } => {
-            cmd_scan_files(&cli.db, &files, force, no_index)
+            cmd_scan_files(&db_path, &files, force, no_index)
         }
-        Commands::Characters => cmd_characters(&cli.db),
-        Commands::Summary { name } => cmd_summary(&cli.db, &name),
-        Commands::Kills { name, sort, limit } => cmd_kills(&cli.db, &name, &sort, limit),
-        Commands::Trainers { name } => cmd_trainers(&cli.db, &name),
-        Commands::Pets { name } => cmd_pets(&cli.db, &name),
-        Commands::Lastys { name } => cmd_lastys(&cli.db, &name),
-        Commands::Merge { target, sources } => cmd_merge(&cli.db, &target, &sources),
-        Commands::Unmerge { name } => cmd_unmerge(&cli.db, &name),
+        Commands::Characters => cmd_characters(&db_path),
+        Commands::Summary { name } => cmd_summary(&db_path, &name),
+        Commands::Kills { name, sort, limit } => cmd_kills(&db_path, &name, &sort, limit),
+        Commands::Trainers { name } => cmd_trainers(&db_path, &name),
+        Commands::Pets { name } => cmd_pets(&db_path, &name),
+        Commands::Lastys { name } => cmd_lastys(&db_path, &name),
+        Commands::Merge { target, sources } => cmd_merge(&db_path, &target, &sources),
+        Commands::Unmerge { name } => cmd_unmerge(&db_path, &name),
         Commands::Import { source, output, force } => cmd_import(&source, &output, force),
         Commands::SetRanks { name, trainer, ranks } => {
-            cmd_set_ranks(&cli.db, &name, &trainer, ranks)
+            cmd_set_ranks(&db_path, &name, &trainer, ranks)
         }
         Commands::Search { query, character, limit } => {
-            cmd_search(&cli.db, &query, character.as_deref(), limit)
+            cmd_search(&db_path, &query, character.as_deref(), limit)
         }
-        Commands::Reset { yes } => cmd_reset(&cli.db, yes),
+        Commands::Reset { yes } => cmd_reset(&db_path, yes),
         Commands::TrainerCatalog { profession } => cmd_trainer_catalog(profession.as_deref()),
-        Commands::Coins { name } => cmd_coins(&cli.db, &name),
-        Commands::FighterStats { name } => cmd_fighter_stats(&cli.db, &name),
+        Commands::Coins { name } => cmd_coins(&db_path, &name),
+        Commands::FighterStats { name } => cmd_fighter_stats(&db_path, &name),
+        Commands::Logs { level, limit } => cmd_logs(&db_path, level.as_deref(), limit),
+        Commands::Checkpoints { name, all, trainer } => {
+            cmd_checkpoints(&db_path, &name, all, trainer.as_deref())
+        }
+        Commands::SetRankMode { name, trainer, mode, ranks, date } => {
+            cmd_set_rank_mode(&db_path, &name, &trainer, &mode, ranks, date.as_deref())
+        }
+        Commands::SetProfession { name, profession } => {
+            cmd_set_profession(&db_path, &name, &profession)
+        }
+        Commands::GuiDbPath => unreachable!("handled above"),
     }
 }
 
@@ -314,11 +438,9 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let total_killed_by: i64 = kills.iter().map(|k| k.killed_by_count).sum();
     let total_ranks: i64 = trainers.iter().map(|t| t.ranks).sum();
 
-    // Effective ranks via multipliers
-    let multiplier_map = build_multiplier_map();
+    // Effective ranks via multipliers (respects rank_mode and apply_learning)
     let effective_ranks: f64 = trainers.iter().map(|t| {
-        let mult = multiplier_map.get(&t.trainer_name).copied().unwrap_or(1.0);
-        (t.ranks + t.modified_ranks) as f64 * mult
+        t.effective_ranks() as f64 * t.effective_multiplier
     }).sum();
     let effective_ranks = (effective_ranks * 10.0).round() / 10.0;
 
@@ -341,13 +463,15 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     }
     if char.coin_level > 0 {
         println!("Coin Level:     {}", char.coin_level);
+    } else if char.coin_level_interim > 0 {
+        println!("Coin Level:     0 (interim: {} value)", char.coin_level_interim);
     }
     println!("Logins:         {}", char.logins);
     println!("Deaths:         {}", char.deaths);
     println!("Departs:        {}", char.departs);
-    if char.good_karma > 0 || char.bad_karma > 0 {
-        println!("Good Karma:     {}", char.good_karma);
-        println!("Bad Karma:      {}", char.bad_karma);
+    if char.good_karma > 0 || char.bad_karma > 0 || char.gave_good_karma > 0 || char.gave_bad_karma > 0 {
+        println!("Good Karma:     {} received, {} given", char.good_karma, char.gave_good_karma);
+        println!("Bad Karma:      {} received, {} given", char.bad_karma, char.gave_bad_karma);
     }
     if char.esteem > 0 {
         println!("Esteem:         {}", char.esteem);
@@ -433,6 +557,23 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
             println!("Purgatory pendant: {}", char.purgatory_pendant);
         }
     }
+    if char.ore_found > 0 || char.wood_taken > 0 {
+        println!();
+        println!("--- Gathering ---");
+        if char.ore_found > 0 {
+            println!("Ore Found:      {} total", char.ore_found);
+            if char.iron_ore_found > 0 { println!("  Iron:         {}", char.iron_ore_found); }
+            if char.copper_ore_found > 0 { println!("  Copper:       {}", char.copper_ore_found); }
+            if char.tin_ore_found > 0 { println!("  Tin:          {}", char.tin_ore_found); }
+            if char.gold_ore_found > 0 { println!("  Gold:         {}", char.gold_ore_found); }
+        }
+        if char.wood_taken > 0 {
+            println!("Wood Taken:     {}", char.wood_taken);
+        }
+        if char.wood_useless > 0 {
+            println!("Wood Useless:   {}", char.wood_useless);
+        }
+    }
 
     Ok(())
 }
@@ -506,20 +647,25 @@ fn cmd_trainers(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
         return Ok(());
     }
 
-    let multiplier_map = build_multiplier_map();
+    let has_overrides = trainers.iter().any(|t| t.rank_mode != RankMode::Modifier.as_str());
 
     let mut table = Table::new();
     table
         .load_preset(UTF8_FULL)
         .apply_modifier(UTF8_ROUND_CORNERS)
-        .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(vec!["Trainer", "Ranks", "Modified", "Apply", "Effective", "Last Rank"]);
+        .set_content_arrangement(ContentArrangement::Dynamic);
+
+    if has_overrides {
+        table.set_header(vec!["Trainer", "Ranks", "Modified", "Apply", "Effective", "Mode", "Last Rank"]);
+    } else {
+        table.set_header(vec!["Trainer", "Ranks", "Modified", "Apply", "Effective", "Last Rank"]);
+    }
 
     let mut total_effective: f64 = 0.0;
 
     for t in &trainers {
-        let mult = multiplier_map.get(&t.trainer_name).copied().unwrap_or(1.0);
-        let effective = (t.ranks + t.modified_ranks) as f64 * mult;
+        let eff = t.effective_ranks();
+        let effective = eff as f64 * t.effective_multiplier;
         total_effective += effective;
 
         let apply_str = if t.apply_learning_unknown_count > 0 {
@@ -528,20 +674,39 @@ fn cmd_trainers(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
             t.apply_learning_ranks.to_string()
         };
 
-        let effective_str = if (mult - 1.0).abs() < f64::EPSILON {
-            format!("{}", t.ranks + t.modified_ranks)
+        let effective_str = if (t.effective_multiplier - 1.0).abs() < f64::EPSILON {
+            format!("{}", eff)
         } else {
             format!("{:.1}", effective)
         };
 
-        table.add_row(vec![
-            t.trainer_name.clone(),
-            t.ranks.to_string(),
-            t.modified_ranks.to_string(),
-            apply_str,
-            effective_str,
-            t.date_of_last_rank.clone().unwrap_or_default(),
-        ]);
+        if has_overrides {
+            let mode_str = if t.rank_mode == RankMode::Modifier.as_str() {
+                String::new()
+            } else if let Some(ref d) = t.override_date {
+                format!("{} ({})", t.rank_mode, d)
+            } else {
+                t.rank_mode.clone()
+            };
+            table.add_row(vec![
+                t.trainer_name.clone(),
+                t.ranks.to_string(),
+                t.modified_ranks.to_string(),
+                apply_str,
+                effective_str,
+                mode_str,
+                t.date_of_last_rank.clone().unwrap_or_default(),
+            ]);
+        } else {
+            table.add_row(vec![
+                t.trainer_name.clone(),
+                t.ranks.to_string(),
+                t.modified_ranks.to_string(),
+                apply_str,
+                effective_str,
+                t.date_of_last_rank.clone().unwrap_or_default(),
+            ]);
+        }
     }
 
     total_effective = (total_effective * 10.0).round() / 10.0;
@@ -863,6 +1028,176 @@ fn cmd_coins(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     if char.darkstone > 0 {
         println!("Darkstone:       {}", char.darkstone);
     }
+
+    Ok(())
+}
+
+fn cmd_logs(db_path: &str, level: Option<&str>, limit: usize) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let all_logs = db.get_process_logs()?;
+
+    let logs: Vec<_> = all_logs
+        .iter()
+        .filter(|l| level.map(|lv| l.level == lv).unwrap_or(true))
+        .rev()
+        .take(limit)
+        .collect();
+
+    if logs.is_empty() {
+        if all_logs.is_empty() {
+            println!("No process logs found. Run 'amanuensis scan' first.");
+        } else {
+            println!("No logs matching level filter '{}'.", level.unwrap_or(""));
+        }
+        return Ok(());
+    }
+
+    let errors = logs.iter().filter(|l| l.level == "error").count();
+    let warns = logs.iter().filter(|l| l.level == "warn").count();
+    let infos = logs.iter().filter(|l| l.level == "info").count();
+    println!(
+        "Process logs ({} shown: {} error, {} warn, {} info):",
+        logs.len(), errors, warns, infos
+    );
+    println!();
+
+    for log in &logs {
+        let prefix = match log.level.as_str() {
+            "error" => "[ERROR]",
+            "warn"  => "[WARN] ",
+            _       => "[INFO] ",
+        };
+        println!("{}  {}  {}", prefix, log.created_at, log.message);
+    }
+
+    Ok(())
+}
+
+fn cmd_checkpoints(
+    db_path: &str,
+    name: &str,
+    all: bool,
+    trainer_filter: Option<&str>,
+) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let char = resolve_character(&db, name)?;
+    let char_id = char.id.unwrap();
+
+    let mut checkpoints = if all {
+        db.get_all_trainer_checkpoints(char_id)?
+    } else {
+        db.get_latest_trainer_checkpoints(char_id)?
+    };
+
+    if let Some(filter) = trainer_filter {
+        let filter_lc = filter.to_lowercase();
+        checkpoints.retain(|c| c.trainer_name.to_lowercase().contains(&filter_lc));
+    }
+
+    if checkpoints.is_empty() {
+        println!("No trainer checkpoints found for {}.", name);
+        println!("Hint: Checkpoints are recorded when a trainer greets you with a rank-status message.");
+        return Ok(());
+    }
+
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(vec!["Trainer", "Min Ranks", "Max Ranks", "Timestamp"]);
+
+    for c in &checkpoints {
+        let max_str = c.rank_max.map(|v| v.to_string()).unwrap_or_else(|| "maxed".to_string());
+        table.add_row(vec![
+            c.trainer_name.clone(),
+            c.rank_min.to_string(),
+            max_str,
+            c.timestamp.clone(),
+        ]);
+    }
+
+    let label = if all { "all checkpoints" } else { "latest checkpoints" };
+    println!("Trainer checkpoints for {} ({}, {} entries):", name, label, checkpoints.len());
+    println!("{table}");
+
+    Ok(())
+}
+
+fn cmd_set_rank_mode(
+    db_path: &str,
+    name: &str,
+    trainer: &str,
+    mode: &str,
+    ranks: i64,
+    date: Option<&str>,
+) -> amanuensis_core::Result<()> {
+    // Validate mode early for a friendly error message
+    RankMode::parse(mode).ok_or_else(|| {
+        amanuensis_core::AmanuensisError::Data(
+            format!("Invalid mode '{}'. Must be: modifier, override, override_until_date", mode)
+        )
+    })?;
+
+    if mode == "override_until_date" && date.is_none() {
+        return Err(amanuensis_core::AmanuensisError::Data(
+            "override_until_date mode requires --date <M/D/YY>".to_string()
+        ));
+    }
+
+    let db = Database::open(db_path)?;
+    let char = resolve_character(&db, name)?;
+    let char_id = char.id.unwrap();
+
+    db.set_rank_override(char_id, trainer, mode, ranks, date)?;
+
+    match mode {
+        "modifier" => println!("Set {} / {} to modifier mode (+{} adjusted ranks)", name, trainer, ranks),
+        "override" => println!("Set {} / {} to override mode ({} manual ranks)", name, trainer, ranks),
+        "override_until_date" => println!(
+            "Set {} / {} to override_until_date mode ({} baseline ranks, cutoff: {})",
+            name, trainer, ranks, date.unwrap_or("")
+        ),
+        _ => unreachable!(),
+    }
+    println!("Run 'amanuensis scan --force' to rebuild log-derived rank counts.");
+
+    Ok(())
+}
+
+fn cmd_set_profession(db_path: &str, name: &str, profession: &str) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let char = resolve_character(&db, name)?;
+    let char_id = char.id.unwrap();
+
+    let override_value = if profession.eq_ignore_ascii_case("auto") {
+        None
+    } else {
+        // Validate
+        let valid = ["fighter", "healer", "mystic", "ranger", "bloodmage", "champion"];
+        if !valid.contains(&profession.to_lowercase().as_str()) {
+            return Err(amanuensis_core::AmanuensisError::Data(format!(
+                "Invalid profession '{}'. Must be one of: {} — or 'auto' to clear",
+                profession,
+                valid.join(", ")
+            )));
+        }
+        // Capitalize first letter
+        let mut s = profession.to_lowercase();
+        if let Some(c) = s.get_mut(0..1) {
+            c.make_ascii_uppercase();
+        }
+        Some(s)
+    };
+
+    db.set_profession_override(char_id, override_value.as_deref())?;
+
+    if let Some(ref prof) = override_value {
+        println!("Set profession for {} to {} (manual override).", name, prof);
+    } else {
+        println!("Cleared profession override for {} — auto-detection will apply.", name);
+    }
+    println!("Run 'amanuensis scan --force' to recompute profession from logs.");
 
     Ok(())
 }
