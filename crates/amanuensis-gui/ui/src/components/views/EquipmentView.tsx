@@ -52,7 +52,41 @@ export function EquipmentView() {
             ? `${char.wood_useless} useless · ${Math.round(char.wood_taken / (char.wood_taken + char.wood_useless) * 100)}% success`
             : undefined}
         />
+        {char.mimics_caught > 0 && (
+          <StatCard
+            label="Bag of Holding"
+            value={`${3 + char.mimics_caught} slots`}
+            sub={`${char.mimics_caught} mimic${char.mimics_caught === 1 ? "" : "s"} caught`}
+          />
+        )}
       </div>
+
+      {(() => {
+        const catches = char.fishing_catches;
+        const catchEntries = Object.entries(catches).sort(([, a], [, b]) => b - a);
+        const totalCaught = catchEntries.reduce((sum, [, n]) => sum + n, 0);
+        const totalAttempts = char.fishing_attempts + totalCaught;
+        if (totalAttempts === 0) return null;
+        return (
+          <>
+            <h3 className="mb-4 mt-6 text-lg font-semibold">Fishing</h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <StatCard
+                label="Fishing Attempts"
+                value={totalAttempts.toLocaleString()}
+                sub={char.fishing_attempts > 0 ? `${char.fishing_attempts} missed` : undefined}
+              />
+              {totalCaught > 0 && (
+                <StatCard
+                  label="Catches"
+                  value={totalCaught.toLocaleString()}
+                  sub={catchEntries.map(([item, count]) => `${item} [${count}]`).join(", ")}
+                />
+              )}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

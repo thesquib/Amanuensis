@@ -28,7 +28,8 @@ const CHARACTER_COLUMNS: &str =
      coin_level, coin_level_interim, good_karma, bad_karma, gave_good_karma, gave_bad_karma, start_date,
      fur_worth, mandible_worth, blood_worth, eps_broken, untraining_count, ore_found,
      tin_ore_found, copper_ore_found, gold_ore_found, iron_ore_found,
-     wood_taken, wood_useless, profession_override";
+     wood_taken, wood_useless, profession_override,
+     fishing_attempts, mimics_caught, fishing_catches_json";
 
 /// Map a rusqlite row (from a CHARACTER_COLUMNS projection) to a Character.
 fn map_character_row(row: &Row<'_>) -> rusqlite::Result<Character> {
@@ -78,6 +79,12 @@ fn map_character_row(row: &Row<'_>) -> rusqlite::Result<Character> {
         wood_taken: row.get(42)?,
         wood_useless: row.get(43)?,
         profession_override: row.get(44)?,
+        fishing_attempts: row.get(45)?,
+        mimics_caught: row.get(46)?,
+        fishing_catches: {
+            let json: String = row.get(47)?;
+            serde_json::from_str(&json).unwrap_or_default()
+        },
         total_ranks: 0,
     })
 }
@@ -196,6 +203,25 @@ mod tests {
         let char = db.get_character("Fen").unwrap().unwrap();
         assert_eq!(char.logins, 2);
         assert_eq!(char.deaths, 3);
+    }
+
+    #[test]
+    fn test_increment_fishing_catch() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+
+        db.increment_fishing_catch(id, "Fish").unwrap();
+        db.increment_fishing_catch(id, "Fish").unwrap();
+        db.increment_fishing_catch(id, "Mimic").unwrap();
+        db.increment_character_field(id, "mimics_caught", 1).unwrap();
+        db.increment_fishing_catch(id, "Sea Bass").unwrap();
+
+        let char = db.get_character("Fen").unwrap().unwrap();
+        assert_eq!(char.fishing_catches.get("Fish"), Some(&2));
+        assert_eq!(char.fishing_catches.get("Mimic"), Some(&1));
+        assert_eq!(char.fishing_catches.get("Sea Bass"), Some(&1));
+        assert_eq!(char.fishing_catches.get("Eel"), None);
+        assert_eq!(char.mimics_caught, 1);
     }
 
     #[test]

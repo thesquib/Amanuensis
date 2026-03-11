@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,6 +101,10 @@ pub struct Character {
     pub wood_useless: i64,
     // Manual profession override (set by user in GUI to correct auto-detection)
     pub profession_override: Option<String>,
+    // Fishing
+    pub fishing_attempts: i64,
+    pub mimics_caught: i64,
+    pub fishing_catches: HashMap<String, i64>,
     // Total trainer ranks (sum of ranks + apply_learning_ranks + modified_ranks across all trainers)
     #[serde(default)]
     pub total_ranks: i64,
@@ -153,6 +158,9 @@ impl Character {
             wood_taken: 0,
             wood_useless: 0,
             profession_override: None,
+            fishing_attempts: 0,
+            mimics_caught: 0,
+            fishing_catches: HashMap::new(),
             total_ranks: 0,
         }
     }

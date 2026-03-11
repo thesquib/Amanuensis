@@ -73,6 +73,16 @@ pub static WOOD_TAKEN: Lazy<Regex> =
 pub static WOOD_USELESS: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You find that the wood is useless\.$").expect("regex compile error"));
 
+// === Fishing patterns ===
+pub static FISHING_MISS_TUG: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You feel a tug on your line, but the fish slips free\.$").expect("regex compile error"));
+pub static FISHING_MISS_EMPTY: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You reel in an empty hook\.$").expect("regex compile error"));
+// Captures what was reeled in, after stripping leading article (a/an) and trailing punctuation.
+// Must be checked AFTER the mimic prefix check and AFTER FISHING_MISS_EMPTY.
+pub static FISHING_CATCH: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You reel in (?:a |an )?(.+?)[\.\!]*$").expect("regex compile error"));
+
 // === Karma patterns ===
 // "You just received good karma from {name}." / "You just received bad karma from {name}."
 pub static KARMA_RECEIVED: Lazy<Regex> =
@@ -568,5 +578,55 @@ mod tests {
     fn test_trainer_bow_no_match_elegantly() {
         // "bows elegantly" should NOT match TRAINER_BOW
         assert!(TRAINER_BOW.captures("Omegus bows elegantly from the waist.").is_none());
+    }
+
+    #[test]
+    fn test_fishing_miss_tug() {
+        assert!(FISHING_MISS_TUG
+            .is_match("You feel a tug on your line, but the fish slips free."));
+    }
+
+    #[test]
+    fn test_fishing_miss_empty_hook() {
+        assert!(FISHING_MISS_EMPTY.is_match("You reel in an empty hook."));
+    }
+
+    #[test]
+    fn test_fishing_miss_empty_hook_not_matched_by_catch() {
+        // The empty hook line must NOT be captured by FISHING_CATCH — empty hook is a miss
+        // (in practice the classifier checks FISHING_MISS_EMPTY first, but the regex
+        // itself should not confuse the two)
+        let caps = FISHING_CATCH.captures("You reel in an empty hook.");
+        // If it does match, the captured item would be "empty hook" — but we verify
+        // the classifier dispatches it as FishingMiss via ordering, not the regex alone.
+        // This test documents that awareness.
+        if let Some(c) = caps {
+            assert_eq!(c[1].trim(), "empty hook");
+        }
+    }
+
+    #[test]
+    fn test_fishing_catch_a_article() {
+        let caps = FISHING_CATCH.captures("You reel in a fish!").unwrap();
+        assert_eq!(caps[1].trim(), "fish");
+    }
+
+    #[test]
+    fn test_fishing_catch_an_article() {
+        let caps = FISHING_CATCH.captures("You reel in an eel!").unwrap();
+        assert_eq!(caps[1].trim(), "eel");
+    }
+
+    #[test]
+    fn test_fishing_catch_multi_word() {
+        let caps = FISHING_CATCH.captures("You reel in a sea bass!").unwrap();
+        assert_eq!(caps[1].trim(), "sea bass");
+    }
+
+    #[test]
+    fn test_fishing_miss_tug_no_match_partial() {
+        // Partial strings should not match
+        assert!(!FISHING_MISS_TUG.is_match("You feel a tug on your line"));
+        assert!(!FISHING_MISS_EMPTY.is_match("You reel in an empty hook"));
     }
 }

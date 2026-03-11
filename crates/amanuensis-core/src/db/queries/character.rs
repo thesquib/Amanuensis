@@ -53,7 +53,7 @@ impl Database {
         let mut stmt = self.conn.prepare(&sql)?;
         let chars = stmt.query_map([], |row| {
             let mut c = map_character_row(row)?;
-            c.total_ranks = row.get(45)?;
+            c.total_ranks = row.get(48)?;
             Ok(c)
         })?;
         Ok(chars.filter_map(|r| r.ok()).collect())
@@ -74,6 +74,7 @@ impl Database {
             "untraining_count", "ore_found",
             "tin_ore_found", "copper_ore_found", "gold_ore_found", "iron_ore_found",
             "wood_taken", "wood_useless",
+            "fishing_attempts", "mimics_caught",
         ];
         if !allowed.contains(&field) {
             return Err(crate::error::AmanuensisError::Data(format!(
@@ -87,6 +88,25 @@ impl Database {
             field, field
         );
         self.conn.execute(&sql, params![amount, char_id])?;
+        Ok(())
+    }
+
+    /// Increment the count for a specific fishing catch item in the JSON map.
+    pub fn increment_fishing_catch(&self, char_id: i64, item: &str) -> Result<()> {
+        let json: String = self.conn.query_row(
+            "SELECT fishing_catches_json FROM characters WHERE id = ?1",
+            params![char_id],
+            |row| row.get(0),
+        )?;
+        let mut map: std::collections::HashMap<String, i64> =
+            serde_json::from_str(&json).unwrap_or_default();
+        *map.entry(item.to_string()).or_insert(0) += 1;
+        let new_json = serde_json::to_string(&map)
+            .map_err(|e| crate::error::AmanuensisError::Data(e.to_string()))?;
+        self.conn.execute(
+            "UPDATE characters SET fishing_catches_json = ?1 WHERE id = ?2",
+            params![new_json, char_id],
+        )?;
         Ok(())
     }
 

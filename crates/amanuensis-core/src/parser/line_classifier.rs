@@ -5,6 +5,9 @@ use crate::parser::patterns;
 
 /// Classify a message body (after timestamp extraction) into a LogEvent.
 pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
+    // Trim leading whitespace (e.g. double-space after timestamp) before any checks
+    let message = message.trim_start();
+
     // Skip empty lines
     if message.is_empty() {
         return LogEvent::Ignored;
@@ -110,14 +113,15 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         }
     }
 
+    // Handle ¥-prefixed lines (Mac client) and •-prefixed lines (Windows client).
+    // Must check BEFORE the speech filter — system messages should never be filtered as speech.
+    if message.starts_with('¥') || message.starts_with('•') {
+        return classify_system_message(message, trainer_db);
+    }
+
     // Skip speech and emotes early (very common)
     if patterns::SPEECH.is_match(message) || patterns::EMOTE.is_match(message) {
         return LogEvent::Ignored;
-    }
-
-    // Handle ¥-prefixed lines (Mac client) and •-prefixed lines (Windows client)
-    if message.starts_with('¥') || message.starts_with('•') {
-        return classify_system_message(message, trainer_db);
     }
 
     // Welcome messages
@@ -263,6 +267,18 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         return LogEvent::WoodUseless;
     }
 
+    // Fishing: misses first, then mimic (prefix check), then general catch
+    if patterns::FISHING_MISS_TUG.is_match(message) || patterns::FISHING_MISS_EMPTY.is_match(message) {
+        return LogEvent::FishingMiss;
+    }
+    if message.starts_with("You reel in a friendly mimic") {
+        return LogEvent::FishCaught { item: "Mimic".to_string() };
+    }
+    if let Some(caps) = patterns::FISHING_CATCH.captures(message) {
+        let item = titlecase_words(caps[1].trim());
+        return LogEvent::FishCaught { item };
+    }
+
     // Esteem gain (check before experience since it also starts with "* You gain")
     if patterns::ESTEEM_GAIN.is_match(message) {
         return LogEvent::EsteemGain;
@@ -306,6 +322,20 @@ fn strip_article(name: &str) -> String {
     } else {
         name.to_string()
     }
+}
+
+/// Capitalize the first letter of each word (for fish catch item names).
+fn titlecase_words(s: &str) -> String {
+    s.split_whitespace()
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Normalize a profession name from log text to canonical form.
@@ -509,6 +539,27 @@ mod tests {
             LogEvent::TrainerRank {
                 ref trainer_name, ..
             } if trainer_name == "Bangus Anmash"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_rank_leading_space_before_yen() {
+        // Double-space after timestamp would produce " ¥..." as message — must still recognize
+        let db = test_db();
+        let event = classify_line(" ¥Your combat ability improves.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::TrainerRank { ref trainer_name, .. } if trainer_name == "Bangus Anmash"
+        ));
+    }
+
+    #[test]
+    fn test_trainer_rank_leading_space_before_bullet() {
+        let db = test_db();
+        let event = classify_line(" • Your combat ability improves.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::TrainerRank { ref trainer_name, .. } if trainer_name == "Bangus Anmash"
         ));
     }
 
@@ -1343,6 +1394,76 @@ mod tests {
                 rank_min: 100,
                 rank_max: Some(149),
             } if trainer_name == "Histia" && character_name == "Gandor"
+        ));
+    }
+
+    #[test]
+    fn test_fishing_miss_tug() {
+        let db = test_db();
+        let event = classify_line(
+            "You feel a tug on your line, but the fish slips free.",
+            &db,
+        );
+        assert!(matches!(event, LogEvent::FishingMiss));
+    }
+
+    #[test]
+    fn test_fishing_miss_empty_hook() {
+        let db = test_db();
+        let event = classify_line("You reel in an empty hook.", &db);
+        assert!(matches!(event, LogEvent::FishingMiss));
+    }
+
+    #[test]
+    fn test_fishing_catch_fish() {
+        let db = test_db();
+        let event = classify_line("You reel in a fish!", &db);
+        assert!(matches!(
+            event,
+            LogEvent::FishCaught { ref item } if item == "Fish"
+        ));
+    }
+
+    #[test]
+    fn test_fishing_catch_mimic_period() {
+        let db = test_db();
+        let event = classify_line(
+            "You reel in a friendly mimic. Your bag of holding absorbs it with a satisfied sigh.",
+            &db,
+        );
+        assert!(matches!(
+            event,
+            LogEvent::FishCaught { ref item } if item == "Mimic"
+        ));
+    }
+
+    #[test]
+    fn test_fishing_catch_mimic_exclaim() {
+        let db = test_db();
+        let event = classify_line("You reel in a friendly mimic!!!", &db);
+        assert!(matches!(
+            event,
+            LogEvent::FishCaught { ref item } if item == "Mimic"
+        ));
+    }
+
+    #[test]
+    fn test_fishing_catch_multi_word() {
+        let db = test_db();
+        let event = classify_line("You reel in a sea bass!", &db);
+        assert!(matches!(
+            event,
+            LogEvent::FishCaught { ref item } if item == "Sea Bass"
+        ));
+    }
+
+    #[test]
+    fn test_fishing_catch_an_article() {
+        let db = test_db();
+        let event = classify_line("You reel in an eel!", &db);
+        assert!(matches!(
+            event,
+            LogEvent::FishCaught { ref item } if item == "Eel"
         ));
     }
 }

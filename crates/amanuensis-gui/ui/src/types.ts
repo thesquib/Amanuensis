@@ -45,6 +45,9 @@ export interface Character {
   wood_taken: number;
   wood_useless: number;
   profession_override: string | null;
+  fishing_attempts: number;
+  mimics_caught: number;
+  fishing_catches: Record<string, number>;
   total_ranks: number;
 }
 

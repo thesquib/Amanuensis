@@ -628,6 +628,20 @@ impl LogParser {
                     file_result.events_found += 1;
                 }
 
+                LogEvent::FishingMiss => {
+                    self.db
+                        .increment_character_field(char_id, "fishing_attempts", 1)?;
+                    file_result.events_found += 1;
+                }
+                LogEvent::FishCaught { ref item } => {
+                    self.db.increment_fishing_catch(char_id, item)?;
+                    if item == "Mimic" {
+                        self.db
+                            .increment_character_field(char_id, "mimics_caught", 1)?;
+                    }
+                    file_result.events_found += 1;
+                }
+
                 LogEvent::KarmaReceived { good } => {
                     let field = if good { "good_karma" } else { "bad_karma" };
                     self.db

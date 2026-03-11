@@ -104,6 +104,10 @@ pub enum LogEvent {
     WoodTaken,
     /// Wood useless: "You find that the wood is useless."
     WoodUseless,
+    /// Fishing miss: fish slipped free or empty hook
+    FishingMiss,
+    /// Fish caught: "You reel in a/an {item}." — item is normalized (e.g. "Fish", "Mimic", "Sea Bass")
+    FishCaught { item: String },
     /// Ranger reflect: "You have studied the following creatures:" header
     ReflectStudiedHeader,
     /// Character was untrained by Untrainus
