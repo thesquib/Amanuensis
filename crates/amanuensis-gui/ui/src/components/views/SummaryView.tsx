@@ -251,7 +251,7 @@ export function SummaryView() {
               {displayCoinLevel.toLocaleString()}{coinLevelEstimated && <span className="text-[var(--color-accent)] text-2xl">*</span>}
             </div>
             <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">
-              {coinLevelEstimated ? <span className="text-[var(--color-accent)]">*not enough data yet</span> : "Highest Kill"}
+              {coinLevelEstimated ? <span className="text-[var(--color-accent)]">*not enough data yet</span> : "Calculated from Highest Kill"}
             </div>
             {(() => {
               // Confirmed level → creature that actually set it (≥5 verb kills).
@@ -267,7 +267,7 @@ export function SummaryView() {
           </div>
           <div className="mt-3 border-t border-[var(--color-border)] pt-3">
             <div className="mt-1 text-4xl font-bold">{Math.round(slaughterPoints / 150).toLocaleString()}</div>
-            <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">Ranks</div>
+            <div className="mt-0.5 text-xs text-[var(--color-text-muted)]">Calculated from est. slaughter level. Most likely wrong</div>
           </div>
         </div>
         <div className="rounded-lg bg-[var(--color-card)] px-3 py-2 flex flex-col justify-center gap-1">
