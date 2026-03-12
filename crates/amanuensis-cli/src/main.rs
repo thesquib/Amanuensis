@@ -194,6 +194,15 @@ enum Commands {
     },
     /// Print the path to the GUI's default database file
     GuiDbPath,
+    /// Scan log files and extract item usage command help blocks (no DB needed)
+    #[command(name = "useitem-help")]
+    UseItemHelp {
+        /// Log folder to scan
+        folder: String,
+        /// Recurse into subdirectories
+        #[arg(short = 'r', long)]
+        recursive: bool,
+    },
 }
 
 fn main() {
@@ -254,7 +263,7 @@ fn resolve_db_path(cli: &Cli) -> amanuensis_core::Result<String> {
 }
 
 fn run(cli: Cli) -> amanuensis_core::Result<()> {
-    // Handle gui-db-path before resolving the db path (it doesn't need a DB)
+    // Handle commands that don't need a DB before resolving the db path
     if matches!(cli.command, Commands::GuiDbPath) {
         match gui_db_path() {
             Some(p) => println!("{}", p.display()),
@@ -264,6 +273,9 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
             }
         }
         return Ok(());
+    }
+    if let Commands::UseItemHelp { folder, recursive } = &cli.command {
+        return cmd_useitem_help(folder, *recursive);
     }
 
     let db_path = resolve_db_path(&cli)?;
@@ -308,6 +320,7 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
             cmd_set_profession(&db_path, &name, &profession)
         }
         Commands::GuiDbPath => unreachable!("handled above"),
+        Commands::UseItemHelp { folder, recursive } => cmd_useitem_help(&folder, recursive),
     }
 }
 
@@ -1245,6 +1258,418 @@ fn cmd_fighter_stats(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     println!("--- Other ---");
     println!("Heal Receptivity: {}", stats.heal_receptivity);
     println!("Shieldstone Drain: {}", stats.shieldstone_drain);
+
+    Ok(())
+}
+
+// ── useitem-help ─────────────────────────────────────────────────────────────
+
+/// Replace Mac Roman smart quotes with ASCII equivalents.
+fn normalize_quotes(s: &str) -> String {
+    s.replace(['\u{201C}', '\u{201D}'], "\"")
+     .replace(['\u{2018}', '\u{2019}'], "'")
+}
+
+fn find_log_files(dir: &Path, recursive: bool) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    let Ok(entries) = std::fs::read_dir(dir) else { return files };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() && recursive {
+            files.extend(find_log_files(&path, true));
+        } else if path.extension().and_then(|e| e.to_str()) == Some("txt") {
+            files.push(path);
+        }
+    }
+    files
+}
+
+/// Split a CL log line into `(timestamp_slice, message_slice)`.
+/// Returns `("", line)` if no timestamp prefix is found.
+/// Handles both 12-hour (`8:38:19p`) and 24-hour (`15:25:42`) formats.
+fn split_timestamp(line: &str) -> (&str, &str) {
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    // date part: digits '/' digits '/' digits
+    while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+    if i == 0 || i >= bytes.len() || bytes[i] != b'/' { return ("", line); }
+    i += 1;
+    while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+    if i >= bytes.len() || bytes[i] != b'/' { return ("", line); }
+    i += 1;
+    while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+    if i >= bytes.len() || bytes[i] != b' ' { return ("", line); }
+    i += 1;
+    // time part: digits:digits:digits[ap]?
+    let time_start = i;
+    while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+    if i == time_start || i >= bytes.len() || bytes[i] != b':' { return ("", line); }
+    i += 1;
+    while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+    if i >= bytes.len() || bytes[i] != b':' { return ("", line); }
+    i += 1;
+    while i < bytes.len() && bytes[i].is_ascii_digit() { i += 1; }
+    // optional a/p suffix
+    if i < bytes.len() && (bytes[i] == b'a' || bytes[i] == b'p') { i += 1; }
+    if i >= bytes.len() || bytes[i] != b' ' { return ("", line); }
+    (&line[..i], &line[i + 1..])
+}
+
+
+/// Convert a CL timestamp string ("M/D/YY H:MM:SSa") to seconds since midnight.
+/// Used to determine whether an equip event and a help block are close in time,
+/// so we can avoid attributing a delayed help response to the wrong last_equipped item.
+fn ts_to_seconds(ts: &str) -> Option<u32> {
+    // Find the space separating date from time
+    let space = ts.rfind(' ')?;
+    let time_part = &ts[space + 1..];
+    let (time_str, pm, has_ampm) = if let Some(t) = time_part.strip_suffix('p') {
+        (t, true, true)
+    } else if let Some(t) = time_part.strip_suffix('a') {
+        (t, false, true)
+    } else {
+        (time_part, false, false) // 24-hour or no indicator
+    };
+    let mut parts = time_str.splitn(3, ':');
+    let h: u32 = parts.next()?.parse().ok()?;
+    let m: u32 = parts.next()?.parse().ok()?;
+    let s: u32 = parts.next()?.parse().ok()?;
+    let h24 = if has_ampm {
+        if h == 12 && !pm { 0 } else if h != 12 && pm { h + 12 } else { h }
+    } else {
+        h
+    };
+    Some(h24 * 3600 + m * 60 + s)
+}
+
+fn extract_item_name(message: &str) -> Option<String> {
+    // 1. /useitem "name" — quoted, highest confidence
+    if let Some(rest) = message.strip_prefix("/useitem \"") {
+        if let Some(end) = rest.find('"') {
+            return Some(rest[..end].to_string());
+        }
+    }
+    // 2. /useitem word — unquoted (e.g., /useitem sungem /add <name>...)
+    if let Some(rest) = message.strip_prefix("/useitem ") {
+        if !rest.starts_with('"') {
+            let word: String = rest.chars().take_while(|c| !c.is_whitespace()).collect();
+            if !word.is_empty() {
+                return Some(word);
+            }
+        }
+    }
+    // 3. * The <name> allows
+    if let Some(rest) = message.strip_prefix("* The ") {
+        if let Some(pos) = rest.find(" allows ") {
+            return Some(rest[..pos].to_string());
+        }
+    }
+    // 4. The <name> allows
+    if let Some(rest) = message.strip_prefix("The ") {
+        if let Some(pos) = rest.find(" allows ") {
+            return Some(rest[..pos].to_string());
+        }
+    }
+    // 5. Your <name> allows you to (e.g., "Your sunstone allows you to think...")
+    if let Some(rest) = message.strip_prefix("Your ") {
+        if let Some(pos) = rest.find(" allows you to") {
+            return Some(rest[..pos].to_string());
+        }
+    }
+    // 6. This <name> helps/allows — skip generic single words
+    if let Some(rest) = message.strip_prefix("This ") {
+        let keyword_pos = rest.find(" helps").or_else(|| rest.find(" allows"));
+        if let Some(pos) = keyword_pos {
+            let candidate = &rest[..pos];
+            if candidate.contains(' ') {
+                return Some(candidate.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// True if `s` looks like `Type <quote>/...` where quote may be ASCII " or Mac Roman curly quotes.
+fn starts_with_type_slash(s: &str) -> bool {
+    // "Type " followed by a quote char then "/"
+    if let Some(rest) = s.strip_prefix("Type ") {
+        // skip optional opening quote: ASCII " or ' or Mac Roman smart quotes U+201C/U+2018
+        // Strip optional opening quote: ASCII ", ASCII ', or Mac Roman smart quotes U+201C/U+2018
+        let inner = rest.trim_start_matches(['"', '\'', '\u{201C}', '\u{2018}']);
+        return inner.starts_with('/');
+    }
+    false
+}
+
+/// True if `message` starts with an unquoted `/useitem <word>` command.
+fn starts_with_useitem_unquoted(message: &str) -> bool {
+    if let Some(rest) = message.strip_prefix("/useitem ") {
+        !rest.starts_with('"') && rest.chars().next().is_some_and(|c| c.is_alphanumeric())
+    } else {
+        false
+    }
+}
+
+fn is_help_trigger(message: &str) -> bool {
+    if starts_with_type_slash(message) { return true; }
+    if message.starts_with("/useitem \"") { return true; }
+    if starts_with_useitem_unquoted(message) { return true; }
+    if message.starts_with("* /") { return true; }
+    if message.starts_with("* The ") && message.contains(" allows ") { return true; }
+    if message.starts_with("The ") && message.contains(" allows ") { return true; }
+    if message.starts_with("Your ") && message.contains(" allows you to") { return true; }
+    if message.starts_with("This ") && (message.contains(" helps") || message.contains(" allows")) { return true; }
+    false
+}
+
+fn is_help_continuation(message: &str) -> bool {
+    if starts_with_type_slash(message) { return true; }
+    if message.starts_with("/useitem \"") { return true; }
+    if starts_with_useitem_unquoted(message) { return true; }
+    if message.starts_with("* /") { return true; }
+    if message.starts_with("* Hot tip:") { return true; }
+    if message.starts_with("* You can currently hold") { return true; }
+    if message.starts_with("* Your ") && message.contains(" can hold") { return true; }
+    // /command : or /command < (catches /THINK <msg>, /examine :, etc.)
+    if let Some(rest) = message.strip_prefix('/') {
+        if rest.chars().next().is_some_and(|c| c.is_alphabetic())
+            && (rest.contains(" :") || rest.contains(" <")) { return true; }
+    }
+    // Type A/B description lines
+    if message.starts_with("This ") && (message.contains(" helps") || message.contains(" allows")) { return true; }
+    if message.starts_with("* The ") && message.contains(" allows ") { return true; }
+    if message.starts_with("The ") && message.contains(" allows ") { return true; }
+    if message.starts_with("Your ") && message.contains(" allows you to") { return true; }
+    false
+}
+
+/// Use `last_equipped` as an item name fallback only when the equip event happened
+/// within 15 seconds of the current help block.  This prevents delayed server
+/// responses (e.g. gossamer's /use ? arriving 30 s after the player switched to
+/// Ethereal Boots) from being attributed to whatever happened to be equipped last.
+fn equip_fallback(
+    last_equipped: &Option<String>,
+    last_equipped_ts: Option<u32>,
+    block_ts: Option<&str>,
+) -> Option<String> {
+    const MAX_SECS: u32 = 15;
+    let equip_secs = last_equipped_ts?;
+    let block_secs = ts_to_seconds(block_ts?)?;
+    // Handle midnight rollover
+    let delta = if block_secs >= equip_secs {
+        block_secs - equip_secs
+    } else {
+        block_secs + 86400 - equip_secs
+    };
+    if delta <= MAX_SECS { last_equipped.clone() } else { None }
+}
+
+fn cmd_useitem_help(folder: &str, recursive: bool) -> amanuensis_core::Result<()> {
+    use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+
+    let dir = Path::new(folder);
+    if !dir.is_dir() {
+        return Err(amanuensis_core::AmanuensisError::Data(
+            format!("'{}' is not a directory", folder)
+        ));
+    }
+
+    let mut files = find_log_files(dir, recursive);
+    files.sort();
+    let total_files = files.len();
+
+    // item_name -> file_path -> set of lines seen for that item in that file.
+    // Using per-file sets lets us apply majority voting: a line belongs to an item
+    // only if it appeared in the majority of files where that item was observed.
+    // This drops contaminated lines (e.g. gossamer lines that sneak into belt of the wild
+    // because of delayed server responses) without any special-casing.
+    let mut item_file_lines: HashMap<String, HashMap<PathBuf, HashSet<String>>> = HashMap::new();
+
+    for path in &files {
+        let bytes = match std::fs::read(path) {
+            Ok(b) => b,
+            Err(_) => continue,
+        };
+        let content = amanuensis_core::encoding::decode_log_bytes(&bytes);
+        let lines: Vec<&str> = content.lines().collect();
+
+        // State machine
+        let mut last_equipped: Option<String> = None;
+        // Timestamp when last_equipped was set — used to reject delayed help responses
+        // that arrive long after the equip event (gossamer contamination prevention).
+        let mut last_equipped_ts: Option<u32> = None;
+        let mut in_block = false;
+        let mut block_item: Option<String> = None;
+        let mut block_lines: Vec<String> = Vec::new();
+        // Timestamp of the most recently added block line ("same-timestamp = same server burst")
+        let mut block_last_ts: Option<String> = None;
+
+        // Trim same-timestamp noise from block edges and record lines into item_file_lines.
+        let finalize = |block_item: &Option<String>,
+                            block_lines: &mut Vec<String>,
+                            item_file_lines: &mut HashMap<String, HashMap<PathBuf, HashSet<String>>>| {
+            if let Some(item) = block_item {
+                // Trim non-help lines from both edges (blank lines, loot messages, etc.
+                // that share a timestamp with the help burst but aren't part of it).
+                while let Some(last) = block_lines.last() {
+                    if is_help_trigger(last) || is_help_continuation(last) { break; }
+                    block_lines.pop();
+                }
+                while !block_lines.is_empty() {
+                    if is_help_trigger(&block_lines[0]) || is_help_continuation(&block_lines[0]) { break; }
+                    block_lines.remove(0);
+                }
+                if !block_lines.is_empty() {
+                    let file_set = item_file_lines
+                        .entry(item.clone()).or_default()
+                        .entry(path.clone()).or_default();
+                    for line in block_lines.drain(..) {
+                        file_set.insert(line);
+                    }
+                }
+            }
+            block_lines.clear();
+        };
+
+        let mut i = 0;
+        while i < lines.len() {
+            let raw = lines[i];
+            let (ts, message) = split_timestamp(raw);
+            let cur_ts = if ts.is_empty() { None } else { Some(ts) };
+
+            // Equip pattern always takes priority over same-timestamp logic
+            if let Some(item_name) = message.strip_prefix("You equip your ").and_then(|s| s.strip_suffix('.')) {
+                finalize(&block_item, &mut block_lines, &mut item_file_lines);
+                in_block = false;
+                block_item = None;
+                block_last_ts = None;
+                last_equipped = Some(item_name.to_string());
+                last_equipped_ts = cur_ts.and_then(ts_to_seconds);
+                i += 1;
+                continue;
+            }
+
+            if in_block {
+                // CL delivers a complete help block in a single server burst — all lines share
+                // the same timestamp.  Accept same-timestamp lines unconditionally so prose
+                // continuation lines (e.g. "Do not include spaces…") don't break the block.
+                let same_ts = cur_ts.is_some() && cur_ts == block_last_ts.as_deref();
+                if same_ts {
+                    // Same burst: always include regardless of content
+                    if let Some(name) = extract_item_name(message) {
+                        block_item = Some(name);
+                    }
+                    block_lines.push(normalize_quotes(message));
+                    i += 1;
+                } else if is_help_trigger(message) {
+                    // New server response with a trigger: end the current block and re-process
+                    // this line as the start of a new block (don't advance i).
+                    if block_item.is_some() { last_equipped = None; last_equipped_ts = None; }
+                    finalize(&block_item, &mut block_lines, &mut item_file_lines);
+                    in_block = false;
+                    block_item = None;
+                    block_last_ts = None;
+                } else if is_help_continuation(message) {
+                    // A continuation-only line at a new timestamp (e.g. manually queued command)
+                    if let Some(name) = extract_item_name(message) {
+                        block_item = Some(name);
+                    } else if block_item.is_none() {
+                        block_item = equip_fallback(&last_equipped, last_equipped_ts, cur_ts);
+                    }
+                    block_lines.push(normalize_quotes(message));
+                    block_last_ts = cur_ts.map(|s| s.to_string());
+                    i += 1;
+                } else {
+                    // End of block; reset last_equipped so delayed responses from a prior item
+                    // can't pollute the next block.
+                    if block_item.is_some() { last_equipped = None; }
+                    finalize(&block_item, &mut block_lines, &mut item_file_lines);
+                    in_block = false;
+                    block_item = None;
+                    block_last_ts = None;
+                    // Re-process this line without advancing i
+                }
+            } else if is_help_trigger(message) {
+                in_block = true;
+                block_item = extract_item_name(message)
+                    .or_else(|| equip_fallback(&last_equipped, last_equipped_ts, cur_ts));
+                block_lines.push(normalize_quotes(message));
+                block_last_ts = cur_ts.map(|s| s.to_string());
+                i += 1;
+            } else {
+                i += 1;
+            }
+        }
+        // Finalize any open block at EOF
+        finalize(&block_item, &mut block_lines, &mut item_file_lines);
+    }
+
+    // Majority voting: for each item, keep only lines that appeared in at least half
+    // of the files where that item was observed.  This drops contaminated lines that
+    // snuck in from delayed server responses in a small fraction of sessions.
+    // Then deduplicate items whose canonical line sets are identical (misattributed
+    // blocks) by keeping the candidate seen in the most files.
+    let mut items: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut item_file_count: HashMap<String, usize> = HashMap::new();
+
+    for (item, file_to_lines) in &item_file_lines {
+        let file_count = file_to_lines.len();
+        item_file_count.insert(item.clone(), file_count);
+
+        let threshold = file_count.div_ceil(2); // strict majority
+        let mut line_counts: HashMap<&str, usize> = HashMap::new();
+        for lines in file_to_lines.values() {
+            for line in lines {
+                *line_counts.entry(line.as_str()).or_insert(0) += 1;
+            }
+        }
+        let canonical: BTreeSet<String> = line_counts
+            .into_iter()
+            .filter(|(_, count)| *count >= threshold)
+            .map(|(line, _)| line.to_string())
+            .collect();
+        if !canonical.is_empty() {
+            items.insert(item.clone(), canonical);
+        }
+    }
+
+    // Fuzzy dedup: items whose canonical line sets have ≥50% Jaccard similarity are
+    // treated as the same help block misattributed to different names (e.g. gossamer's
+    // "This weapon helps…" block appearing under "pair of Ethereal Boots" because boots
+    // happened to be last_equipped when the delayed response arrived).
+    // Process in descending file-count order so the most-seen name is always kept.
+    {
+        let mut item_names: Vec<String> = items.keys().cloned().collect();
+        item_names.sort_by_key(|n| std::cmp::Reverse(item_file_count.get(n).copied().unwrap_or(0)));
+
+        let mut to_remove: HashSet<String> = HashSet::new();
+        for i in 0..item_names.len() {
+            let a = &item_names[i];
+            if to_remove.contains(a) { continue; }
+            let lines_a = items[a].clone();
+            for b in item_names.iter().skip(i + 1) {
+                if to_remove.contains(b) { continue; }
+                let lines_b = &items[b];
+                let intersection = lines_a.intersection(lines_b).count();
+                if intersection == 0 { continue; }
+                let union = lines_a.union(lines_b).count();
+                if intersection * 2 >= union {
+                    // Jaccard >= 0.5 — b has fewer or equal files, drop it
+                    to_remove.insert(b.clone());
+                }
+            }
+        }
+        for name in &to_remove { items.remove(name); }
+    }
+
+    println!("Found {} item(s) across {} files.", items.len(), total_files);
+    for (item, line_set) in &items {
+        println!();
+        println!("=== {} ===", item);
+        for line in line_set {
+            println!("  {}", line);
+        }
+    }
 
     Ok(())
 }
