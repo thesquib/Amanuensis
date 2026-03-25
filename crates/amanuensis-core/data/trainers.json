@@ -135,12 +135,10 @@
   },
   "¥Your body feels stronger.": {
     "trainer": "Master Bodrus",
-    "profession": "Fighter",
     "effective_rank_multiplier": 0.9004
   },
   "¥Your spirit improves.": {
-    "trainer": "Master Spirtus",
-    "profession": "Healer"
+    "trainer": "Master Spirtus"
   },
   "¥Your eye grows keener.": {
     "trainer": "Pathfinding"
@@ -215,19 +213,24 @@
     "trainer": "Oossla"
   },
   "¥You understand the flow of ether a little better.": {
-    "trainer": "Ethereal Training"
+    "trainer": "Ethereal Training",
+    "profession": "Mystic"
   },
   "¥You understand the flow of ethereal amulet a little better.": {
-    "trainer": "Ethereal Training"
+    "trainer": "Ethereal Training",
+    "profession": "Mystic"
   },
   "¥You understand the flow of ethereal something.. a little better.": {
-    "trainer": "Ethereal Training"
+    "trainer": "Ethereal Training",
+    "profession": "Mystic"
   },
   "¥You understand the ways of ether a little better.": {
-    "trainer": "Ethereal Training"
+    "trainer": "Ethereal Training",
+    "profession": "Mystic"
   },
   "¥You better comprehend the ways of ether.": {
-    "trainer": "Ethereal Training"
+    "trainer": "Ethereal Training",
+    "profession": "Mystic"
   },
   "¥Your Atkite Channeling improves.": {
     "trainer": "Hwack",
@@ -289,8 +292,8 @@
     "profession": "Bloodmage"
   },
   "¥You learn how to better utilize your fell blade.": {
-    "trainer": "Fellblade",
-    "profession": "Bloodmage"
+    "trainer": "Champion Blade",
+    "profession": "Champion"
   },
   "¥You learn how to better utilize your gossamer.": {
     "trainer": "Gossamer",
@@ -377,8 +380,8 @@
     "profession": "Bloodmage"
   },
   "¥You lose some of your grasp of backstabbing.": {
-    "trainer": "Fellblade Decay",
-    "profession": "Bloodmage"
+    "trainer": "Champion Blade Decay",
+    "profession": "Champion"
   },
   "¥You lose some of your grasp of controlled swings.": {
     "trainer": "Gossamer Decay",

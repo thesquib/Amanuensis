@@ -271,12 +271,12 @@ mod tests {
         assert_eq!(db.get_profession("Darktur"), Some("Fighter"));
         assert_eq!(db.get_profession("Angilsa"), Some("Fighter"));
         assert_eq!(db.get_profession("Atkia"), Some("Fighter"));
-        assert_eq!(db.get_profession("Master Bodrus"), Some("Fighter"));
+        assert_eq!(db.get_profession("Master Bodrus"), None);
         assert_eq!(db.get_profession("Rodnus"), Some("Healer"));
-        assert_eq!(db.get_profession("Master Spirtus"), Some("Healer"));
+        assert_eq!(db.get_profession("Master Spirtus"), None);
         assert_eq!(db.get_profession("Master Mentus"), None);
-        assert_eq!(db.get_profession("Fellblade"), Some("Bloodmage"));
-        assert_eq!(db.get_profession("Fellblade Decay"), Some("Bloodmage"));
+        assert_eq!(db.get_profession("Champion Blade"), Some("Champion"));
+        assert_eq!(db.get_profession("Champion Blade Decay"), Some("Champion"));
         assert_eq!(db.get_profession("Gossamer"), Some("Ranger"));
 
         // Language trainers

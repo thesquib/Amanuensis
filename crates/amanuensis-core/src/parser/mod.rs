@@ -840,7 +840,7 @@ impl LogParser {
         // C: Decay trainer ranks to subtract from specialization totals
         let mut gossamer_decay_ranks: i64 = 0;
         let mut bloodblade_decay_ranks: i64 = 0;
-        let mut fellblade_decay_ranks: i64 = 0;
+        let mut champion_blade_decay_ranks: i64 = 0;
 
         for t in &trainers {
             // C: Track decay trainers separately; do not count them toward profession totals
@@ -853,8 +853,8 @@ impl LogParser {
                     bloodblade_decay_ranks += t.ranks + t.modified_ranks;
                     continue;
                 }
-                "Fellblade Decay" => {
-                    fellblade_decay_ranks += t.ranks + t.modified_ranks;
+                "Champion Blade Decay" => {
+                    champion_blade_decay_ranks += t.ranks + t.modified_ranks;
                     continue;
                 }
                 _ => {}
@@ -900,7 +900,8 @@ impl LogParser {
 
         // C: Subtract decay ranks from specialization totals (floor at 0)
         ranger_ranks = (ranger_ranks - gossamer_decay_ranks).max(0);
-        bloodmage_ranks = (bloodmage_ranks - bloodblade_decay_ranks - fellblade_decay_ranks).max(0);
+        bloodmage_ranks = (bloodmage_ranks - bloodblade_decay_ranks).max(0);
+        champion_ranks = (champion_ranks - champion_blade_decay_ranks).max(0);
 
         // Specialization-wins logic: if any Fighter specialization has ranks,
         // pick the specialization with the most ranks (specialists also train
