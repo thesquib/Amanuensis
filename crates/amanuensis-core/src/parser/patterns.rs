@@ -87,9 +87,9 @@ pub static FISHING_CATCH: Lazy<Regex> =
 // "You just received good karma from {name}." / "You just received bad karma from {name}."
 pub static KARMA_RECEIVED: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You (?:just )?received (?:anonymous )?(good|bad) karma").expect("regex compile error"));
-// "You gave good karma to {name}."
+// "You gave anonymous good karma to {name}." / "You gave signed good karma to {name}."
 pub static KARMA_GIVEN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You gave (good|bad) karma to .+\.$").expect("regex compile error"));
+    Lazy::new(|| Regex::new(r"^You gave (?:anonymous |signed )?(good|bad) karma to .+\.$").expect("regex compile error"));
 
 // === Esteem pattern ===
 // "* You gain esteem." or "* You gain experience and esteem."
@@ -372,6 +372,18 @@ mod tests {
     #[test]
     fn test_karma_anonymous() {
         let caps = KARMA_RECEIVED.captures("You just received anonymous good karma.").unwrap();
+        assert_eq!(&caps[1], "good");
+    }
+
+    #[test]
+    fn test_karma_given_anonymous() {
+        let caps = KARMA_GIVEN.captures("You gave anonymous good karma to Naferu.").unwrap();
+        assert_eq!(&caps[1], "good");
+    }
+
+    #[test]
+    fn test_karma_given_signed() {
+        let caps = KARMA_GIVEN.captures("You gave signed good karma to Kitlin.").unwrap();
         assert_eq!(&caps[1], "good");
     }
 

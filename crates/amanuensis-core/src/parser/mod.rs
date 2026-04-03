@@ -2192,10 +2192,10 @@ mod tests {
 1/1/24 1:00:00p You just received good karma from Donk.
 1/1/24 1:01:00p You just received good karma from Pip.
 1/1/24 1:02:00p You just received bad karma from Troll.
-1/1/24 1:03:00p You gave good karma to Donk.
-1/1/24 1:04:00p You gave good karma to Pip.
+1/1/24 1:03:00p You gave anonymous good karma to Donk.
+1/1/24 1:04:00p You gave signed good karma to Pip.
 1/1/24 1:05:00p You gave bad karma to Troll.
-1/1/24 1:06:00p You gave bad karma to Bully.
+1/1/24 1:06:00p You gave anonymous bad karma to Bully.
 ";
         fs::write(
             char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
