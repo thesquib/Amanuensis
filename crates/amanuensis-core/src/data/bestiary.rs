@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct BestiaryEntry {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -56,41 +56,6 @@ pub struct BestiaryEntry {
     pub action_width: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action_height: Option<i32>,
-}
-
-impl Default for BestiaryEntry {
-    fn default() -> Self {
-        BestiaryEntry {
-            name: String::new(),
-            family: None,
-            location: None,
-            information: None,
-            exp_taxidermy: 0,
-            rarity: None,
-            worth: None,
-            worth_range: None,
-            frames_per_swing: None,
-            difficulty: None,
-            attack: None,
-            defense: None,
-            damage: None,
-            health: None,
-            attack_measured: false,
-            defense_measured: false,
-            damage_measured: false,
-            health_measured: false,
-            luck_hits: None,
-            is_seasonal: false,
-            first_update: None,
-            last_update: None,
-            static_pic: None,
-            static_width: None,
-            static_height: None,
-            action_pic: None,
-            action_width: None,
-            action_height: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

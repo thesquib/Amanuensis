@@ -2357,8 +2357,8 @@ mod tests {
         let rat_kb = kills.iter().find(|k| k.creature_name == "Rat").unwrap();
         assert_eq!(rat_kb.killed_by_count, 1);
         // Other creatures should not appear in killed_by
-        assert!(kills.iter().find(|k| k.creature_name == "Large Vermine").is_none());
-        assert!(kills.iter().find(|k| k.creature_name == "Orga Fury").is_none());
+        assert!(!kills.iter().any(|k| k.creature_name == "Large Vermine"));
+        assert!(!kills.iter().any(|k| k.creature_name == "Orga Fury"));
     }
 
     #[test]

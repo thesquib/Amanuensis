@@ -25,12 +25,10 @@ pub fn parse_bestiary_xml(xml: &[u8]) -> Result<Vec<BestiaryEntry>> {
                         current = Some(HashMap::new());
                     }
                 }
-                b"column" => {
-                    if current.is_some() {
-                        if let Some(name) = attr_value(&e, b"name") {
-                            current_column = Some(name);
-                            current_text.clear();
-                        }
+                b"column" if current.is_some() => {
+                    if let Some(name) = attr_value(&e, b"name") {
+                        current_column = Some(name);
+                        current_text.clear();
                     }
                 }
                 _ => {}

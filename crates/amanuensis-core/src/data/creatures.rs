@@ -14,7 +14,7 @@ pub struct CreatureDb {
 #[derive(Debug, Clone)]
 enum ResolvedAlias {
     Pointer(String),
-    Inline(BestiaryEntry),
+    Inline(Box<BestiaryEntry>),
 }
 
 impl CreatureDb {
@@ -42,7 +42,7 @@ impl CreatureDb {
                 }
                 BestiaryAlias::Inline { log_name, inline } => {
                     let synthetic = synthesize_entry(&log_name, &inline);
-                    (log_name, ResolvedAlias::Inline(synthetic))
+                    (log_name, ResolvedAlias::Inline(Box::new(synthetic)))
                 }
             };
             if alias_map.contains_key(&log_name) {
@@ -107,7 +107,7 @@ impl CreatureDb {
                         .expect("validated at load time"),
                     EntrySource::Alias,
                 ),
-                ResolvedAlias::Inline(entry) => (entry, EntrySource::InlineAlias),
+                ResolvedAlias::Inline(entry) => (entry.as_ref(), EntrySource::InlineAlias),
             });
         }
         self.by_name
