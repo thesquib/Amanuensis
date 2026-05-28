@@ -46,7 +46,7 @@ dependencies = [
 
 [[package]]
 name = "amanuensis-cli"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "amanuensis-core",
  "clap",
@@ -58,7 +58,7 @@ dependencies = [
 
 [[package]]
 name = "amanuensis-core"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "chrono",
  "encoding_rs",
@@ -75,7 +75,7 @@ dependencies = [
 
 [[package]]
 name = "amanuensis-gui"
-version = "0.5.10"
+version = "0.5.11"
 dependencies = [
  "amanuensis-core",
  "base64 0.22.1",
