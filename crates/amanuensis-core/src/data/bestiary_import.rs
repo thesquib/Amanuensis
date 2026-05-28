@@ -20,10 +20,8 @@ pub fn parse_bestiary_xml(xml: &[u8]) -> Result<Vec<BestiaryEntry>> {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(e)) => match e.name().as_ref() {
-                b"table" => {
-                    if attr_matches(&e, b"name", b"creatures") {
-                        current = Some(HashMap::new());
-                    }
+                b"table" if attr_matches(&e, b"name", b"creatures") => {
+                    current = Some(HashMap::new());
                 }
                 b"column" if current.is_some() => {
                     if let Some(name) = attr_value(&e, b"name") {
@@ -33,11 +31,9 @@ pub fn parse_bestiary_xml(xml: &[u8]) -> Result<Vec<BestiaryEntry>> {
                 }
                 _ => {}
             },
-            Ok(Event::Text(t)) => {
-                if current_column.is_some() {
-                    let txt = t.unescape().map_err(xml_err)?;
-                    current_text.push_str(&txt);
-                }
+            Ok(Event::Text(t)) if current_column.is_some() => {
+                let txt = t.unescape().map_err(xml_err)?;
+                current_text.push_str(&txt);
             }
             Ok(Event::End(e)) => match e.name().as_ref() {
                 b"column" => {
