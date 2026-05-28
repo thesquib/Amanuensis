@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pma_xml_export version="1.0">
+    <database name="clnet_bestiary">
+        <table name="creatures">
+            <column name="name">Rat</column>
+            <column name="family">Vermine</column>
+            <column name="location">Everywhere</column>
+            <column name="information">Chew fallen. Feral.</column>
+            <column name="exp_taxidermy">2</column>
+            <column name="rarity">Common</column>
+            <column name="worth">0</column>
+            <column name="worth_range">Fur: 0 &#8211; 1</column>
+            <column name="framesperswing">18</column>
+            <column name="difficulty">Easy.</column>
+            <column name="attack">65</column>
+            <column name="defense">35</column>
+            <column name="damage">10</column>
+            <column name="health">2</column>
+            <column name="defense_ismeasured">1</column>
+            <column name="attack_ismeasured">1</column>
+            <column name="damage_ismeasured">1</column>
+            <column name="health_ismeasured">1</column>
+            <column name="static_pic">ratnew.gif</column>
+            <column name="static_width">18</column>
+            <column name="static_height">22</column>
+            <column name="action_pic">Action_Rat.gif</column>
+            <column name="action_width">226</column>
+            <column name="action_height">209</column>
+            <column name="last_update">2026-02-11 01:31:08</column>
+            <column name="first_update">NULL</column>
+            <column name="luck_hits">NULL</column>
+            <column name="is_seasonal">0</column>
+        </table>
+        <table name="creatures">
+            <column name="name">Venomous Leech</column>
+            <column name="family">Extinct</column>
+            <column name="location">Dal&#039;Nzoth Waters</column>
+            <column name="information">Eradicated.</column>
+            <column name="exp_taxidermy">0</column>
+            <column name="rarity">Extinct</column>
+            <column name="worth">0</column>
+            <column name="worth_range">0</column>
+            <column name="framesperswing">0</column>
+            <column name="difficulty">Unknown.</column>
+            <column name="attack">5</column>
+            <column name="defense">5</column>
+            <column name="damage">30</column>
+            <column name="health">15</column>
+            <column name="defense_ismeasured">NULL</column>
+            <column name="attack_ismeasured">NULL</column>
+            <column name="damage_ismeasured">NULL</column>
+            <column name="health_ismeasured">NULL</column>
+            <column name="static_pic">venomousleech.gif</column>
+            <column name="static_width">10</column>
+            <column name="static_height">14</column>
+            <column name="action_pic">NULL</column>
+            <column name="action_width">NULL</column>
+            <column name="action_height">NULL</column>
+            <column name="last_update">2016-01-28 05:20:43</column>
+            <column name="first_update">NULL</column>
+            <column name="luck_hits">NULL</column>
+            <column name="is_seasonal">0</column>
+        </table>
+    </database>
+</pma_xml_export>
