@@ -190,3 +190,48 @@ mod tests {
         assert_eq!(leech.location.as_deref(), Some("Dal'Nzoth Waters"));
     }
 }
+
+#[cfg(test)]
+mod regen {
+    use super::*;
+    use crate::data::bestiary::BestiaryFile;
+    use std::fs;
+    use std::path::PathBuf;
+
+    /// One-off generator: read the upstream XML dump, write bestiary.json.
+    /// Run with: cargo test -p amanuensis-core regen::generate_bestiary_json -- --ignored --nocapture
+    /// Env: BESTIARY_XML=/path/to/bestiary_YYYYMMDD_fullexport.xml
+    #[test]
+    #[ignore]
+    fn generate_bestiary_json() {
+        let xml_path = std::env::var("BESTIARY_XML")
+            .expect("set BESTIARY_XML=/path/to/bestiary_YYYYMMDD_fullexport.xml");
+        let xml = fs::read(&xml_path).expect("read XML");
+        let mut entries = parse_bestiary_xml(&xml).expect("parse XML");
+        entries.sort_by(|a, b| a.name.cmp(&b.name));
+
+        let version = version_from_filename(&xml_path);
+        let entry_count = entries.len();
+        let file = BestiaryFile { version: version.clone(), entries };
+        let out = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data/bestiary.json");
+        let json = serde_json::to_string_pretty(&file).unwrap();
+        fs::write(&out, json).expect("write bestiary.json");
+        eprintln!(
+            "Wrote {} ({} entries, version {})",
+            out.display(),
+            entry_count,
+            version
+        );
+    }
+
+    fn version_from_filename(path: &str) -> String {
+        // expects bestiary_YYYYMMDD_fullexport.xml
+        std::path::Path::new(path)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .and_then(|s| s.strip_prefix("bestiary_"))
+            .and_then(|s| s.split('_').next())
+            .unwrap_or("00000000")
+            .to_string()
+    }
+}
