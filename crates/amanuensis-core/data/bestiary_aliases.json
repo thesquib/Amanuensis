@@ -1,1 +1,7 @@
-[]
+[
+  { "log_name": "the Ramandu", "resolves_to": "the Ramandu (boss)" },
+  { "log_name": "Ramandu", "resolves_to": "the Ramandu" },
+  { "log_name": "Mushroom", "resolves_to": "Mushroom (Brown)" },
+  { "log_name": "Seasylvan", "resolves_to": "Seasylvan Briar" },
+  { "log_name": "Fumehorn Colossus", "inline": { "exp_taxidermy": 1510 } }
+]

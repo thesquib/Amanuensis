@@ -264,4 +264,21 @@ mod tests {
         let db = make_db(&[("Rat", 2)], "[]");
         assert_eq!(db.bestiary_version(), "20260101");
     }
+
+    #[test]
+    fn bundled_loads_and_has_expected_creatures() {
+        let db = CreatureDb::bundled().unwrap();
+        assert!(db.len() > 950, "expected > 950 entries, got {}", db.len());
+        // Editorial preservation: Ramandu boss/clone behavior survives the migration.
+        assert_eq!(db.get_value("the Ramandu"), Some(2620));
+        assert_eq!(db.get_value("Ramandu"), Some(666));
+        // Direct hits.
+        assert_eq!(db.get_value("Rat"), Some(2));
+        assert_eq!(db.get_value("Tesla"), Some(70));
+        // Alias-resolved hits.
+        assert_eq!(db.get_value("Mushroom"), Some(5));
+        assert_eq!(db.get_value("Seasylvan"), Some(865));
+        // Inline alias.
+        assert_eq!(db.get_value("Fumehorn Colossus"), Some(1510));
+    }
 }
