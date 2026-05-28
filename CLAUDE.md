@@ -41,7 +41,7 @@ The original app is a native macOS Cocoa application (Objective-C, built with Xc
 
 These files can be used to update the bundled Amanuensis data:
 
-- **Bestiary**: `Bestiary_2026_Feb_Dump.xlsx` (in project root) — updated creature list to replace `creatures.csv`
+- **Bestiary**: `amanuensis update-bestiary <xml-path>` regenerates `crates/amanuensis-core/data/bestiary.json` from the upstream `clnet_bestiary` phpMyAdmin XML dump (e.g. `bestiary_YYYYMMDD_fullexport.xml`). The companion `bestiary_aliases.json` holds hand-curated log-name → bestiary-name mappings (e.g. `the Ramandu` → `the Ramandu (boss)` for the 2620 boss value, `Ramandu` → `the Ramandu` for the 666 clone). Use `amanuensis bestiary <name>` to inspect a single record. **After updating, existing databases should run `amanuensis scan --force <folder>` to refresh stored `creature_value` rows from the new bestiary.**
 - **Rank messages**: https://raw.githubusercontent.com/maxtraxv3/Macros/refs/heads/main/clanlord%20apps/RankCounter/RankCounter27/rankmessages.txt
 - **Trainer list**: https://raw.githubusercontent.com/maxtraxv3/Macros/refs/heads/main/clanlord%20apps/RankCounter/RankCounter27/trainers.txt
 - **Special phrases**: https://raw.githubusercontent.com/maxtraxv3/Macros/refs/heads/main/clanlord%20apps/RankCounter/RankCounter27/specialphrases.txt
