@@ -203,6 +203,26 @@ enum Commands {
         #[arg(short = 'r', long)]
         recursive: bool,
     },
+    /// Regenerate bestiary.json from an upstream phpMyAdmin XML dump
+    #[command(name = "update-bestiary")]
+    UpdateBestiary {
+        /// Path to the bestiary XML dump (e.g. ~/Downloads/bestiary_YYYYMMDD_fullexport.xml)
+        xml_path: PathBuf,
+        /// Optional override for the aliases file (default: crates/amanuensis-core/data/bestiary_aliases.json)
+        #[arg(long)]
+        aliases: Option<PathBuf>,
+        /// Output path for the generated bestiary.json (default: crates/amanuensis-core/data/bestiary.json)
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Parse and validate without writing
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Print a creature's full bestiary record
+    Bestiary {
+        /// Creature name as it appears in logs (e.g. "Rat", "the Ramandu")
+        name: String,
+    },
 }
 
 fn main() {
@@ -277,6 +297,12 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
     if let Commands::UseItemHelp { folder, recursive } = &cli.command {
         return cmd_useitem_help(folder, *recursive);
     }
+    if let Commands::UpdateBestiary { xml_path, aliases, output, dry_run } = &cli.command {
+        return cmd_update_bestiary(xml_path, aliases.as_deref(), output.as_deref(), *dry_run);
+    }
+    if let Commands::Bestiary { name } = &cli.command {
+        return cmd_bestiary(name);
+    }
 
     let db_path = resolve_db_path(&cli)?;
     if cli.gui_db {
@@ -321,6 +347,8 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         }
         Commands::GuiDbPath => unreachable!("handled above"),
         Commands::UseItemHelp { folder, recursive } => cmd_useitem_help(&folder, recursive),
+        Commands::UpdateBestiary { .. } => unreachable!("handled above"),
+        Commands::Bestiary { .. } => unreachable!("handled above"),
     }
 }
 
@@ -1672,4 +1700,111 @@ fn cmd_useitem_help(folder: &str, recursive: bool) -> amanuensis_core::Result<()
     }
 
     Ok(())
+}
+
+// ── update-bestiary / bestiary ────────────────────────────────────────────────
+
+fn cmd_update_bestiary(
+    xml_path: &Path,
+    aliases_override: Option<&Path>,
+    output_override: Option<&Path>,
+    dry_run: bool,
+) -> amanuensis_core::Result<()> {
+    use amanuensis_core::data::{parse_bestiary_xml, BestiaryFile, CreatureDb};
+
+    let xml = std::fs::read(xml_path)?;
+    let mut entries = parse_bestiary_xml(&xml)?;
+    entries.sort_by(|a, b| a.name.cmp(&b.name));
+    let version = version_from_filename(xml_path);
+
+    let alias_path = aliases_override.map(PathBuf::from).unwrap_or_else(default_alias_path);
+    let alias_bytes = std::fs::read(&alias_path)?;
+
+    // Validate aliases against the new entries by round-tripping through CreatureDb.
+    let file = BestiaryFile { version: version.clone(), entries };
+    let bestiary_bytes = serde_json::to_vec(&file)?;
+    let db = CreatureDb::from_json_bytes(&bestiary_bytes, &alias_bytes)?;
+
+    println!("Bestiary: {} entries (version {})", db.len(), db.bestiary_version());
+    println!("Aliases:  {} loaded from {}", count_aliases(&alias_bytes)?, alias_path.display());
+
+    if dry_run {
+        println!("(dry-run; not writing)");
+        return Ok(());
+    }
+
+    let out_path = output_override.map(PathBuf::from).unwrap_or_else(default_bestiary_path);
+    let pretty = serde_json::to_string_pretty(&file)?;
+    std::fs::write(&out_path, pretty)?;
+    println!("Wrote {}", out_path.display());
+    println!(
+        "Bestiary updated to version {}. Existing databases should run 'amanuensis scan --force <folder>' to refresh kill values.",
+        version
+    );
+    Ok(())
+}
+
+fn cmd_bestiary(name: &str) -> amanuensis_core::Result<()> {
+    use amanuensis_core::data::{CreatureDb, EntrySource};
+    let db = CreatureDb::bundled()?;
+    match db.get_entry_with_source(name) {
+        None => {
+            eprintln!("No bestiary entry for '{}'", name);
+            std::process::exit(1);
+        }
+        Some((entry, source)) => {
+            let src = match source {
+                EntrySource::Bestiary => "bestiary",
+                EntrySource::Alias => "alias → bestiary",
+                EntrySource::InlineAlias => "inline alias",
+            };
+            println!("Name:           {}", entry.name);
+            println!("Source:         {} (bestiary v{})", src, db.bestiary_version());
+            if let Some(f) = &entry.family { println!("Family:         {}", f); }
+            if let Some(r) = &entry.rarity { println!("Rarity:         {}", r); }
+            println!("Exp/taxidermy:  {}", entry.exp_taxidermy);
+            if let Some(l) = &entry.location { println!("Location:       {}", l); }
+            if let Some(i) = &entry.information { println!("Information:    {}", i); }
+            if let Some(d) = &entry.difficulty { println!("Difficulty:     {}", d); }
+            let stats = [
+                ("Attack", entry.attack, entry.attack_measured),
+                ("Defense", entry.defense, entry.defense_measured),
+                ("Damage", entry.damage, entry.damage_measured),
+                ("Health", entry.health, entry.health_measured),
+            ];
+            for (label, val, measured) in stats {
+                if let Some(v) = val {
+                    let suffix = if measured { " (measured)" } else { "" };
+                    println!("{:14}  {}{}", format!("{}:", label), v, suffix);
+                }
+            }
+            if let Some(l) = entry.luck_hits { println!("Luck hits:      {}%", l); }
+            if let Some(fps) = entry.frames_per_swing { println!("Frames/swing:   {}", fps); }
+            if let Some(w) = &entry.worth_range { println!("Worth range:    {}", w); }
+            if entry.is_seasonal { println!("Seasonal:       yes"); }
+        }
+    }
+    Ok(())
+}
+
+fn version_from_filename(path: &Path) -> String {
+    path.file_name()
+        .and_then(|s| s.to_str())
+        .and_then(|s| s.strip_prefix("bestiary_"))
+        .and_then(|s| s.split('_').next())
+        .unwrap_or("00000000")
+        .to_string()
+}
+
+fn default_alias_path() -> PathBuf {
+    PathBuf::from("crates/amanuensis-core/data/bestiary_aliases.json")
+}
+
+fn default_bestiary_path() -> PathBuf {
+    PathBuf::from("crates/amanuensis-core/data/bestiary.json")
+}
+
+fn count_aliases(bytes: &[u8]) -> amanuensis_core::Result<usize> {
+    let parsed: serde_json::Value = serde_json::from_slice(bytes)?;
+    Ok(parsed.as_array().map(|a| a.len()).unwrap_or(0))
 }
