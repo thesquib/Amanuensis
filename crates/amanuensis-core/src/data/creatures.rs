@@ -115,6 +115,8 @@ impl CreatureDb {
             .map(|e| (e, EntrySource::Bestiary))
     }
 
+    /// Iterate over all bestiary entries. Inline-alias synthetic entries are NOT included —
+    /// they exist only to satisfy lookups for log names with no bestiary equivalent.
     pub fn entries(&self) -> impl Iterator<Item = &BestiaryEntry> {
         self.by_name.values()
     }
@@ -140,28 +142,7 @@ fn synthesize_entry(log_name: &str, inline: &InlineEntry) -> BestiaryEntry {
         information: inline.information.clone(),
         exp_taxidermy: inline.exp_taxidermy,
         rarity: inline.rarity.clone(),
-        worth: None,
-        worth_range: None,
-        frames_per_swing: None,
-        difficulty: None,
-        attack: None,
-        defense: None,
-        damage: None,
-        health: None,
-        attack_measured: false,
-        defense_measured: false,
-        damage_measured: false,
-        health_measured: false,
-        luck_hits: None,
-        is_seasonal: false,
-        first_update: None,
-        last_update: None,
-        static_pic: None,
-        static_width: None,
-        static_height: None,
-        action_pic: None,
-        action_width: None,
-        action_height: None,
+        ..BestiaryEntry::default()
     }
 }
 
@@ -177,32 +158,7 @@ mod tests {
                 .map(|(name, val)| BestiaryEntry {
                     name: (*name).into(),
                     exp_taxidermy: *val,
-                    family: None,
-                    location: None,
-                    information: None,
-                    rarity: None,
-                    worth: None,
-                    worth_range: None,
-                    frames_per_swing: None,
-                    difficulty: None,
-                    attack: None,
-                    defense: None,
-                    damage: None,
-                    health: None,
-                    attack_measured: false,
-                    defense_measured: false,
-                    damage_measured: false,
-                    health_measured: false,
-                    luck_hits: None,
-                    is_seasonal: false,
-                    first_update: None,
-                    last_update: None,
-                    static_pic: None,
-                    static_width: None,
-                    static_height: None,
-                    action_pic: None,
-                    action_width: None,
-                    action_height: None,
+                    ..BestiaryEntry::default()
                 })
                 .collect(),
         };
@@ -256,16 +212,7 @@ mod tests {
             entries: vec![BestiaryEntry {
                 name: "Bar".into(),
                 exp_taxidermy: 1,
-                family: None, location: None, information: None,
-                rarity: None, worth: None, worth_range: None,
-                frames_per_swing: None, difficulty: None,
-                attack: None, defense: None, damage: None, health: None,
-                attack_measured: false, defense_measured: false,
-                damage_measured: false, health_measured: false,
-                luck_hits: None, is_seasonal: false,
-                first_update: None, last_update: None,
-                static_pic: None, static_width: None, static_height: None,
-                action_pic: None, action_width: None, action_height: None,
+                ..BestiaryEntry::default()
             }],
         };
         let bestiary_json = serde_json::to_vec(&file).unwrap();
