@@ -266,6 +266,16 @@ mod tests {
     }
 
     #[test]
+    fn bundled_get_entry_returns_full_record() {
+        let db = CreatureDb::bundled().unwrap();
+        let tesla = db.get_entry("Tesla").expect("Tesla should be in the bestiary");
+        assert_eq!(tesla.family.as_deref(), Some("Annelida"));
+        assert_eq!(tesla.rarity.as_deref(), Some("Common"));
+        assert_eq!(tesla.exp_taxidermy, 70);
+        assert_eq!(tesla.attack, Some(115));
+    }
+
+    #[test]
     fn bundled_loads_and_has_expected_creatures() {
         let db = CreatureDb::bundled().unwrap();
         assert!(db.len() > 950, "expected > 950 entries, got {}", db.len());
