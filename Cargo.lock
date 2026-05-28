@@ -53,6 +53,7 @@ dependencies = [
  "comfy-table",
  "env_logger",
  "log",
+ "serde_json",
 ]
 
 [[package]]
