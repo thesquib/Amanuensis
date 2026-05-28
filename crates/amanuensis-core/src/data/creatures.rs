@@ -1,65 +1,167 @@
 use std::collections::HashMap;
 
-use crate::error::{Result, AmanuensisError};
+use crate::data::bestiary::{BestiaryAlias, BestiaryEntry, BestiaryFile, EntrySource, InlineEntry};
+use crate::error::{AmanuensisError, Result};
 
-/// In-memory creature name → value lookup, loaded from creatures.csv.
+/// In-memory bestiary lookup, loaded from bestiary.json + bestiary_aliases.json.
 #[derive(Debug)]
 pub struct CreatureDb {
-    creatures: HashMap<String, i32>,
+    version: String,
+    by_name: HashMap<String, BestiaryEntry>,
+    aliases: HashMap<String, ResolvedAlias>,
+}
+
+#[derive(Debug, Clone)]
+enum ResolvedAlias {
+    Pointer(String),
+    Inline(BestiaryEntry),
 }
 
 impl CreatureDb {
-    /// Load from CSV bytes (name,value per line, no header).
-    pub fn from_csv_bytes(data: &[u8]) -> Result<Self> {
-        let mut creatures = HashMap::new();
-        let mut rdr = csv::ReaderBuilder::new()
-            .has_headers(false)
-            .from_reader(data);
-
-        for result in rdr.records() {
-            let record = result?;
-            if record.len() < 2 {
-                continue;
-            }
-            let name = record[0].trim().to_string();
-            let value: i32 = record[1]
-                .trim()
-                .parse()
-                .map_err(|e| AmanuensisError::Data(format!("Bad creature value for '{}': {}", name, e)))?;
-            if !name.is_empty() {
-                creatures.insert(name, value);
-            }
+    /// Load from JSON bytes (bestiary file + aliases file).
+    /// Validates that every `resolves_to` target exists, and that no `log_name` is duplicated.
+    pub fn from_json_bytes(bestiary: &[u8], aliases: &[u8]) -> Result<Self> {
+        let file: BestiaryFile = serde_json::from_slice(bestiary)?;
+        let mut by_name = HashMap::with_capacity(file.entries.len());
+        for entry in file.entries {
+            by_name.insert(entry.name.clone(), entry);
         }
 
-        log::info!("Loaded {} creatures", creatures.len());
-        Ok(Self { creatures })
-    }
+        let raw_aliases: Vec<BestiaryAlias> = serde_json::from_slice(aliases)?;
+        let mut alias_map: HashMap<String, ResolvedAlias> = HashMap::with_capacity(raw_aliases.len());
+        for alias in raw_aliases {
+            let (log_name, resolved) = match alias {
+                BestiaryAlias::Resolves { log_name, resolves_to } => {
+                    if !by_name.contains_key(&resolves_to) {
+                        return Err(AmanuensisError::Data(format!(
+                            "Alias '{}' points to missing bestiary entry '{}'",
+                            log_name, resolves_to
+                        )));
+                    }
+                    (log_name, ResolvedAlias::Pointer(resolves_to))
+                }
+                BestiaryAlias::Inline { log_name, inline } => {
+                    let synthetic = synthesize_entry(&log_name, &inline);
+                    (log_name, ResolvedAlias::Inline(synthetic))
+                }
+            };
+            if alias_map.contains_key(&log_name) {
+                return Err(AmanuensisError::Data(format!(
+                    "Duplicate alias log_name: '{}'",
+                    log_name
+                )));
+            }
+            alias_map.insert(log_name, resolved);
+        }
 
-    /// Load from the bundled creatures.csv (compiled into the binary).
-    pub fn bundled() -> Result<Self> {
-        Self::from_csv_bytes(include_bytes!("../../data/creatures.csv"))
-    }
-
-    /// Look up a creature's value by name.
-    /// Falls back to stripping "the " prefix for boss creatures (e.g., "the Ramandu").
-    pub fn get_value(&self, name: &str) -> Option<i32> {
-        self.creatures.get(name).copied().or_else(|| {
-            name.strip_prefix("the ")
-                .and_then(|bare| self.creatures.get(bare).copied())
+        log::info!(
+            "Loaded bestiary version {} ({} entries, {} aliases)",
+            file.version,
+            by_name.len(),
+            alias_map.len()
+        );
+        Ok(Self {
+            version: file.version,
+            by_name,
+            aliases: alias_map,
         })
     }
 
-    /// Get all creature names.
-    pub fn names(&self) -> impl Iterator<Item = &str> {
-        self.creatures.keys().map(|s| s.as_str())
+    /// Load the bundled bestiary + aliases compiled into the binary.
+    pub fn bundled() -> Result<Self> {
+        Self::from_json_bytes(
+            include_bytes!("../../data/bestiary.json"),
+            include_bytes!("../../data/bestiary_aliases.json"),
+        )
+    }
+
+    /// Look up a creature's exp_taxidermy value by log name.
+    /// Lookup order: aliases → bestiary direct → strip "the " and retry.
+    pub fn get_value(&self, log_name: &str) -> Option<i32> {
+        self.get_entry(log_name).map(|e| e.exp_taxidermy)
+    }
+
+    /// Look up a creature's full BestiaryEntry by log name. Same lookup order as `get_value`.
+    pub fn get_entry(&self, log_name: &str) -> Option<&BestiaryEntry> {
+        self.get_entry_with_source(log_name).map(|(e, _)| e)
+    }
+
+    /// Look up an entry and report where it came from.
+    pub fn get_entry_with_source(&self, log_name: &str) -> Option<(&BestiaryEntry, EntrySource)> {
+        if let Some(hit) = self.lookup(log_name) {
+            return Some(hit);
+        }
+        // "the X" fallback: strip and retry.
+        if let Some(bare) = log_name.strip_prefix("the ") {
+            return self.lookup(bare);
+        }
+        None
+    }
+
+    fn lookup(&self, log_name: &str) -> Option<(&BestiaryEntry, EntrySource)> {
+        if let Some(alias) = self.aliases.get(log_name) {
+            return Some(match alias {
+                ResolvedAlias::Pointer(target) => (
+                    self.by_name
+                        .get(target)
+                        .expect("validated at load time"),
+                    EntrySource::Alias,
+                ),
+                ResolvedAlias::Inline(entry) => (entry, EntrySource::InlineAlias),
+            });
+        }
+        self.by_name
+            .get(log_name)
+            .map(|e| (e, EntrySource::Bestiary))
+    }
+
+    pub fn entries(&self) -> impl Iterator<Item = &BestiaryEntry> {
+        self.by_name.values()
+    }
+
+    pub fn bestiary_version(&self) -> &str {
+        &self.version
     }
 
     pub fn len(&self) -> usize {
-        self.creatures.len()
+        self.by_name.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.creatures.is_empty()
+        self.by_name.is_empty()
+    }
+}
+
+fn synthesize_entry(log_name: &str, inline: &InlineEntry) -> BestiaryEntry {
+    BestiaryEntry {
+        name: log_name.to_string(),
+        family: inline.family.clone(),
+        location: inline.location.clone(),
+        information: inline.information.clone(),
+        exp_taxidermy: inline.exp_taxidermy,
+        rarity: inline.rarity.clone(),
+        worth: None,
+        worth_range: None,
+        frames_per_swing: None,
+        difficulty: None,
+        attack: None,
+        defense: None,
+        damage: None,
+        health: None,
+        attack_measured: false,
+        defense_measured: false,
+        damage_measured: false,
+        health_measured: false,
+        luck_hits: None,
+        is_seasonal: false,
+        first_update: None,
+        last_update: None,
+        static_pic: None,
+        static_width: None,
+        static_height: None,
+        action_pic: None,
+        action_width: None,
+        action_height: None,
     }
 }
 
@@ -67,51 +169,152 @@ impl CreatureDb {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_load_bundled_creatures() {
-        let db = CreatureDb::bundled().unwrap();
-        assert!(db.len() > 800, "Expected 800+ creatures, got {}", db.len());
+    fn make_db(entries: &[(&str, i32)], aliases: &str) -> CreatureDb {
+        let file = BestiaryFile {
+            version: "20260101".into(),
+            entries: entries
+                .iter()
+                .map(|(name, val)| BestiaryEntry {
+                    name: (*name).into(),
+                    exp_taxidermy: *val,
+                    family: None,
+                    location: None,
+                    information: None,
+                    rarity: None,
+                    worth: None,
+                    worth_range: None,
+                    frames_per_swing: None,
+                    difficulty: None,
+                    attack: None,
+                    defense: None,
+                    damage: None,
+                    health: None,
+                    attack_measured: false,
+                    defense_measured: false,
+                    damage_measured: false,
+                    health_measured: false,
+                    luck_hits: None,
+                    is_seasonal: false,
+                    first_update: None,
+                    last_update: None,
+                    static_pic: None,
+                    static_width: None,
+                    static_height: None,
+                    action_pic: None,
+                    action_width: None,
+                    action_height: None,
+                })
+                .collect(),
+        };
+        let bestiary_json = serde_json::to_vec(&file).unwrap();
+        CreatureDb::from_json_bytes(&bestiary_json, aliases.as_bytes()).unwrap()
     }
 
     #[test]
-    fn test_known_creatures() {
-        let db = CreatureDb::bundled().unwrap();
-        assert_eq!(db.get_value("Rat"), Some(2));
-        assert_eq!(db.get_value("Leech"), Some(5));
-        assert_eq!(db.get_value("Tesla"), Some(70));
-        assert_eq!(db.get_value("Barracuda"), Some(250));
+    fn alias_resolves_to_bestiary_entry() {
+        let db = make_db(
+            &[("Bar", 999)],
+            r#"[{"log_name": "Foo", "resolves_to": "Bar"}]"#,
+        );
+        assert_eq!(db.get_value("Foo"), Some(999));
+        let (entry, source) = db.get_entry_with_source("Foo").unwrap();
+        assert_eq!(entry.name, "Bar");
+        assert_eq!(source, EntrySource::Alias);
     }
 
     #[test]
-    fn test_unknown_creature() {
-        let db = CreatureDb::bundled().unwrap();
-        assert_eq!(db.get_value("Nonexistent Creature XYZ"), None);
+    fn inline_alias_returns_synthetic_entry() {
+        let db = make_db(
+            &[],
+            r#"[{"log_name": "Old Critter", "inline": {"exp_taxidermy": 500, "family": "Legacy"}}]"#,
+        );
+        assert_eq!(db.get_value("Old Critter"), Some(500));
+        let (entry, source) = db.get_entry_with_source("Old Critter").unwrap();
+        assert_eq!(entry.exp_taxidermy, 500);
+        assert_eq!(entry.family.as_deref(), Some("Legacy"));
+        assert_eq!(source, EntrySource::InlineAlias);
     }
 
     #[test]
-    fn test_the_ramandu_boss_value() {
-        let db = CreatureDb::bundled().unwrap();
-        // "the Ramandu" is the boss with value 2620
-        assert_eq!(db.get_value("the Ramandu"), Some(2620));
-        // "Ramandu" (clone) has value 666
-        assert_eq!(db.get_value("Ramandu"), Some(666));
+    fn alias_dangling_resolves_to_errors() {
+        let file = BestiaryFile {
+            version: "20260101".into(),
+            entries: vec![],
+        };
+        let bestiary_json = serde_json::to_vec(&file).unwrap();
+        let result = CreatureDb::from_json_bytes(
+            &bestiary_json,
+            br#"[{"log_name": "Foo", "resolves_to": "Missing"}]"#,
+        );
+        assert!(matches!(result, Err(AmanuensisError::Data(_))));
     }
 
     #[test]
-    fn test_the_prefix_fallback() {
-        // For creatures that only have a base entry, "the X" should fall back to "X"
-        let csv = b"Dragon,500\n";
-        let db = CreatureDb::from_csv_bytes(csv).unwrap();
-        assert_eq!(db.get_value("Dragon"), Some(500));
-        assert_eq!(db.get_value("the Dragon"), Some(500)); // fallback
+    fn duplicate_log_name_errors() {
+        let file = BestiaryFile {
+            version: "20260101".into(),
+            entries: vec![BestiaryEntry {
+                name: "Bar".into(),
+                exp_taxidermy: 1,
+                family: None, location: None, information: None,
+                rarity: None, worth: None, worth_range: None,
+                frames_per_swing: None, difficulty: None,
+                attack: None, defense: None, damage: None, health: None,
+                attack_measured: false, defense_measured: false,
+                damage_measured: false, health_measured: false,
+                luck_hits: None, is_seasonal: false,
+                first_update: None, last_update: None,
+                static_pic: None, static_width: None, static_height: None,
+                action_pic: None, action_width: None, action_height: None,
+            }],
+        };
+        let bestiary_json = serde_json::to_vec(&file).unwrap();
+        let result = CreatureDb::from_json_bytes(
+            &bestiary_json,
+            br#"[
+                {"log_name": "Foo", "resolves_to": "Bar"},
+                {"log_name": "Foo", "resolves_to": "Bar"}
+            ]"#,
+        );
+        assert!(matches!(result, Err(AmanuensisError::Data(_))));
     }
 
     #[test]
-    fn test_from_csv_bytes() {
-        let csv = b"Goblin,10\nDragon,500\n";
-        let db = CreatureDb::from_csv_bytes(csv).unwrap();
-        assert_eq!(db.len(), 2);
-        assert_eq!(db.get_value("Goblin"), Some(10));
-        assert_eq!(db.get_value("Dragon"), Some(500));
+    fn alias_overrides_bestiary_direct_hit() {
+        // "Bar" exists in bestiary; an alias also names "Bar" with a different target.
+        let db = make_db(
+            &[("Bar", 100), ("Other", 999)],
+            r#"[{"log_name": "Bar", "resolves_to": "Other"}]"#,
+        );
+        assert_eq!(db.get_value("Bar"), Some(999));
+    }
+
+    #[test]
+    fn the_prefix_falls_back_to_bestiary() {
+        let db = make_db(&[("Dragon", 500)], r#"[]"#);
+        assert_eq!(db.get_value("the Dragon"), Some(500));
+    }
+
+    #[test]
+    fn the_prefix_falls_back_through_alias() {
+        let db = make_db(
+            &[("Real Dragon", 500)],
+            r#"[{"log_name": "Dragon", "resolves_to": "Real Dragon"}]"#,
+        );
+        // Direct "the Dragon" miss → strip → "Dragon" alias hit → "Real Dragon".
+        assert_eq!(db.get_value("the Dragon"), Some(500));
+    }
+
+    #[test]
+    fn unknown_creature_returns_none() {
+        let db = make_db(&[("Rat", 2)], "[]");
+        assert_eq!(db.get_value("Nonexistent"), None);
+        assert!(db.get_entry("Nonexistent").is_none());
+    }
+
+    #[test]
+    fn bestiary_version_exposed() {
+        let db = make_db(&[("Rat", 2)], "[]");
+        assert_eq!(db.bestiary_version(), "20260101");
     }
 }
