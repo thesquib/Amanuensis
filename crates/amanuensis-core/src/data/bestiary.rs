@@ -58,6 +58,41 @@ pub struct BestiaryEntry {
     pub action_height: Option<i32>,
 }
 
+impl Default for BestiaryEntry {
+    fn default() -> Self {
+        BestiaryEntry {
+            name: String::new(),
+            family: None,
+            location: None,
+            information: None,
+            exp_taxidermy: 0,
+            rarity: None,
+            worth: None,
+            worth_range: None,
+            frames_per_swing: None,
+            difficulty: None,
+            attack: None,
+            defense: None,
+            damage: None,
+            health: None,
+            attack_measured: false,
+            defense_measured: false,
+            damage_measured: false,
+            health_measured: false,
+            luck_hits: None,
+            is_seasonal: false,
+            first_update: None,
+            last_update: None,
+            static_pic: None,
+            static_width: None,
+            static_height: None,
+            action_pic: None,
+            action_width: None,
+            action_height: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum BestiaryAlias {
@@ -91,7 +126,7 @@ pub enum EntrySource {
     InlineAlias,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BestiaryFile {
     pub version: String,                 // YYYYMMDD
     pub entries: Vec<BestiaryEntry>,
@@ -111,7 +146,7 @@ mod tests {
             attack: Some(65),
             attack_measured: true,
             is_seasonal: false,
-            ..default_entry()
+            ..BestiaryEntry::default()
         };
         let json = serde_json::to_string(&entry).unwrap();
         let back: BestiaryEntry = serde_json::from_str(&json).unwrap();
@@ -146,36 +181,4 @@ mod tests {
         assert_eq!(alias, back);
     }
 
-    fn default_entry() -> BestiaryEntry {
-        BestiaryEntry {
-            name: String::new(),
-            family: None,
-            location: None,
-            information: None,
-            exp_taxidermy: 0,
-            rarity: None,
-            worth: None,
-            worth_range: None,
-            frames_per_swing: None,
-            difficulty: None,
-            attack: None,
-            defense: None,
-            damage: None,
-            health: None,
-            attack_measured: false,
-            defense_measured: false,
-            damage_measured: false,
-            health_measured: false,
-            luck_hits: None,
-            is_seasonal: false,
-            first_update: None,
-            last_update: None,
-            static_pic: None,
-            static_width: None,
-            static_height: None,
-            action_pic: None,
-            action_width: None,
-            action_height: None,
-        }
-    }
 }
