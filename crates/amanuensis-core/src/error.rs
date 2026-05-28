@@ -8,9 +8,6 @@ pub enum AmanuensisError {
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
 
-    #[error("CSV error: {0}")]
-    Csv(#[from] csv::Error),
-
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
