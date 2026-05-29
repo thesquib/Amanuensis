@@ -14,6 +14,8 @@ mod log_file;
 mod merge;
 mod process_log;
 
+pub use kill::{KillsFilter, filter_kills};
+
 // ---------------------------------------------------------------------------
 // Shared character projection
 // ---------------------------------------------------------------------------

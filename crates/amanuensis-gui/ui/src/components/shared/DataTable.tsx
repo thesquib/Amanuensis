@@ -19,6 +19,7 @@ interface DataTableProps<T> {
   onSortingChange?: (sorting: SortingState) => void;
   globalFilter?: string;
   onGlobalFilterChange?: (filter: string) => void;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
@@ -30,6 +31,7 @@ export function DataTable<T>({
   onSortingChange: externalOnSortingChange,
   globalFilter: externalGlobalFilter,
   onGlobalFilterChange: externalOnGlobalFilterChange,
+  onRowClick,
 }: DataTableProps<T>) {
   const [internalSorting, setInternalSorting] = useState<SortingState>([]);
   const [internalGlobalFilter, setInternalGlobalFilter] = useState("");
@@ -99,7 +101,8 @@ export function DataTable<T>({
             {table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                className="border-b border-[var(--color-border)] hover:bg-[var(--color-card)]/30"
+                className={`border-b border-[var(--color-border)] hover:bg-[var(--color-card)]/30${onRowClick ? " cursor-pointer" : ""}`}
+                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
               >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-3 py-1.5">

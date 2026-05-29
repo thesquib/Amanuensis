@@ -4,6 +4,8 @@ import { StatCard } from "../shared/StatCard";
 import { KillTypePanel } from "../shared/KillTypePanel";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { CreatureImage } from "../shared/CreatureImage";
+import { BestiaryCompletion } from "../shared/BestiaryCompletion";
+import { BestiaryBreakdown } from "../shared/BestiaryBreakdown";
 import { CharacterPortrait } from "../shared/CharacterPortrait";
 import {
   getTrainerDbInfo,
@@ -480,6 +482,12 @@ export function SummaryView() {
           lowestRecent={lowestRecentSlaughtered}
           dateField="date_last_slaughtered"
         />
+      </div>
+      <div className="mt-4">
+        <BestiaryCompletion characterId={selectedCharacterId!} />
+      </div>
+      <div className="mt-4">
+        <BestiaryBreakdown kills={kills} />
       </div>
     </div>
   );

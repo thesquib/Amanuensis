@@ -90,6 +90,23 @@ pub fn search_logs(
     })
 }
 
+/// Get the set of creature names the character has encountered (killed).
+#[tauri::command]
+pub fn get_encountered_creatures(
+    char_id: i64,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    state.with_db(|db| {
+        db.get_encountered_creatures(char_id)
+            .map(|set| {
+                let mut v: Vec<String> = set.into_iter().collect();
+                v.sort();
+                v
+            })
+            .map_err(|e| e.to_string())
+    })
+}
+
 /// Set or clear a free-text note on a trainer row.
 #[tauri::command]
 pub fn set_trainer_note(

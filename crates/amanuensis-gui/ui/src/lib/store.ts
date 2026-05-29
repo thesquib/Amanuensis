@@ -10,6 +10,7 @@ import type {
   ScanProgress,
   ViewType,
   ProcessLog,
+  BestiaryEntry,
 } from "../types";
 
 export type Theme = "dark" | "light" | "midnight" | "dark-v2" | "light-v2" | "midnight-v2";
@@ -125,6 +126,13 @@ interface AppStore {
 
   rangerStatsViewState: RangerStatsViewState;
   setRangerStatsViewState: (patch: Partial<RangerStatsViewState>) => void;
+
+  // Bestiary (loaded once at boot from get_bestiary)
+  bestiaryLoaded: boolean;
+  bestiaryVersion: string;
+  bestiary: BestiaryEntry[];
+  bestiaryByName: Record<string, BestiaryEntry>;
+  setBestiary: (payload: { version: string; entries: BestiaryEntry[] }) => void;
 }
 
 function loadCollapsedGroups(key: string): string[] | null {
@@ -258,4 +266,16 @@ export const useStore = create<AppStore>((set) => ({
     set((state) => ({
       rangerStatsViewState: { ...state.rangerStatsViewState, ...patch },
     })),
+
+  bestiaryLoaded: false,
+  bestiaryVersion: "",
+  bestiary: [],
+  bestiaryByName: {},
+  setBestiary: ({ version, entries }) =>
+    set({
+      bestiaryLoaded: true,
+      bestiaryVersion: version,
+      bestiary: entries,
+      bestiaryByName: Object.fromEntries(entries.map((e) => [e.name, e])),
+    }),
 }));

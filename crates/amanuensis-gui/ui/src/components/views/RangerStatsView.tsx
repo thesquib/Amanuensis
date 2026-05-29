@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useStore } from "../../lib/store";
 import { StatCard } from "../shared/StatCard";
 import { computeRangerStats } from "../../lib/rangerStats";
-import { bestiaryMap } from "../../lib/bestiary";
+import { getBestiaryMap } from "../../lib/bestiary";
 import creatureValues from "../../../../data/creature_values.json";
 import { StudiesPanel } from "./ranger/StudiesPanel";
 import { FamiliesPanel } from "./ranger/FamiliesPanel";
@@ -18,8 +18,10 @@ export function RangerStatsView() {
   const { lastys, trainers, rangerStatsViewState, setRangerStatsViewState, selectedCharacterId, characters } = useStore();
   const character = characters.find((c) => c.id === selectedCharacterId);
 
+  // Bestiary is loaded once at boot and never mutated, so a getState() snapshot
+  // is safe here and intentionally non-reactive.
   const stats = useMemo(
-    () => computeRangerStats(lastys, trainers, creatureValues, bestiaryMap),
+    () => computeRangerStats(lastys, trainers, creatureValues, getBestiaryMap()),
     [lastys, trainers],
   );
 

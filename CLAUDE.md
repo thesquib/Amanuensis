@@ -36,6 +36,7 @@ The original app is a native macOS Cocoa application (Objective-C, built with Xc
 5. **Lasty tracking**: Tracks "lasty" events (last encounter data from reflect messages).
 6. **Pet detection**: Parses pet information from logs.
 7. **Coin/economy tracking**: Casino wins/losses, esteem, darkstone, chain breaks, bell usage.
+8. **Bestiary surface**: clicking a row in KillsView opens a modal with the full creature record (family, rarity, location, attack/defense/damage/health with measured indicators, frames-per-swing, difficulty, luck-hits, seasonal). SummaryView shows a "Bestiary completion" card (`X / 969 encountered`) with a per-family table sorted by % complete, plus a "Bestiary breakdown" with per-family and per-rarity kill totals. KillsView has chip filters for family / rarity / seasonal. CLI `kills` supports `--family`, `--rarity`, `--seasonal` flags. The frontend bestiary data is loaded once at app boot via the `get_bestiary` Tauri command and cached in Zustand; sprites live in `crates/amanuensis-gui/ui/public/bestiary/`.
 
 ## Updated Data Sources
 

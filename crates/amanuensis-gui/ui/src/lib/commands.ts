@@ -11,6 +11,7 @@ import type {
   ImportResult,
   LogSearchResult,
   ProcessLog,
+  BestiaryPayload,
 } from "../types";
 
 export async function openDatabase(path: string): Promise<void> {
@@ -217,4 +218,12 @@ export async function getTrainerCheckpoints(charId: number): Promise<TrainerChec
 
 export async function getAllTrainerCheckpoints(charId: number): Promise<TrainerCheckpoint[]> {
   return invoke("get_all_trainer_checkpoints", { charId });
+}
+
+export async function getBestiary(): Promise<BestiaryPayload> {
+  return invoke<BestiaryPayload>("get_bestiary");
+}
+
+export async function getEncounteredCreatures(charId: number): Promise<string[]> {
+  return invoke("get_encountered_creatures", { charId });
 }

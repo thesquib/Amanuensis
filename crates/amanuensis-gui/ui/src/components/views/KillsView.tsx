@@ -1,9 +1,11 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { createColumnHelper, type SortingState } from "@tanstack/react-table";
 import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
 import { StatCard } from "../shared/StatCard";
 import { CreatureImage } from "../shared/CreatureImage";
+import { KillDetailModal } from "../shared/KillDetailModal";
+import { KillsFilterBar, type KillsFilterState } from "../shared/KillsFilterBar";
 import { formatDate } from "../../lib/dateUtils";
 import { computeKillStats } from "../../lib/killStats";
 import type { Kill } from "../../types";
@@ -121,6 +123,13 @@ const columns = [
 export function KillsView() {
   const { kills, viewStates, setViewSorting, setViewFilter } = useStore();
   const viewState = viewStates["kills"];
+  const [selectedKill, setSelectedKill] = useState<Kill | null>(null);
+  const [filter, setFilter] = useState<KillsFilterState>({
+    families: new Set(),
+    rarities: new Set(),
+    seasonal: false,
+  });
+  const byName = useStore((s) => s.bestiaryByName);
   const sorting = viewState?.sorting ?? [{ id: "date_last", desc: true }];
   const globalFilter = viewState?.globalFilter ?? "";
   const onSortingChange = useCallback(
@@ -133,6 +142,25 @@ export function KillsView() {
   );
 
   const stats = useMemo(() => computeKillStats(kills), [kills]);
+
+  const visibleKills = useMemo(() => {
+    if (filter.families.size === 0 && filter.rarities.size === 0 && !filter.seasonal) {
+      return kills;
+    }
+    return kills.filter((k) => {
+      const e = byName[k.creature_name];
+      if (filter.families.size > 0) {
+        if (!e?.family || !filter.families.has(e.family)) return false;
+      }
+      if (filter.rarities.size > 0) {
+        if (!e?.rarity || !filter.rarities.has(e.rarity)) return false;
+      }
+      if (filter.seasonal) {
+        if (!e?.is_seasonal) return false;
+      }
+      return true;
+    });
+  }, [kills, filter, byName]);
 
   return (
     <div className="flex h-full flex-col">
@@ -167,8 +195,9 @@ export function KillsView() {
         />
       </div>
       <div className="min-h-0 flex-1">
+        <KillsFilterBar kills={kills} value={filter} onChange={setFilter} />
         <DataTable
-          data={kills}
+          data={visibleKills}
           columns={columns}
           enableSearch
           searchPlaceholder="Search creatures..."
@@ -176,8 +205,12 @@ export function KillsView() {
           onSortingChange={onSortingChange}
           globalFilter={globalFilter}
           onGlobalFilterChange={onGlobalFilterChange}
+          onRowClick={(row) => setSelectedKill(row)}
         />
       </div>
+      {selectedKill && (
+        <KillDetailModal kill={selectedKill} onClose={() => setSelectedKill(null)} />
+      )}
     </div>
   );
 }

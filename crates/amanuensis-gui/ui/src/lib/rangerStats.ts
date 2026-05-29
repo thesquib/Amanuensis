@@ -1,5 +1,5 @@
 import type { Lasty, Trainer } from "../types";
-import type { BestiaryEntry } from "./bestiary";
+import type { BestiaryEntry } from "../types";
 import { effectiveRanks } from "./trainerUtils";
 
 export type StudyStatus = "none" | "in_progress" | "completed" | "abandoned";
@@ -67,8 +67,8 @@ function isTargetEligible(
 ): boolean {
   const entry = bestiaryMap[name];
   if (!entry) return false;
-  if (EXCLUDED_FAMILIES.has(entry.family)) return false;
-  const r = entry.rarity;
+  if (EXCLUDED_FAMILIES.has(entry.family ?? "")) return false;
+  const r = entry.rarity ?? "";
   return r.startsWith("Common") || r.startsWith("Medium");
 }
 
@@ -351,11 +351,11 @@ export function computeRangerStats(
       value: study.value,
       current_stage,
       duvin_remaining,
-      atk: be?.atk ?? 0,
-      def: be?.def ?? 0,
-      dmg: be?.dmg ?? 0,
-      hp: be?.hp ?? 0,
-      fps: be?.fps ?? 0,
+      atk: be?.attack ?? 0,
+      def: be?.defense ?? 0,
+      dmg: be?.damage ?? 0,
+      hp: be?.health ?? 0,
+      fps: be?.frames_per_swing ?? 0,
     });
   }
 
@@ -375,11 +375,11 @@ export function computeRangerStats(
       value,
       current_stage: "None",
       duvin_remaining: movCost + befCost + morphCost,
-      atk: be?.atk ?? 0,
-      def: be?.def ?? 0,
-      dmg: be?.dmg ?? 0,
-      hp: be?.hp ?? 0,
-      fps: be?.fps ?? 0,
+      atk: be?.attack ?? 0,
+      def: be?.defense ?? 0,
+      dmg: be?.damage ?? 0,
+      hp: be?.health ?? 0,
+      fps: be?.frames_per_swing ?? 0,
     });
   }
 

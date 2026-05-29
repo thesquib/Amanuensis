@@ -1,8 +1,50 @@
 use rusqlite::params;
 
+use crate::data::CreatureDb;
 use crate::error::Result;
 use crate::models::Kill;
 use super::Database;
+
+#[derive(Debug, Clone, Default)]
+pub struct KillsFilter {
+    pub family: Option<String>,
+    pub rarity: Option<String>,
+    pub seasonal: Option<bool>,
+}
+
+/// Filter a slice of kills against the bestiary using family / rarity / seasonal predicates.
+/// Returns owned clones for the matched kills.
+pub fn filter_kills(kills: &[Kill], db: &CreatureDb, filter: &KillsFilter) -> Vec<Kill> {
+    if filter.family.is_none() && filter.rarity.is_none() && filter.seasonal.is_none() {
+        return kills.to_vec();
+    }
+    kills
+        .iter()
+        .filter(|k| {
+            let entry = db.get_entry(&k.creature_name);
+            if let Some(want) = &filter.family {
+                let f = entry.and_then(|e| e.family.as_deref()).unwrap_or("");
+                if !f.eq_ignore_ascii_case(want) {
+                    return false;
+                }
+            }
+            if let Some(want) = &filter.rarity {
+                let r = entry.and_then(|e| e.rarity.as_deref()).unwrap_or("");
+                if !r.eq_ignore_ascii_case(want) {
+                    return false;
+                }
+            }
+            if let Some(want) = filter.seasonal {
+                let s = entry.map(|e| e.is_seasonal).unwrap_or(false);
+                if s != want {
+                    return false;
+                }
+            }
+            true
+        })
+        .cloned()
+        .collect()
+}
 
 impl Database {
     /// Upsert a kill record. Increments the appropriate count field.
@@ -227,6 +269,34 @@ impl Database {
         Ok(result)
     }
 
+    /// Returns the set of creature names this character has encountered. A creature is
+    /// "encountered" if it appears in `kills` with any positive solo/assisted/killed_by count,
+    /// or in `lastys`.
+    pub fn get_encountered_creatures(&self, char_id: i64) -> Result<std::collections::HashSet<String>> {
+        let mut out = std::collections::HashSet::new();
+
+        let mut kill_stmt = self.conn.prepare(
+            "SELECT creature_name FROM kills WHERE character_id = ?1 AND \
+             (killed_count + slaughtered_count + vanquished_count + dispatched_count + \
+              assisted_kill_count + assisted_slaughter_count + assisted_vanquish_count + \
+              assisted_dispatch_count + killed_by_count) > 0",
+        )?;
+        let kill_iter = kill_stmt.query_map([char_id], |row| row.get::<_, String>(0))?;
+        for name in kill_iter {
+            out.insert(name?);
+        }
+
+        let mut lasty_stmt = self
+            .conn
+            .prepare("SELECT creature_name FROM lastys WHERE character_id = ?1")?;
+        let lasty_iter = lasty_stmt.query_map([char_id], |row| row.get::<_, String>(0))?;
+        for name in lasty_iter {
+            out.insert(name?);
+        }
+
+        Ok(out)
+    }
+
     /// Get the nemesis (creature that killed the character the most).
     /// Returns (creature_name, killed_by_count).
     pub fn get_nemesis(&self, char_id: i64) -> Result<Option<(String, i64)>> {
@@ -242,5 +312,87 @@ impl Database {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_kills_filter_helper() {
+        use crate::data::CreatureDb;
+
+        let db = CreatureDb::bundled().unwrap();
+
+        // Build kills with known creatures.
+        let kills = vec![
+            Kill::new(0, "Rat".into(), 2),
+            Kill::new(0, "Tesla".into(), 70),
+            Kill::new(0, "Barracuda".into(), 250),
+        ];
+
+        // Family filter
+        let filtered: Vec<_> = filter_kills(
+            &kills,
+            &db,
+            &KillsFilter {
+                family: Some("Vermine".into()),
+                rarity: None,
+                seasonal: None,
+            },
+        );
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].creature_name, "Rat");
+
+        // Rarity filter
+        let filtered: Vec<_> = filter_kills(
+            &kills,
+            &db,
+            &KillsFilter {
+                family: None,
+                rarity: Some("Medium".into()),
+                seasonal: None,
+            },
+        );
+        assert!(filtered.iter().any(|k| k.creature_name == "Barracuda"));
+
+        // Combined: family + rarity (Rat is Vermine + Common; expect Rat with family Vermine + Common rarity)
+        let filtered: Vec<_> = filter_kills(
+            &kills,
+            &db,
+            &KillsFilter {
+                family: Some("Vermine".into()),
+                rarity: Some("Common".into()),
+                seasonal: None,
+            },
+        );
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].creature_name, "Rat");
+    }
+
+    #[test]
+    fn test_get_encountered_creatures() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Tester").unwrap();
+
+        // Insert two kills with positive counts.
+        db.upsert_kill(char_id, "Rat", "killed_count", 2, "2024-01-01").unwrap();
+        db.upsert_kill(char_id, "Wolf", "assisted_kill_count", 50, "2024-01-02").unwrap();
+
+        // Insert a zero-count kills row for "Bat" directly (no public API can create a zero row).
+        db.conn().execute(
+            "INSERT INTO kills (character_id, creature_name, creature_value) VALUES (?1, 'Bat', 0)",
+            rusqlite::params![char_id],
+        ).unwrap();
+
+        // Insert one lasty for a creature not in kills.
+        db.upsert_lasty(char_id, "Tesla", "Movements", "2024-01-01").unwrap();
+
+        let encountered = db.get_encountered_creatures(char_id).unwrap();
+        assert!(encountered.contains("Rat"));
+        assert!(encountered.contains("Wolf"));
+        assert!(encountered.contains("Tesla"));
+        assert!(!encountered.contains("Bat"));
     }
 }

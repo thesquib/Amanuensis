@@ -68,6 +68,15 @@ enum Commands {
         /// Limit number of results
         #[arg(long)]
         limit: Option<usize>,
+        /// Filter by bestiary family (case-insensitive)
+        #[arg(long)]
+        family: Option<String>,
+        /// Filter by bestiary rarity (case-insensitive)
+        #[arg(long)]
+        rarity: Option<String>,
+        /// Only show creatures flagged is_seasonal
+        #[arg(long)]
+        seasonal: bool,
     },
     /// Show trainer rank progression
     Trainers {
@@ -318,7 +327,9 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         }
         Commands::Characters => cmd_characters(&db_path),
         Commands::Summary { name } => cmd_summary(&db_path, &name),
-        Commands::Kills { name, sort, limit } => cmd_kills(&db_path, &name, &sort, limit),
+        Commands::Kills { name, sort, limit, family, rarity, seasonal } => {
+            cmd_kills(&db_path, &name, &sort, limit, family, rarity, seasonal)
+        }
         Commands::Trainers { name } => cmd_trainers(&db_path, &name),
         Commands::Pets { name } => cmd_pets(&db_path, &name),
         Commands::Lastys { name } => cmd_lastys(&db_path, &name),
@@ -624,12 +635,31 @@ fn cmd_kills(
     name: &str,
     sort: &str,
     limit: Option<usize>,
+    family: Option<String>,
+    rarity: Option<String>,
+    seasonal: bool,
 ) -> amanuensis_core::Result<()> {
+    use amanuensis_core::data::CreatureDb;
+    use amanuensis_core::db::queries::{filter_kills, KillsFilter};
+
     let db = Database::open(db_path)?;
     let char = resolve_character(&db, name)?;
 
     let char_id = char.id.unwrap();
     let mut kills = db.get_kills_merged(char_id)?;
+
+    if family.is_some() || rarity.is_some() || seasonal {
+        let creature_db = CreatureDb::bundled()?;
+        kills = filter_kills(
+            &kills,
+            &creature_db,
+            &KillsFilter {
+                family,
+                rarity,
+                seasonal: if seasonal { Some(true) } else { None },
+            },
+        );
+    }
 
     // Sort
     match sort {

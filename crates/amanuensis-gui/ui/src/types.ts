@@ -195,3 +195,40 @@ export type ViewType =
   | "cv-graph"
   | "log-search"
   | "process-logs";
+
+/** Mirrors Rust `BestiaryEntry` struct (data::bestiary). */
+export interface BestiaryEntry {
+  name: string;
+  family?: string;
+  location?: string;
+  information?: string;
+  exp_taxidermy: number;
+  rarity?: string;
+  worth?: number;
+  worth_range?: string;
+  frames_per_swing?: number;
+  difficulty?: string;
+  attack?: number;
+  defense?: number;
+  damage?: number;
+  health?: number;
+  attack_measured: boolean;
+  defense_measured: boolean;
+  damage_measured: boolean;
+  health_measured: boolean;
+  luck_hits?: number;
+  is_seasonal: boolean;
+  first_update?: string;
+  last_update?: string;
+  static_pic?: string;
+  static_width?: number;
+  static_height?: number;
+  action_pic?: string;
+  action_width?: number;
+  action_height?: number;
+}
+
+export interface BestiaryPayload {
+  version: string;
+  entries: BestiaryEntry[];
+}

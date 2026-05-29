@@ -5,6 +5,7 @@ mod data;
 mod rank;
 mod portraits;
 mod updates;
+mod bestiary;
 
 // Re-export all commands so main.rs keeps using `commands::X` unchanged.
 pub use database::*;
@@ -14,6 +15,7 @@ pub use data::*;
 pub use rank::*;
 pub use portraits::*;
 pub use updates::*;
+pub use bestiary::*;
 
 // ---------------------------------------------------------------------------
 // Shared scan infrastructure (used by scanning.rs)

@@ -1,7 +1,7 @@
 import { useEffect, useState, Component } from "react";
 import type { ReactNode } from "react";
 import { useStore } from "../../lib/store";
-import { checkForUpdate, type UpdateInfo } from "../../lib/commands";
+import { checkForUpdate, getBestiary, type UpdateInfo } from "../../lib/commands";
 import { Sidebar } from "./Sidebar";
 import { UpdateBanner } from "../shared/UpdateBanner";
 import { SummaryView } from "../views/SummaryView";
@@ -96,6 +96,24 @@ function ViewContent({ view }: { view: ViewType }) {
 export function AppShell() {
   const { activeView, setActiveView, selectedCharacterId, characters, dbPath, processLogs, warnsDismissed } =
     useStore();
+
+  const setBestiary = useStore((s) => s.setBestiary);
+  const bestiaryLoaded = useStore((s) => s.bestiaryLoaded);
+
+  useEffect(() => {
+    if (bestiaryLoaded) return;
+    let cancelled = false;
+    getBestiary()
+      .then((payload) => {
+        if (!cancelled) setBestiary(payload);
+      })
+      .catch((err) => {
+        console.error("Failed to load bestiary:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bestiaryLoaded, setBestiary]);
 
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
