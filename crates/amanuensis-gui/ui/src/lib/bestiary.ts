@@ -43,3 +43,12 @@ export function isStuffable(name: string): boolean {
   const family = getCreatureFamily(name);
   return family.length > 0 && !NON_STUFFABLE_FAMILIES.has(family);
 }
+
+/**
+ * Normalize a bestiary string for grouping. The upstream bestiary has 18 rarity values
+ * that differ from their canonical form only by trailing punctuation (e.g. "Common."
+ * vs "Common", "Medium-Rare?"). Strip trailing . , ; : ! ? and surrounding whitespace.
+ */
+export function normalizeBestiaryLabel(value: string): string {
+  return value.replace(/[.,;:!?]+\s*$/, "").trim();
+}

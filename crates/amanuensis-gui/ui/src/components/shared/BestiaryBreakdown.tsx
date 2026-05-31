@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Kill } from "../../types";
 import { useStore } from "../../lib/store";
+import { normalizeBestiaryLabel } from "../../lib/bestiary";
 
 interface BestiaryBreakdownProps {
   kills: Kill[];
@@ -47,7 +48,7 @@ export function BestiaryBreakdown({ kills }: BestiaryBreakdownProps) {
     [kills, byName],
   );
   const byRarity = useMemo(
-    () => aggregate(kills, (k) => byName[k.creature_name]?.rarity ?? ""),
+    () => aggregate(kills, (k) => normalizeBestiaryLabel(byName[k.creature_name]?.rarity ?? "")),
     [kills, byName],
   );
 
