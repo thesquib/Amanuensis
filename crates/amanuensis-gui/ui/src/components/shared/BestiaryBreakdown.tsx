@@ -70,20 +70,20 @@ function BreakdownTable({ title, rows }: { title: string; rows: AggRow[] }) {
   return (
     <div>
       <h4 className="mb-1 text-xs font-semibold text-[var(--color-text-muted)]">{title}</h4>
-      <table className="w-full text-xs">
+      <table className="w-full text-xs tabular-nums">
         <thead>
           <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-            <th className="py-1 text-left">{title.replace("By ", "")}</th>
-            <th className="py-1 text-right">Kills</th>
-            <th className="py-1 text-right">%</th>
+            <th className="py-1 pr-3 text-left">{title.replace("By ", "")}</th>
+            <th className="py-1 pl-3 pr-4 text-right">Kills</th>
+            <th className="w-14 py-1 pl-3 text-right">%</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.key} className="border-b border-[var(--color-border)]/40">
-              <td className="py-1">{r.key}</td>
-              <td className="py-1 text-right">{r.kills}</td>
-              <td className="py-1 text-right">{Math.round(r.pct * 10) / 10}%</td>
+              <td className="py-1 pr-3">{r.key}</td>
+              <td className="py-1 pl-3 pr-4 text-right">{r.kills.toLocaleString()}</td>
+              <td className="w-14 py-1 pl-3 text-right">{Math.round(r.pct * 10) / 10}%</td>
             </tr>
           ))}
         </tbody>

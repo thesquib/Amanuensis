@@ -77,22 +77,22 @@ export function BestiaryCompletion({ characterId }: BestiaryCompletionProps) {
         {open ? "Hide" : "Show"} per-family breakdown
       </button>
       {open && (
-        <table className="mt-3 w-full text-xs">
+        <table className="mt-3 w-full text-xs tabular-nums">
           <thead>
             <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)]">
-              <th className="py-1 text-left">Family</th>
-              <th className="py-1 text-right">Encountered</th>
-              <th className="py-1 text-right">Total</th>
-              <th className="py-1 text-right">%</th>
+              <th className="py-1 pr-3 text-left">Family</th>
+              <th className="py-1 pl-3 pr-4 text-right">Encountered</th>
+              <th className="py-1 pl-3 pr-4 text-right">Total</th>
+              <th className="w-14 py-1 pl-3 text-right">%</th>
             </tr>
           </thead>
           <tbody>
             {families.map((r) => (
               <tr key={r.family} className="border-b border-[var(--color-border)]/40">
-                <td className="py-1">{r.family}</td>
-                <td className="py-1 text-right">{r.encountered}</td>
-                <td className="py-1 text-right">{r.total}</td>
-                <td className="py-1 text-right">{Math.round(r.pct * 10) / 10}%</td>
+                <td className="py-1 pr-3">{r.family}</td>
+                <td className="py-1 pl-3 pr-4 text-right">{r.encountered.toLocaleString()}</td>
+                <td className="py-1 pl-3 pr-4 text-right">{r.total.toLocaleString()}</td>
+                <td className="w-14 py-1 pl-3 text-right">{Math.round(r.pct * 10) / 10}%</td>
               </tr>
             ))}
           </tbody>
