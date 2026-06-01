@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Kill } from "../../types";
 import { useStore } from "../../lib/store";
 import { getCreatureImageUrl } from "../../lib/bestiary";
@@ -10,6 +11,7 @@ interface KillDetailModalProps {
 export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
   const entry = useStore((s) => s.bestiaryByName[kill.creature_name]);
   const imgUrl = getCreatureImageUrl(kill.creature_name);
+  const [imgFailed, setImgFailed] = useState(false);
 
   const totalKills =
     kill.killed_count +
@@ -33,13 +35,14 @@ export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mb-3 flex items-start gap-3">
-          {imgUrl && (
+          {imgUrl && !imgFailed && (
             <img
               src={imgUrl}
               alt={kill.creature_name}
               width={entry?.static_width ?? undefined}
               height={entry?.static_height ?? undefined}
               className="rounded border border-[var(--color-border)]"
+              onError={() => setImgFailed(true)}
             />
           )}
           <div className="min-w-0 flex-1">

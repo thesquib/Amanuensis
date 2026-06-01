@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { getCreatureImageUrl } from "../../lib/bestiary";
 
 interface CreatureImageProps {
@@ -7,7 +8,9 @@ interface CreatureImageProps {
 
 export function CreatureImage({ creatureName, className }: CreatureImageProps) {
   const url = getCreatureImageUrl(creatureName);
-  if (!url) return null;
+  const [failed, setFailed] = useState(false);
+  // No sprite, or the sprite 404'd: render nothing rather than a broken-image glyph.
+  if (!url || failed) return null;
 
   return (
     <img
@@ -15,6 +18,7 @@ export function CreatureImage({ creatureName, className }: CreatureImageProps) {
       alt={creatureName}
       className={className}
       style={{ imageRendering: "pixelated" }}
+      onError={() => setFailed(true)}
     />
   );
 }
