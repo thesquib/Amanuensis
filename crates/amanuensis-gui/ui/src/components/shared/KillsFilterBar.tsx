@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Kill } from "../../types";
 import { useStore } from "../../lib/store";
 
@@ -31,6 +31,7 @@ interface KillsFilterBarProps {
 
 export function KillsFilterBar({ kills, value, onChange }: KillsFilterBarProps) {
   const byName = useStore((s) => s.bestiaryByName);
+  const [familyOpen, setFamilyOpen] = useState(false);
 
   const { families, rarities } = useMemo(() => {
     const fam = new Set<string>();
@@ -55,15 +56,25 @@ export function KillsFilterBar({ kills, value, onChange }: KillsFilterBarProps) 
 
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-      <span className="text-[var(--color-text-muted)]">Family:</span>
-      {families.map((f) => (
-        <Chip
-          key={f}
-          label={f}
-          active={value.families.has(f)}
-          onClick={() => onChange({ ...value, families: toggle(value.families, f) })}
-        />
-      ))}
+      <button
+        type="button"
+        onClick={() => setFamilyOpen((open) => !open)}
+        className="flex items-center gap-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+        aria-expanded={familyOpen}
+      >
+        <span className="inline-block w-2">{familyOpen ? "▾" : "▸"}</span>
+        Family
+        {value.families.size > 0 ? ` (${value.families.size})` : ""}:
+      </button>
+      {familyOpen &&
+        families.map((f) => (
+          <Chip
+            key={f}
+            label={f}
+            active={value.families.has(f)}
+            onClick={() => onChange({ ...value, families: toggle(value.families, f) })}
+          />
+        ))}
       <span className="ml-3 text-[var(--color-text-muted)]">Rarity:</span>
       {rarities.map((r) => (
         <Chip
