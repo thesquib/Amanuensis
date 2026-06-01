@@ -106,6 +106,9 @@ fn entry_from_columns(cols: HashMap<String, String>) -> Result<BestiaryEntry> {
         action_pic: opt_str(&cols, "action_pic"),
         action_width: opt_int(&cols, "action_width"),
         action_height: opt_int(&cols, "action_height"),
+        // Transport-only fields, computed when serving to the GUI.
+        rarity_canonical: None,
+        family_canonical: None,
     })
 }
 

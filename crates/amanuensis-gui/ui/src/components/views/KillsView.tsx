@@ -150,10 +150,10 @@ export function KillsView() {
     return kills.filter((k) => {
       const e = byName[k.creature_name];
       if (filter.families.size > 0) {
-        if (!e?.family || !filter.families.has(e.family)) return false;
+        if (!e?.family_canonical || !filter.families.has(e.family_canonical)) return false;
       }
       if (filter.rarities.size > 0) {
-        if (!e?.rarity || !filter.rarities.has(e.rarity)) return false;
+        if (!e?.rarity_canonical || !filter.rarities.has(e.rarity_canonical)) return false;
       }
       if (filter.seasonal) {
         if (!e?.is_seasonal) return false;

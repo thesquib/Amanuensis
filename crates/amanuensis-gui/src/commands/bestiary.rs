@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use amanuensis_core::data::{BestiaryEntry, CreatureDb};
+use amanuensis_core::data::{canonical_rarity, BestiaryEntry, CreatureDb};
 
 #[derive(Debug, Serialize)]
 pub struct BestiaryPayload {
@@ -11,7 +11,19 @@ pub struct BestiaryPayload {
 #[tauri::command]
 pub fn get_bestiary() -> Result<BestiaryPayload, String> {
     let db = CreatureDb::bundled().map_err(|e| e.to_string())?;
-    let mut entries: Vec<BestiaryEntry> = db.entries().cloned().collect();
+    let mut entries: Vec<BestiaryEntry> = db
+        .entries()
+        .cloned()
+        .map(|mut entry| {
+            entry.rarity_canonical =
+                Some(canonical_rarity(entry.rarity.as_deref()).as_label().to_string());
+            entry.family_canonical = entry
+                .family
+                .as_deref()
+                .map(|f| db.canonical_family(f).to_string());
+            entry
+        })
+        .collect();
     entries.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(BestiaryPayload {
         version: db.bestiary_version().to_string(),
@@ -34,5 +46,31 @@ mod tests {
         assert_eq!(payload.version.len(), 8, "version should be YYYYMMDD");
         // sanity: a known creature should be present
         assert!(payload.entries.iter().any(|e| e.name == "Rat"));
+    }
+
+    #[test]
+    fn get_bestiary_populates_canonical_labels() {
+        let payload = get_bestiary().expect("bundled bestiary should load");
+        // Every entry gets a canonical rarity, and a canonical family when it has one.
+        for entry in &payload.entries {
+            assert!(
+                entry.rarity_canonical.is_some(),
+                "{} missing rarity_canonical",
+                entry.name
+            );
+            if entry.family.is_some() {
+                assert!(
+                    entry.family_canonical.is_some(),
+                    "{} missing family_canonical",
+                    entry.name
+                );
+            }
+        }
+        // EXTINCT folds into the majority casing "Extinct".
+        for entry in &payload.entries {
+            if entry.family.as_deref() == Some("EXTINCT") {
+                assert_eq!(entry.family_canonical.as_deref(), Some("Extinct"));
+            }
+        }
     }
 }

@@ -71,7 +71,7 @@ enum Commands {
         /// Filter by bestiary family (case-insensitive)
         #[arg(long)]
         family: Option<String>,
-        /// Filter by bestiary rarity (case-insensitive)
+        /// Filter by canonical rarity bucket: Common, Medium, Rare, Unique, Exotic, GM Only, Unknown
         #[arg(long)]
         rarity: Option<String>,
         /// Only show creatures flagged is_seasonal
@@ -1775,7 +1775,7 @@ fn cmd_update_bestiary(
 }
 
 fn cmd_bestiary(name: &str) -> amanuensis_core::Result<()> {
-    use amanuensis_core::data::{CreatureDb, EntrySource};
+    use amanuensis_core::data::{canonical_rarity, CreatureDb, EntrySource};
     let db = CreatureDb::bundled()?;
     match db.get_entry_with_source(name) {
         None => {
@@ -1790,8 +1790,8 @@ fn cmd_bestiary(name: &str) -> amanuensis_core::Result<()> {
             };
             println!("Name:           {}", entry.name);
             println!("Source:         {} (bestiary v{})", src, db.bestiary_version());
-            if let Some(f) = &entry.family { println!("Family:         {}", f); }
-            if let Some(r) = &entry.rarity { println!("Rarity:         {}", r); }
+            if let Some(f) = &entry.family { println!("Family:         {}", db.canonical_family(f)); }
+            println!("Rarity:         {}", canonical_rarity(entry.rarity.as_deref()).as_label());
             println!("Exp/taxidermy:  {}", entry.exp_taxidermy);
             if let Some(l) = &entry.location { println!("Location:       {}", l); }
             if let Some(i) = &entry.information { println!("Information:    {}", i); }

@@ -226,6 +226,10 @@ export interface BestiaryEntry {
   action_pic?: string;
   action_width?: number;
   action_height?: number;
+  /** Canonical rarity bucket, computed by the backend when serving the bestiary. */
+  rarity_canonical?: string;
+  /** Canonical (case-folded) family label, computed by the backend. */
+  family_canonical?: string;
 }
 
 export interface BestiaryPayload {

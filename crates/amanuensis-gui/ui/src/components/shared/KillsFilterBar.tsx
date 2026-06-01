@@ -2,6 +2,21 @@ import { useMemo } from "react";
 import type { Kill } from "../../types";
 import { useStore } from "../../lib/store";
 
+/** Canonical rarity buckets, lowest (most common) to highest, Unknown last. */
+const RARITY_ORDER = [
+  "Common",
+  "Medium",
+  "Rare",
+  "Unique",
+  "Exotic",
+  "GM Only",
+  "Unknown",
+];
+const rarityRank = (r: string): number => {
+  const i = RARITY_ORDER.indexOf(r);
+  return i === -1 ? RARITY_ORDER.length : i;
+};
+
 export interface KillsFilterState {
   families: Set<string>;
   rarities: Set<string>;
@@ -22,12 +37,12 @@ export function KillsFilterBar({ kills, value, onChange }: KillsFilterBarProps) 
     const rar = new Set<string>();
     for (const k of kills) {
       const e = byName[k.creature_name];
-      if (e?.family) fam.add(e.family);
-      if (e?.rarity) rar.add(e.rarity);
+      if (e?.family_canonical) fam.add(e.family_canonical);
+      if (e?.rarity_canonical) rar.add(e.rarity_canonical);
     }
     return {
       families: Array.from(fam).sort(),
-      rarities: Array.from(rar).sort(),
+      rarities: Array.from(rar).sort((a, b) => rarityRank(a) - rarityRank(b)),
     };
   }, [kills, byName]);
 

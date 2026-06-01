@@ -1,6 +1,6 @@
 use rusqlite::params;
 
-use crate::data::CreatureDb;
+use crate::data::{canonical_rarity, CreatureDb};
 use crate::error::Result;
 use crate::models::Kill;
 use super::Database;
@@ -23,14 +23,14 @@ pub fn filter_kills(kills: &[Kill], db: &CreatureDb, filter: &KillsFilter) -> Ve
         .filter(|k| {
             let entry = db.get_entry(&k.creature_name);
             if let Some(want) = &filter.family {
-                let f = entry.and_then(|e| e.family.as_deref()).unwrap_or("");
-                if !f.eq_ignore_ascii_case(want) {
+                let raw = entry.and_then(|e| e.family.as_deref()).unwrap_or("");
+                if !db.canonical_family(raw).eq_ignore_ascii_case(want) {
                     return false;
                 }
             }
             if let Some(want) = &filter.rarity {
-                let r = entry.and_then(|e| e.rarity.as_deref()).unwrap_or("");
-                if !r.eq_ignore_ascii_case(want) {
+                let r = canonical_rarity(entry.and_then(|e| e.rarity.as_deref()));
+                if !r.as_label().eq_ignore_ascii_case(want) {
                     return false;
                 }
             }
@@ -369,6 +369,76 @@ mod tests {
         );
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].creature_name, "Rat");
+    }
+
+    #[test]
+    fn filter_kills_matches_on_canonical_rarity_and_family() {
+        use crate::data::{BestiaryEntry, BestiaryFile, CreatureDb};
+
+        let file = BestiaryFile {
+            version: "20260101".into(),
+            entries: vec![
+                BestiaryEntry {
+                    name: "Punctus".into(),
+                    family: Some("Extinct".into()),
+                    rarity: Some("Common.".into()),
+                    exp_taxidermy: 1,
+                    ..BestiaryEntry::default()
+                },
+                BestiaryEntry {
+                    name: "Wussy".into(),
+                    family: Some("EXTINCT".into()),
+                    rarity: Some("Extinct.".into()),
+                    exp_taxidermy: 1,
+                    ..BestiaryEntry::default()
+                },
+            ],
+        };
+        let bestiary_json = serde_json::to_vec(&file).unwrap();
+        let db = CreatureDb::from_json_bytes(&bestiary_json, b"[]").unwrap();
+
+        let kills = vec![
+            Kill::new(0, "Punctus".into(), 1),
+            Kill::new(0, "Wussy".into(), 1),
+        ];
+
+        // "Common." resolves to the canonical "Common" bucket.
+        let common = filter_kills(
+            &kills,
+            &db,
+            &KillsFilter {
+                family: None,
+                rarity: Some("Common".into()),
+                seasonal: None,
+            },
+        );
+        assert_eq!(common.len(), 1);
+        assert_eq!(common[0].creature_name, "Punctus");
+
+        // "Extinct." resolves to the canonical "Unique" bucket.
+        let unique = filter_kills(
+            &kills,
+            &db,
+            &KillsFilter {
+                family: None,
+                rarity: Some("Unique".into()),
+                seasonal: None,
+            },
+        );
+        assert_eq!(unique.len(), 1);
+        assert_eq!(unique[0].creature_name, "Wussy");
+
+        // "EXTINCT" and "Extinct" are the same canonical family.
+        let extinct = filter_kills(
+            &kills,
+            &db,
+            &KillsFilter {
+                family: Some("Extinct".into()),
+                rarity: None,
+                seasonal: None,
+            },
+        );
+        assert_eq!(extinct.len(), 2);
     }
 
     #[test]

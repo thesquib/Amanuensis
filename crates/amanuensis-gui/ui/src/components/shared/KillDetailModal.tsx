@@ -46,7 +46,8 @@ export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
             <h2 className="text-lg font-bold">{kill.creature_name}</h2>
             {entry && (
               <p className="text-xs text-[var(--color-text-muted)]">
-                {entry.family ?? "Unknown family"} · {entry.rarity ?? "Unknown rarity"}
+                {entry.family_canonical ?? entry.family ?? "Unknown family"} ·{" "}
+                {entry.rarity_canonical ?? "Unknown"}
               </p>
             )}
           </div>

@@ -40,7 +40,7 @@ export function BestiaryCompletion({ characterId }: BestiaryCompletionProps) {
   const families: FamilyRow[] = useMemo(() => {
     const rows = new Map<string, { encountered: number; total: number }>();
     for (const entry of bestiary) {
-      const fam = entry.family ?? "Unknown";
+      const fam = entry.family_canonical ?? entry.family ?? "Unknown";
       const row = rows.get(fam) ?? { encountered: 0, total: 0 };
       row.total += 1;
       if (encountered.has(entry.name)) row.encountered += 1;

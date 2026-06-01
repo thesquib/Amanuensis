@@ -56,6 +56,14 @@ pub struct BestiaryEntry {
     pub action_width: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action_height: Option<i32>,
+    /// Canonical rarity bucket label, computed when serving the bestiary to the
+    /// GUI. Never present in bestiary.json (skipped when `None`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rarity_canonical: Option<String>,
+    /// Canonical (case-folded) family label, computed when serving the bestiary
+    /// to the GUI. Never present in bestiary.json (skipped when `None`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub family_canonical: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

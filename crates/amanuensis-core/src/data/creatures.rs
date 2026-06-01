@@ -9,6 +9,9 @@ pub struct CreatureDb {
     version: String,
     by_name: HashMap<String, BestiaryEntry>,
     aliases: HashMap<String, ResolvedAlias>,
+    /// Lowercased family name -> canonical (most-common) casing. Collapses casing
+    /// duplicates like `EXTINCT`/`Extinct` to a single label.
+    family_canonical: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone)]
@@ -54,6 +57,8 @@ impl CreatureDb {
             alias_map.insert(log_name, resolved);
         }
 
+        let family_canonical = build_family_canonical(by_name.values());
+
         log::info!(
             "Loaded bestiary version {} ({} entries, {} aliases)",
             file.version,
@@ -64,7 +69,18 @@ impl CreatureDb {
             version: file.version,
             by_name,
             aliases: alias_map,
+            family_canonical,
         })
+    }
+
+    /// Canonical (most-common-cased) form of a family name. Folds casing
+    /// duplicates (e.g. `EXTINCT` -> `Extinct`). Unknown values pass through
+    /// unchanged.
+    pub fn canonical_family<'a>(&'a self, raw: &'a str) -> &'a str {
+        self.family_canonical
+            .get(&raw.to_ascii_lowercase())
+            .map(String::as_str)
+            .unwrap_or(raw)
     }
 
     /// Load the bundled bestiary + aliases compiled into the binary.
@@ -134,6 +150,40 @@ impl CreatureDb {
     }
 }
 
+/// Build a lowercased-family -> canonical-casing map. For each case-insensitive
+/// group, the canonical casing is the most frequent variant; ties are broken by
+/// the lexicographically smallest variant for determinism.
+fn build_family_canonical<'a>(
+    entries: impl Iterator<Item = &'a BestiaryEntry>,
+) -> HashMap<String, String> {
+    // lowercase -> (exact casing -> count)
+    let mut groups: HashMap<String, HashMap<String, usize>> = HashMap::new();
+    for entry in entries {
+        if let Some(family) = entry.family.as_deref() {
+            *groups
+                .entry(family.to_ascii_lowercase())
+                .or_default()
+                .entry(family.to_string())
+                .or_insert(0) += 1;
+        }
+    }
+    groups
+        .into_iter()
+        .map(|(lower, variants)| {
+            let canonical = variants
+                .into_iter()
+                .max_by(|(a_name, a_count), (b_name, b_count)| {
+                    a_count
+                        .cmp(b_count)
+                        .then_with(|| b_name.cmp(a_name)) // smaller name wins ties
+                })
+                .map(|(name, _)| name)
+                .unwrap_or_else(|| lower.clone());
+            (lower, canonical)
+        })
+        .collect()
+}
+
 fn synthesize_entry(log_name: &str, inline: &InlineEntry) -> BestiaryEntry {
     BestiaryEntry {
         name: log_name.to_string(),
@@ -164,6 +214,40 @@ mod tests {
         };
         let bestiary_json = serde_json::to_vec(&file).unwrap();
         CreatureDb::from_json_bytes(&bestiary_json, aliases.as_bytes()).unwrap()
+    }
+
+    fn make_db_with_families(families: &[&str]) -> CreatureDb {
+        let file = BestiaryFile {
+            version: "20260101".into(),
+            entries: families
+                .iter()
+                .enumerate()
+                .map(|(i, fam)| BestiaryEntry {
+                    name: format!("c{i}"),
+                    family: Some((*fam).into()),
+                    exp_taxidermy: 1,
+                    ..BestiaryEntry::default()
+                })
+                .collect(),
+        };
+        let bestiary_json = serde_json::to_vec(&file).unwrap();
+        CreatureDb::from_json_bytes(&bestiary_json, b"[]").unwrap()
+    }
+
+    #[test]
+    fn canonical_family_folds_case_to_most_common() {
+        // "Extinct" (2) vs "EXTINCT" (1): the majority casing wins.
+        let db = make_db_with_families(&["Extinct", "Extinct", "EXTINCT", "Orga"]);
+        assert_eq!(db.canonical_family("EXTINCT"), "Extinct");
+        assert_eq!(db.canonical_family("Extinct"), "Extinct");
+        // Distinct families are not merged.
+        assert_eq!(db.canonical_family("Orga"), "Orga");
+    }
+
+    #[test]
+    fn canonical_family_passthrough_for_unseen() {
+        let db = make_db_with_families(&["Feline"]);
+        assert_eq!(db.canonical_family("Nonexistent"), "Nonexistent");
     }
 
     #[test]
