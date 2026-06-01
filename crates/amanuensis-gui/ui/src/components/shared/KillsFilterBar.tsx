@@ -31,7 +31,7 @@ interface KillsFilterBarProps {
 
 export function KillsFilterBar({ kills, value, onChange }: KillsFilterBarProps) {
   const byName = useStore((s) => s.bestiaryByName);
-  const [familyOpen, setFamilyOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const { families, rarities } = useMemo(() => {
     const fam = new Set<string>();
@@ -54,51 +54,65 @@ export function KillsFilterBar({ kills, value, onChange }: KillsFilterBarProps) 
     return next;
   };
 
+  const activeCount =
+    value.families.size + value.rarities.size + (value.seasonal ? 1 : 0);
+
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+    <div className="mb-3 text-xs">
       <button
         type="button"
-        onClick={() => setFamilyOpen((open) => !open)}
+        onClick={() => setFiltersOpen((open) => !open)}
         className="flex items-center gap-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-        aria-expanded={familyOpen}
+        aria-expanded={filtersOpen}
       >
-        <span className="inline-block w-2">{familyOpen ? "▾" : "▸"}</span>
-        Family
-        {value.families.size > 0 ? ` (${value.families.size})` : ""}:
+        <span className="inline-block w-2">{filtersOpen ? "▾" : "▸"}</span>
+        Filters
+        {activeCount > 0 ? ` (${activeCount})` : ""}
       </button>
-      {familyOpen &&
-        families.map((f) => (
-          <Chip
-            key={f}
-            label={f}
-            active={value.families.has(f)}
-            onClick={() => onChange({ ...value, families: toggle(value.families, f) })}
-          />
-        ))}
-      <span className="ml-3 text-[var(--color-text-muted)]">Rarity:</span>
-      {rarities.map((r) => (
-        <Chip
-          key={r}
-          label={r}
-          active={value.rarities.has(r)}
-          onClick={() => onChange({ ...value, rarities: toggle(value.rarities, r) })}
-        />
-      ))}
-      <Chip
-        label="Seasonal"
-        active={value.seasonal}
-        onClick={() => onChange({ ...value, seasonal: !value.seasonal })}
-      />
-      {(value.families.size > 0 || value.rarities.size > 0 || value.seasonal) && (
-        <button
-          type="button"
-          className="ml-2 text-[var(--color-accent)] underline"
-          onClick={() =>
-            onChange({ families: new Set(), rarities: new Set(), seasonal: false })
-          }
-        >
-          Clear
-        </button>
+      {filtersOpen && (
+        <div className="mt-2 flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-14 shrink-0 text-[var(--color-text-muted)]">Family:</span>
+            {families.map((f) => (
+              <Chip
+                key={f}
+                label={f}
+                active={value.families.has(f)}
+                onClick={() => onChange({ ...value, families: toggle(value.families, f) })}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-14 shrink-0 text-[var(--color-text-muted)]">Rarity:</span>
+            {rarities.map((r) => (
+              <Chip
+                key={r}
+                label={r}
+                active={value.rarities.has(r)}
+                onClick={() => onChange({ ...value, rarities: toggle(value.rarities, r) })}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-14 shrink-0 text-[var(--color-text-muted)]">Other:</span>
+            <Chip
+              label="Seasonal"
+              active={value.seasonal}
+              onClick={() => onChange({ ...value, seasonal: !value.seasonal })}
+            />
+            {activeCount > 0 && (
+              <button
+                type="button"
+                className="ml-2 text-[var(--color-accent)] underline"
+                onClick={() =>
+                  onChange({ families: new Set(), rarities: new Set(), seasonal: false })
+                }
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
