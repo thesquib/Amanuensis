@@ -17,7 +17,7 @@ impl Database {
         self.conn.execute(
             "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count, first_seen_date, last_seen_date)
              VALUES (?1, ?2, ?3, 1, ?4, ?4)
-             ON CONFLICT(character_id, creature_name) DO UPDATE SET
+             ON CONFLICT(character_id, creature_name, lasty_type) DO UPDATE SET
                 message_count = message_count + 1,
                 last_seen_date = excluded.last_seen_date",
             params![char_id, creature_name, lasty_type, date],
@@ -38,7 +38,7 @@ impl Database {
             "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count, finished,
                                  first_seen_date, last_seen_date, completed_date)
              VALUES (?1, ?2, ?3, 1, 1, ?4, ?4, ?4)
-             ON CONFLICT(character_id, creature_name) DO UPDATE SET
+             ON CONFLICT(character_id, creature_name, lasty_type) DO UPDATE SET
                 message_count = message_count + 1,
                 finished = 1,
                 last_seen_date = excluded.last_seen_date,
@@ -62,7 +62,7 @@ impl Database {
             "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count, finished,
                                  first_seen_date, last_seen_date, completed_date)
              VALUES (?1, ?2, ?3, 1, 1, ?4, ?4, ?4)
-             ON CONFLICT(character_id, creature_name) DO UPDATE SET
+             ON CONFLICT(character_id, creature_name, lasty_type) DO UPDATE SET
                 message_count = message_count + 1,
                 finished = 1,
                 last_seen_date = excluded.last_seen_date,
