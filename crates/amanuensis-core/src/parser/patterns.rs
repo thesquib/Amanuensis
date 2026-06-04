@@ -164,10 +164,20 @@ pub static LASTY_BEGIN_STUDY: Lazy<Regex> =
 pub static LASTY_LEARN_PROGRESS: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You have .+ (?:left )?to learn about the (movements|ways|essence) of (?:the|an?) (.+)\.$").expect("regex compile error"));
 
-// === Ranger reflect: studied header ===
-// "You have studied the following creatures:" — precedes a multi-line creature list
+// === Ranger reflect: study-list headers ===
+// Each study type has its own header preceding a multi-line creature list.
+// "You have studied the following creatures:" → Movements
 pub static REFLECT_STUDIED_HEADER: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You have studied the following creatures:$").expect("regex compile error"));
+// "You have learned to befriend the following creatures:" → Befriend
+pub static REFLECT_BEFRIEND_HEADER: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You have learned to befriend the following creatures:$").expect("regex compile error"));
+// "You have learned to assume the shape of the following creatures:" → Morph
+// NOTE: the reflect header says "shape", whereas the per-event completion message
+// (LASTY_MORPH) says "form" ("You learn to assume the form of the X."). Both confirmed
+// from real ranger logs.
+pub static REFLECT_MORPH_HEADER: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^You have learned to assume the shape of the following creatures:$").expect("regex compile error"));
 
 // === Study abandon (¥-prefixed) ===
 pub static STUDY_ABANDON: Lazy<Regex> =

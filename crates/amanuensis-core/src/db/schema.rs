@@ -1,4 +1,4 @@
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 
 use crate::error::Result;
 
@@ -97,7 +97,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             finished INTEGER NOT NULL DEFAULT 0,
             message_count INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (character_id) REFERENCES characters(id),
-            UNIQUE(character_id, creature_name)
+            UNIQUE(character_id, creature_name, lasty_type)
         );
 
         CREATE TABLE IF NOT EXISTS pets (
@@ -213,6 +213,53 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         }
     }
 
+    // Widen the lastys uniqueness key to include lasty_type.
+    // Older databases used UNIQUE(character_id, creature_name), which collapsed a single
+    // creature's movements/befriend/morph studies into one row (so befriend/morph could never
+    // be stored once a movements row existed). SQLite cannot ALTER a constraint, so rebuild the
+    // table when the new 3-column key is absent. Existing data has at most one row per
+    // (character, creature), so the copy never violates the new key.
+    // Callers should run a `scan --force` / re-import afterward to repopulate befriend/morph.
+    let lastys_sql: Option<String> = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='lastys'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(sql) = lastys_sql {
+        let normalized: String = sql.chars().filter(|c| !c.is_whitespace()).collect();
+        let has_new_key = normalized.contains("UNIQUE(character_id,creature_name,lasty_type)");
+        if !has_new_key {
+            conn.execute_batch(
+                "BEGIN;
+                 CREATE TABLE lastys_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id INTEGER NOT NULL,
+                    creature_name TEXT NOT NULL,
+                    lasty_type TEXT NOT NULL DEFAULT '',
+                    finished INTEGER NOT NULL DEFAULT 0,
+                    message_count INTEGER NOT NULL DEFAULT 0,
+                    first_seen_date TEXT,
+                    last_seen_date TEXT,
+                    completed_date TEXT,
+                    abandoned_date TEXT,
+                    FOREIGN KEY (character_id) REFERENCES characters(id),
+                    UNIQUE(character_id, creature_name, lasty_type)
+                 );
+                 INSERT INTO lastys_new
+                    (id, character_id, creature_name, lasty_type, finished, message_count,
+                     first_seen_date, last_seen_date, completed_date, abandoned_date)
+                    SELECT id, character_id, creature_name, lasty_type, finished, message_count,
+                           first_seen_date, last_seen_date, completed_date, abandoned_date
+                    FROM lastys;
+                 DROP TABLE lastys;
+                 ALTER TABLE lastys_new RENAME TO lastys;
+                 COMMIT;",
+            )?;
+        }
+    }
+
     // Create FTS5 table for full-text log search (idempotent via IF NOT EXISTS)
     // Also create trainer_checkpoints table (idempotent via IF NOT EXISTS)
     conn.execute_batch(
@@ -289,6 +336,63 @@ mod tests {
         // Migrate twice — should not error
         migrate_tables(&conn).unwrap();
         migrate_tables(&conn).unwrap();
+    }
+
+    #[test]
+    fn test_migrate_rebuilds_lastys_unique_key() {
+        let conn = Connection::open_in_memory().unwrap();
+        // Simulate an OLD database: lastys keyed UNIQUE(character_id, creature_name),
+        // with the date columns the old migrations would have added.
+        conn.execute_batch(
+            "CREATE TABLE characters (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT);
+             CREATE TABLE lastys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                character_id INTEGER NOT NULL,
+                creature_name TEXT NOT NULL,
+                lasty_type TEXT NOT NULL DEFAULT '',
+                finished INTEGER NOT NULL DEFAULT 0,
+                message_count INTEGER NOT NULL DEFAULT 0,
+                first_seen_date TEXT,
+                last_seen_date TEXT,
+                completed_date TEXT,
+                abandoned_date TEXT,
+                FOREIGN KEY (character_id) REFERENCES characters(id),
+                UNIQUE(character_id, creature_name)
+             );
+             INSERT INTO characters (id, name) VALUES (1, 'Ranger');
+             INSERT INTO lastys (character_id, creature_name, lasty_type, finished)
+                VALUES (1, 'Guard Dog', 'Movements', 1);",
+        )
+        .unwrap();
+
+        migrate_tables(&conn).unwrap();
+
+        // The pre-existing row must survive the rebuild.
+        let movements: i64 = conn
+            .query_row(
+                "SELECT finished FROM lastys WHERE creature_name = 'Guard Dog' AND lasty_type = 'Movements'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(movements, 1, "existing Movements row should survive migration");
+
+        // The new key must allow a second study type for the same creature.
+        conn.execute(
+            "INSERT INTO lastys (character_id, creature_name, lasty_type, finished)
+             VALUES (1, 'Guard Dog', 'Befriend', 1)",
+            [],
+        )
+        .expect("Befriend row should insert under the widened unique key");
+
+        let rows: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM lastys WHERE creature_name = 'Guard Dog'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(rows, 2, "Guard Dog should now hold both Movements and Befriend");
     }
 
     #[test]

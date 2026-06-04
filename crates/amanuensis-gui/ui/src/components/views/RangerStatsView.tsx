@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "../../lib/store";
 import { StatCard } from "../shared/StatCard";
 import { computeRangerStats } from "../../lib/rangerStats";
@@ -14,6 +14,11 @@ const PANELS = [
   { id: "targets" as const, label: "Top Targets" },
 ];
 
+// One-time nudge: befriend/morph tracking was added after some users had already
+// scanned. Those databases hold movements-only studies until the logs are reparsed.
+// Dismissal is persisted so the banner never nags again.
+const BEFRIEND_MORPH_RESCAN_DISMISSED = "ranger-befriend-morph-rescan-dismissed";
+
 export function RangerStatsView() {
   const { lastys, trainers, rangerStatsViewState, setRangerStatsViewState, selectedCharacterId, characters } = useStore();
   const character = characters.find((c) => c.id === selectedCharacterId);
@@ -27,8 +32,39 @@ export function RangerStatsView() {
 
   const activePanel = rangerStatsViewState.activePanel;
 
+  const [rescanDismissed, setRescanDismissed] = useState(
+    () => localStorage.getItem(BEFRIEND_MORPH_RESCAN_DISMISSED) === "1",
+  );
+  // Movements completed but no befriends/morphs recorded → likely a pre-feature
+  // database that needs a rescan to populate the new tracking.
+  const showRescanBanner =
+    !rescanDismissed &&
+    stats.total_studies > 0 &&
+    stats.total_befriends === 0 &&
+    stats.total_morphs === 0;
+  const dismissRescanBanner = () => {
+    localStorage.setItem(BEFRIEND_MORPH_RESCAN_DISMISSED, "1");
+    setRescanDismissed(true);
+  };
+
   return (
     <div>
+      {showRescanBanner && (
+        <div className="mb-4 flex items-center justify-between rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+          <span>
+            Befriend &amp; Morph tracking was recently added. If these counts look low, click{" "}
+            <span className="font-semibold">Rescan Logs</span> in the sidebar to populate them from your existing logs.
+          </span>
+          <button
+            type="button"
+            onClick={dismissRescanBanner}
+            className="ml-2 shrink-0 text-xs text-amber-400 hover:text-amber-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <StatCard label="Gossamer" value={stats.gossamer_ranks} />

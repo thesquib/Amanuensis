@@ -15,6 +15,26 @@ import type {
 
 export type Theme = "dark" | "light" | "midnight" | "dark-v2" | "light-v2" | "midnight-v2";
 
+export interface LogSource {
+  path: string;
+  recursive: boolean;
+}
+
+function loadSources(): LogSource[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.LOG_SOURCES);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (s): s is LogSource =>
+        s && typeof s.path === "string" && typeof s.recursive === "boolean",
+    );
+  } catch {
+    return [];
+  }
+}
+
 interface DataTableViewState {
   sorting: SortingState;
   globalFilter: string;
@@ -43,9 +63,10 @@ interface AppStore {
   dbPath: string | null;
   setDbPath: (path: string | null) => void;
 
-  // Log folder
-  logFolder: string | null;
-  setLogFolder: (folder: string | null) => void;
+  // Log sources (persisted list of scanned folders)
+  sources: LogSource[];
+  addSource: (path: string, recursive: boolean) => void;
+  removeSource: (path: string) => void;
 
   // Characters
   characters: Character[];
@@ -154,8 +175,20 @@ export const useStore = create<AppStore>((set) => ({
   dbPath: null,
   setDbPath: (path) => set({ dbPath: path }),
 
-  logFolder: null,
-  setLogFolder: (folder) => set({ logFolder: folder }),
+  sources: loadSources(),
+  addSource: (path, recursive) =>
+    set((s) => {
+      const others = s.sources.filter((src) => src.path !== path);
+      const next = [...others, { path, recursive }];
+      localStorage.setItem(STORAGE_KEYS.LOG_SOURCES, JSON.stringify(next));
+      return { sources: next };
+    }),
+  removeSource: (path) =>
+    set((s) => {
+      const next = s.sources.filter((src) => src.path !== path);
+      localStorage.setItem(STORAGE_KEYS.LOG_SOURCES, JSON.stringify(next));
+      return { sources: next };
+    }),
 
   characters: [],
   setCharacters: (chars) => set({ characters: chars }),

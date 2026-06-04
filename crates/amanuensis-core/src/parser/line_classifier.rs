@@ -443,9 +443,21 @@ fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
-    // Ranger reflect: studied creature list header
+    // Ranger reflect: study-list headers (each type has its own header line)
     if patterns::REFLECT_STUDIED_HEADER.is_match(body) {
-        return LogEvent::ReflectStudiedHeader;
+        return LogEvent::ReflectListHeader {
+            lasty_type: LastyType::Movements.as_str().to_string(),
+        };
+    }
+    if patterns::REFLECT_BEFRIEND_HEADER.is_match(body) {
+        return LogEvent::ReflectListHeader {
+            lasty_type: LastyType::Befriend.as_str().to_string(),
+        };
+    }
+    if patterns::REFLECT_MORPH_HEADER.is_match(body) {
+        return LogEvent::ReflectListHeader {
+            lasty_type: LastyType::Morph.as_str().to_string(),
+        };
     }
 
     // Skip known non-trainer ¥ messages

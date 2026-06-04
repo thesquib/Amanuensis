@@ -30,6 +30,10 @@ struct OverrideConfig {
     override_until_date: HashMap<String, String>,
 }
 
+/// Per-character Ranger reflect snapshot: lasty_type → (timestamp, finished_creatures).
+/// Each study type's most recent (most complete) list is kept independently.
+type ReflectByType = HashMap<String, (String, Vec<String>)>;
+
 /// Main log parser orchestrator.
 /// Walks character subdirectories, scans log files, and stores events in the database.
 pub struct LogParser {
@@ -41,9 +45,11 @@ pub struct LogParser {
     abandoned_studies: RefCell<HashMap<i64, HashSet<String>>>,
     /// Rank override config per character, loaded before scanning.
     override_configs: RefCell<HashMap<i64, OverrideConfig>>,
-    /// Most recent Ranger reflect snapshot per character: char_id → (timestamp, finished_creatures).
-    /// Only the newest reflect is applied (it is the most complete list).
-    last_reflect: RefCell<HashMap<i64, (String, Vec<String>)>>,
+    /// Most recent Ranger reflect snapshot per character and study type:
+    /// char_id → (lasty_type → (timestamp, finished_creatures)).
+    /// A reflect dump lists each study type (Movements / Befriend / Morph) under its own header;
+    /// only the newest list per type is applied (it is the most complete one).
+    last_reflect: RefCell<HashMap<i64, ReflectByType>>,
 }
 
 impl LogParser {
@@ -303,10 +309,11 @@ impl LogParser {
         let mut current_date: String = filename_date.clone().unwrap_or_default();
         let mut had_real_timestamp = false;
 
-        // State for parsing Ranger reflect creature list (multi-line).
+        // State for parsing Ranger reflect creature lists (multi-line).
+        // collecting_type: which study type's list we are currently collecting (None = not in a list).
         // reflect_in_progress: creatures seen in "currently studying/remembering" lines just
-        // before the header — these are known in-progress and excluded from finished marking.
-        let mut collecting_studied = false;
+        // before the header — these are known in-progress and excluded from the Movements list.
+        let mut collecting_type: Option<String> = None;
         let mut studied_creatures: Vec<String> = Vec::new();
         let mut reflect_timestamp: Option<String> = None;
         let mut reflect_in_progress: HashSet<String> = HashSet::new();
@@ -350,7 +357,7 @@ impl LogParser {
             }
 
             // Ranger reflect state machine: collect creature list lines
-            if collecting_studied {
+            if let Some(list_type) = collecting_type.clone() {
                 match &event {
                     LogEvent::Ignored
                         if !message.starts_with('¥') && !message.starts_with('•') =>
@@ -367,19 +374,26 @@ impl LogParser {
                                 }
                             }
                             if is_last {
-                                collecting_studied = false;
+                                collecting_type = None;
                                 let ts = reflect_timestamp
                                     .take()
                                     .unwrap_or_else(|| date_str.clone());
-                                // Exclude creatures still in progress (studying/remembering)
+                                // The Movements list can include creatures still being studied
+                                // (the "currently studying ... left to learn" lines above);
+                                // exclude those. The befriend/morph lists are explicitly
+                                // "learned to ..." = completed, so no exclusion applies.
                                 let finished: Vec<String> = studied_creatures
                                     .drain(..)
-                                    .filter(|c| !reflect_in_progress.contains(c))
+                                    .filter(|c| {
+                                        list_type != "Movements"
+                                            || !reflect_in_progress.contains(c)
+                                    })
                                     .collect();
-                                // Keep only the most recent reflect (latest timestamp)
+                                // Keep only the most recent reflect per type (latest timestamp).
                                 let mut last = self.last_reflect.borrow_mut();
-                                let entry = last
-                                    .entry(char_id)
+                                let by_type = last.entry(char_id).or_default();
+                                let entry = by_type
+                                    .entry(list_type.clone())
                                     .or_insert_with(|| (String::new(), Vec::new()));
                                 if ts > entry.0 {
                                     entry.0 = ts;
@@ -389,12 +403,12 @@ impl LogParser {
                             continue;
                         }
                         // Doesn't look like creature list — abort collection
-                        collecting_studied = false;
+                        collecting_type = None;
                         studied_creatures.clear();
                     }
                     _ => {
                         // Any real event aborts collection; fall through to process it normally
-                        collecting_studied = false;
+                        collecting_type = None;
                         studied_creatures.clear();
                     }
                 }
@@ -416,8 +430,8 @@ impl LogParser {
                     file_result.events_found += 1;
                 }
 
-                LogEvent::ReflectStudiedHeader => {
-                    collecting_studied = true;
+                LogEvent::ReflectListHeader { lasty_type } => {
+                    collecting_type = Some(lasty_type);
                     studied_creatures.clear();
                     reflect_timestamp = Some(date_str.clone());
                     // reflect_in_progress carries the studying/remembering creatures from above;
@@ -794,9 +808,12 @@ impl LogParser {
     /// have been scanned so that only the most recent (most complete) reflect is used.
     fn flush_reflect_lastys(&self, char_id: i64) -> Result<()> {
         let snapshot = self.last_reflect.borrow_mut().remove(&char_id);
-        if let Some((timestamp, creatures)) = snapshot {
-            for creature in &creatures {
-                self.db.finish_lasty_from_reflect(char_id, creature, "Movements", &timestamp)?;
+        if let Some(by_type) = snapshot {
+            for (lasty_type, (timestamp, creatures)) in &by_type {
+                for creature in creatures {
+                    self.db
+                        .finish_lasty_from_reflect(char_id, creature, lasty_type, timestamp)?;
+                }
             }
         }
         Ok(())
@@ -804,15 +821,17 @@ impl LogParser {
 
     /// Flush reflect data for ALL characters (used when files are not grouped by character).
     fn flush_all_reflect_lastys(&self) -> Result<()> {
-        let snapshots: Vec<(i64, String, Vec<String>)> = self
+        let snapshots: Vec<(i64, ReflectByType)> = self
             .last_reflect
             .borrow_mut()
             .drain()
-            .map(|(id, (ts, creatures))| (id, ts, creatures))
             .collect();
-        for (char_id, timestamp, creatures) in snapshots {
-            for creature in &creatures {
-                self.db.finish_lasty_from_reflect(char_id, creature, "Movements", &timestamp)?;
+        for (char_id, by_type) in snapshots {
+            for (lasty_type, (timestamp, creatures)) in &by_type {
+                for creature in creatures {
+                    self.db
+                        .finish_lasty_from_reflect(char_id, creature, lasty_type, timestamp)?;
+                }
             }
         }
         Ok(())
@@ -1265,6 +1284,43 @@ impl LogParser {
             }
         }
 
+        Ok(combined)
+    }
+
+    /// Rescan a set of source folders: clear log-derived data, scan each folder
+    /// (honoring its own recursive flag), then finalize. Used by the GUI "Rescan Logs"
+    /// action when the user has multiple remembered source folders. Rank overrides are
+    /// preserved (reset_log_data keeps them). The returned ScanResult sums the additive
+    /// per-folder counters; `characters` is the distinct character total after finalize.
+    pub fn rescan_sources<F>(
+        &self,
+        sources: &[(std::path::PathBuf, bool)],
+        index_lines: bool,
+        progress: F,
+    ) -> Result<ScanResult>
+    where
+        F: Fn(usize, usize, &str),
+    {
+        // An empty source list is a no-op: do not reset (which would wipe the DB).
+        if sources.is_empty() {
+            return Ok(ScanResult::default());
+        }
+        self.db.reset_log_data()?;
+        let mut combined = ScanResult::default();
+        for (path, recursive) in sources {
+            let r = if *recursive {
+                self.scan_recursive_with_progress(path, false, index_lines, &progress)?
+            } else {
+                self.scan_folder_with_progress(path, false, index_lines, &progress)?
+            };
+            combined.files_scanned += r.files_scanned;
+            combined.skipped += r.skipped;
+            combined.lines_parsed += r.lines_parsed;
+            combined.events_found += r.events_found;
+            combined.errors += r.errors;
+        }
+        self.finalize_characters()?;
+        combined.characters = self.db.list_characters()?.len();
         Ok(combined)
     }
 
@@ -1746,6 +1802,173 @@ mod tests {
         // Plus the LastyCompleted (trainer) which marks the most recent unfinished one
         let finished: Vec<_> = lastys.iter().filter(|l| l.finished).collect();
         assert_eq!(finished.len(), 3);
+    }
+
+    #[test]
+    fn test_reflect_movements_befriend_morph_coexist() {
+        // A Ranger reflect dump lists each study type under its own header
+        // (movements / befriend / morph). The same creature can appear under several
+        // headers (e.g. Guard Dog: movements done, befriended, and morphed), and each
+        // must be stored as a distinct lasty. The movements list can also span multiple
+        // continuation lines (ending in ',' until the final line ends in '.').
+        // Header wordings are taken verbatim from real ranger logs; note the morph
+        // header says "shape" while the per-event completion message says "form".
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let mut bytes = Vec::new();
+        // Movements reflect: header + multi-line (continuation) list.
+        bytes.extend_from_slice(b"1/1/24 1:00:00p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You have studied the following creatures:\n");
+        bytes.extend_from_slice(b"1/1/24 1:00:00p Guard Dog, Artak Cougar, Haremau, \n");
+        bytes.extend_from_slice(b"1/1/24 1:00:00p Island Panther.\n");
+        // Befriend reflect: separate header + list.
+        bytes.extend_from_slice(b"1/1/24 1:00:01p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You have learned to befriend the following creatures:\n");
+        bytes.extend_from_slice(b"1/1/24 1:00:01p Guard Dog, Haremau.\n");
+        // Morph reflect: real header uses "assume the shape of".
+        bytes.extend_from_slice(b"1/1/24 1:00:02p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You have learned to assume the shape of the following creatures:\n");
+        bytes.extend_from_slice(b"1/1/24 1:00:02p Haremau.\n");
+
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), &bytes).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char_id = parser.db().get_or_create_character("TestChar").unwrap();
+        let lastys = parser.db().get_lastys(char_id).unwrap();
+
+        let finished = |creature: &str, lasty_type: &str| {
+            lastys
+                .iter()
+                .any(|l| l.creature_name == creature && l.lasty_type == lasty_type && l.finished)
+        };
+
+        // Guard Dog: movements + befriend.
+        assert!(finished("Guard Dog", "Movements"), "Guard Dog Movements missing");
+        assert!(finished("Guard Dog", "Befriend"), "Guard Dog Befriend missing");
+        // Haremau: all three tiers, as a distinct row each.
+        assert!(finished("Haremau", "Movements"), "Haremau Movements missing");
+        assert!(finished("Haremau", "Befriend"), "Haremau Befriend missing");
+        assert!(finished("Haremau", "Morph"), "Haremau Morph missing");
+        // Continuation line was collected.
+        assert!(finished("Island Panther", "Movements"), "Island Panther Movements missing");
+        assert!(finished("Artak Cougar", "Movements"), "Artak Cougar Movements missing");
+    }
+
+    #[test]
+    fn test_rescan_sources_clears_previous_data() {
+        // Pre-seed Alpha from folder_a, then rescan only folder_b (recursive).
+        // The reset must drop Alpha; the recursive scan must find the nested Beta.
+        let tmp = tempfile::tempdir().unwrap();
+        let folder_a = tmp.path().join("a");
+        let folder_b = tmp.path().join("b");
+        fs::create_dir_all(folder_a.join("Alpha")).unwrap();
+        fs::create_dir_all(folder_b.join("nested").join("Beta")).unwrap();
+        fs::write(
+            folder_a.join("Alpha").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Alpha!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+        fs::write(
+            folder_b.join("nested").join("Beta").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Beta!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(&folder_a, false).unwrap(); // stale data
+
+        parser
+            .rescan_sources(&[(folder_b.clone(), true)], false, |_, _, _| {})
+            .unwrap();
+
+        let names: Vec<String> = parser
+            .db()
+            .list_characters()
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        assert!(!names.contains(&"Alpha".to_string()), "reset should have dropped Alpha");
+        assert!(names.contains(&"Beta".to_string()), "recursive source should find nested Beta");
+    }
+
+    #[test]
+    fn test_rescan_sources_combines_per_source_recursive() {
+        // folder_a (non-recursive) holds Alpha at its top level; folder_b (recursive)
+        // holds Beta nested one level down. Both should be present after one rescan.
+        let tmp = tempfile::tempdir().unwrap();
+        let folder_a = tmp.path().join("a");
+        let folder_b = tmp.path().join("b");
+        fs::create_dir_all(folder_a.join("Alpha")).unwrap();
+        fs::create_dir_all(folder_b.join("nested").join("Beta")).unwrap();
+        fs::write(
+            folder_a.join("Alpha").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Alpha!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+        fs::write(
+            folder_b.join("nested").join("Beta").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Beta!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+
+        let result = parser
+            .rescan_sources(
+                &[(folder_a.clone(), false), (folder_b.clone(), true)],
+                false,
+                |_, _, _| {},
+            )
+            .unwrap();
+
+        let names: Vec<String> = parser
+            .db()
+            .list_characters()
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        assert!(names.contains(&"Alpha".to_string()), "non-recursive source Alpha missing");
+        assert!(names.contains(&"Beta".to_string()), "recursive source Beta missing");
+        assert_eq!(result.characters, names.len(), "characters count should be distinct DB total");
+    }
+
+    #[test]
+    fn test_rescan_sources_empty_is_noop() {
+        // An empty source list must NOT wipe existing data.
+        let tmp = tempfile::tempdir().unwrap();
+        let folder_a = tmp.path().join("a");
+        fs::create_dir_all(folder_a.join("Alpha")).unwrap();
+        fs::write(
+            folder_a.join("Alpha").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Alpha!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(&folder_a, false).unwrap();
+
+        let result = parser.rescan_sources(&[], false, |_, _, _| {}).unwrap();
+
+        let names: Vec<String> = parser
+            .db()
+            .list_characters()
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        assert!(names.contains(&"Alpha".to_string()), "empty rescan must not wipe existing data");
+        assert_eq!(result.characters, 0, "empty rescan returns a default-ish result");
     }
 
     #[test]

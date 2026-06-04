@@ -108,8 +108,10 @@ pub enum LogEvent {
     FishingMiss,
     /// Fish caught: "You reel in a/an {item}." — item is normalized (e.g. "Fish", "Mimic", "Sea Bass")
     FishCaught { item: String },
-    /// Ranger reflect: "You have studied the following creatures:" header
-    ReflectStudiedHeader,
+    /// Ranger reflect: a study-list header ("You have studied/learned to befriend/...
+    /// the following creatures:"). `lasty_type` is the type the following list belongs to
+    /// (Movements / Befriend / Morph).
+    ReflectListHeader { lasty_type: String },
     /// Character was untrained by Untrainus
     Untrained,
     /// Trainer rank checkpoint: trainer greeting with rank status message.

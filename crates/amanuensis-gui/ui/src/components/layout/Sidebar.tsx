@@ -7,13 +7,15 @@ import { listCharacters } from "../../lib/commands";
 import { ProgressBar } from "../shared/ProgressBar";
 import { CharacterList } from "./CharacterList";
 import { MergeDialog } from "../shared/MergeDialog";
+import { SourcesDialog } from "../shared/SourcesDialog";
 import type { Theme } from "../../lib/store";
 
 export function Sidebar() {
-  const { dbPath, logFolder, scannedLogCount, recursiveScan, setRecursiveScan, indexLogLines, setIndexLogLines, theme, setTheme, characters, setCharacters } = useStore();
+  const { dbPath, sources, scannedLogCount, recursiveScan, setRecursiveScan, indexLogLines, setIndexLogLines, theme, setTheme, characters, setCharacters } = useStore();
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [showSourcesDialog, setShowSourcesDialog] = useState(false);
 
   const { handleOpenDb, handleReset, handleDeleteAll, handleImportScribius, handleSelectCharacter, ensureDb, isScanning } = useDatabase();
 
@@ -76,11 +78,17 @@ export function Sidebar() {
             </button>
             <button
               onClick={handleRescanLogs}
-              disabled={isScanning || !logFolder}
+              disabled={isScanning || sources.length === 0}
               className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50"
-              title={logFolder ? "Clear all scanned data and rescan from scratch (preserves rank modifiers)" : "No log folder selected — scan a folder first"}
+              title={sources.length > 0 ? "Clear all scanned data and rescan every source from scratch (preserves rank modifiers)" : "No log sources yet — scan a folder first"}
             >
               Rescan Logs
+            </button>
+            <button
+              onClick={() => setShowSourcesDialog(true)}
+              className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80"
+            >
+              Sources… ({sources.length})
             </button>
             <button onClick={handleImportScribius} disabled={isScanning} className="rounded border border-[var(--color-border)] bg-[var(--color-btn-secondary)] px-3 py-1.5 text-sm font-medium hover:opacity-80 disabled:opacity-50">
               Import Scribius DB
@@ -115,7 +123,6 @@ export function Sidebar() {
                     Reveal
                   </button>
                 </div>
-                {logFolder && <div className="mt-1 truncate" title={logFolder}>Logs: {logFolder.split("/").pop()}</div>}
                 <div className="mt-1">{scannedLogCount} files scanned</div>
                 <button
                   onClick={handleReset}
@@ -165,6 +172,13 @@ export function Sidebar() {
               await handleSelectCharacter(chars[0].id);
             }
           }}
+        />
+      )}
+      {showSourcesDialog && (
+        <SourcesDialog
+          onClose={() => setShowSourcesDialog(false)}
+          onRescan={handleRescanLogs}
+          isScanning={isScanning}
         />
       )}
     </div>

@@ -7,8 +7,8 @@ import type { ScanProgress } from "../../types";
 
 export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCharacters>>) => Promise<void>) {
   const {
-    logFolder,
-    setLogFolder,
+    sources,
+    addSource,
     isScanning,
     setIsScanning,
     scanProgress,
@@ -50,12 +50,12 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     if (!folder) return;
     const folderPath = typeof folder === "string" ? folder : folder;
 
-    setLogFolder(folderPath);
     setIsScanning(true);
     setScanProgress(null);
 
     try {
       await scanLogs(folderPath, false, recursiveScan, indexLogLines);
+      addSource(folderPath, recursiveScan);
       await finishScan();
     } catch (e) {
       console.error("Scan failed:", e);
@@ -63,7 +63,7 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
       setIsScanning(false);
       setScanProgress(null);
     }
-  }, [setLogFolder, setIsScanning, setScanProgress, finishScan, recursiveScan, indexLogLines]);
+  }, [addSource, setIsScanning, setScanProgress, finishScan, recursiveScan, indexLogLines]);
 
   const handleScanFiles = useCallback(async (ensureDb: () => Promise<boolean>) => {
     if (!(await ensureDb())) return;
@@ -91,16 +91,16 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
   }, [setIsScanning, setScanProgress, finishScan, indexLogLines]);
 
   const handleRescanLogs = useCallback(async () => {
-    if (!logFolder) return;
+    if (sources.length === 0) return;
     const confirmed = await confirm(
-      "This will clear all scanned data and rescan your logs from scratch. Your rank modifier settings will be preserved. Continue?",
+      "This will clear all scanned data and rescan every remembered log source from scratch. Your rank modifier settings will be preserved. Continue?",
       { title: "Rescan Logs", kind: "warning" },
     );
     if (!confirmed) return;
     setIsScanning(true);
     setScanProgress(null);
     try {
-      await rescanLogs(logFolder, recursiveScan, indexLogLines);
+      await rescanLogs(sources, indexLogLines);
       await finishScan();
     } catch (e) {
       console.error("Rescan failed:", e);
@@ -108,12 +108,12 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
       setIsScanning(false);
       setScanProgress(null);
     }
-  }, [logFolder, recursiveScan, indexLogLines, setIsScanning, setScanProgress, finishScan]);
+  }, [sources, indexLogLines, setIsScanning, setScanProgress, finishScan]);
 
   return {
     isScanning,
     scanProgress,
-    logFolder,
+    sources,
     handleScanFolder,
     handleScanFiles,
     handleRescanLogs,
