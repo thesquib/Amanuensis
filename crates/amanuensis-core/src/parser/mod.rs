@@ -1287,6 +1287,39 @@ impl LogParser {
         Ok(combined)
     }
 
+    /// Rescan a set of source folders: clear log-derived data, scan each folder
+    /// (honoring its own recursive flag), then finalize. Used by the GUI "Rescan Logs"
+    /// action when the user has multiple remembered source folders. Rank overrides are
+    /// preserved (reset_log_data keeps them). The returned ScanResult sums the additive
+    /// per-folder counters; `characters` is the distinct character total after finalize.
+    pub fn rescan_sources<F>(
+        &self,
+        sources: &[(std::path::PathBuf, bool)],
+        index_lines: bool,
+        progress: F,
+    ) -> Result<ScanResult>
+    where
+        F: Fn(usize, usize, &str),
+    {
+        self.db.reset_log_data()?;
+        let mut combined = ScanResult::default();
+        for (path, recursive) in sources {
+            let r = if *recursive {
+                self.scan_recursive_with_progress(path, false, index_lines, &progress)?
+            } else {
+                self.scan_folder_with_progress(path, false, index_lines, &progress)?
+            };
+            combined.files_scanned += r.files_scanned;
+            combined.skipped += r.skipped;
+            combined.lines_parsed += r.lines_parsed;
+            combined.events_found += r.events_found;
+            combined.errors += r.errors;
+        }
+        self.finalize_characters()?;
+        combined.characters = self.db.list_characters()?.len();
+        Ok(combined)
+    }
+
     /// After scanning, determine professions and coin levels for all characters.
     /// If a character already has a profession set from a direct announcement (circle test
     /// or "become a" message), keep it. Otherwise, fall back to majority-vote from trainers.
@@ -1821,6 +1854,88 @@ mod tests {
         // Continuation line was collected.
         assert!(finished("Island Panther", "Movements"), "Island Panther Movements missing");
         assert!(finished("Artak Cougar", "Movements"), "Artak Cougar Movements missing");
+    }
+
+    #[test]
+    fn test_rescan_sources_clears_previous_data() {
+        // Pre-seed Alpha from folder_a, then rescan only folder_b (recursive).
+        // The reset must drop Alpha; the recursive scan must find the nested Beta.
+        let tmp = tempfile::tempdir().unwrap();
+        let folder_a = tmp.path().join("a");
+        let folder_b = tmp.path().join("b");
+        fs::create_dir_all(folder_a.join("Alpha")).unwrap();
+        fs::create_dir_all(folder_b.join("nested").join("Beta")).unwrap();
+        fs::write(
+            folder_a.join("Alpha").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Alpha!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+        fs::write(
+            folder_b.join("nested").join("Beta").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Beta!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(&folder_a, false).unwrap(); // stale data
+
+        parser
+            .rescan_sources(&[(folder_b.clone(), true)], false, |_, _, _| {})
+            .unwrap();
+
+        let names: Vec<String> = parser
+            .db()
+            .list_characters()
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        assert!(!names.contains(&"Alpha".to_string()), "reset should have dropped Alpha");
+        assert!(names.contains(&"Beta".to_string()), "recursive source should find nested Beta");
+    }
+
+    #[test]
+    fn test_rescan_sources_combines_per_source_recursive() {
+        // folder_a (non-recursive) holds Alpha at its top level; folder_b (recursive)
+        // holds Beta nested one level down. Both should be present after one rescan.
+        let tmp = tempfile::tempdir().unwrap();
+        let folder_a = tmp.path().join("a");
+        let folder_b = tmp.path().join("b");
+        fs::create_dir_all(folder_a.join("Alpha")).unwrap();
+        fs::create_dir_all(folder_b.join("nested").join("Beta")).unwrap();
+        fs::write(
+            folder_a.join("Alpha").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Alpha!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+        fs::write(
+            folder_b.join("nested").join("Beta").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Beta!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+
+        let result = parser
+            .rescan_sources(
+                &[(folder_a.clone(), false), (folder_b.clone(), true)],
+                false,
+                |_, _, _| {},
+            )
+            .unwrap();
+
+        let names: Vec<String> = parser
+            .db()
+            .list_characters()
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        assert!(names.contains(&"Alpha".to_string()), "non-recursive source Alpha missing");
+        assert!(names.contains(&"Beta".to_string()), "recursive source Beta missing");
+        assert_eq!(result.characters, names.len(), "characters count should be distinct DB total");
     }
 
     #[test]
