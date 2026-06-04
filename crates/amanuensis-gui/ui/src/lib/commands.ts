@@ -145,11 +145,10 @@ export async function deleteAllData(): Promise<void> {
 }
 
 export async function rescanLogs(
-  folder: string,
-  recursive: boolean = false,
+  sources: { path: string; recursive: boolean }[],
   indexLines: boolean = true,
 ): Promise<ScanResult> {
-  return invoke("rescan_logs", { folder, recursive, indexLines });
+  return invoke("rescan_logs", { sources, indexLines });
 }
 
 export async function clearRankOverrides(): Promise<void> {
