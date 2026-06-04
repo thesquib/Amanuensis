@@ -63,10 +63,6 @@ interface AppStore {
   dbPath: string | null;
   setDbPath: (path: string | null) => void;
 
-  // Log folder
-  logFolder: string | null;
-  setLogFolder: (folder: string | null) => void;
-
   // Log sources (persisted list of scanned folders)
   sources: LogSource[];
   addSource: (path: string, recursive: boolean) => void;
@@ -178,9 +174,6 @@ const RANK_MODIFIERS_COLLAPSED_KEY = STORAGE_KEYS.COLLAPSED_RANK_MODIFIERS;
 export const useStore = create<AppStore>((set) => ({
   dbPath: null,
   setDbPath: (path) => set({ dbPath: path }),
-
-  logFolder: null,
-  setLogFolder: (folder) => set({ logFolder: folder }),
 
   sources: loadSources(),
   addSource: (path, recursive) =>
