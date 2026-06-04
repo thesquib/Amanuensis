@@ -1301,6 +1301,10 @@ impl LogParser {
     where
         F: Fn(usize, usize, &str),
     {
+        // An empty source list is a no-op: do not reset (which would wipe the DB).
+        if sources.is_empty() {
+            return Ok(ScanResult::default());
+        }
         self.db.reset_log_data()?;
         let mut combined = ScanResult::default();
         for (path, recursive) in sources {
@@ -1936,6 +1940,35 @@ mod tests {
         assert!(names.contains(&"Alpha".to_string()), "non-recursive source Alpha missing");
         assert!(names.contains(&"Beta".to_string()), "recursive source Beta missing");
         assert_eq!(result.characters, names.len(), "characters count should be distinct DB total");
+    }
+
+    #[test]
+    fn test_rescan_sources_empty_is_noop() {
+        // An empty source list must NOT wipe existing data.
+        let tmp = tempfile::tempdir().unwrap();
+        let folder_a = tmp.path().join("a");
+        fs::create_dir_all(folder_a.join("Alpha")).unwrap();
+        fs::write(
+            folder_a.join("Alpha").join("CL Log 2024-01-01 10.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Alpha!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(&folder_a, false).unwrap();
+
+        let result = parser.rescan_sources(&[], false, |_, _, _| {}).unwrap();
+
+        let names: Vec<String> = parser
+            .db()
+            .list_characters()
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect();
+        assert!(names.contains(&"Alpha".to_string()), "empty rescan must not wipe existing data");
+        assert_eq!(result.characters, 0, "empty rescan returns a default-ish result");
     }
 
     #[test]
