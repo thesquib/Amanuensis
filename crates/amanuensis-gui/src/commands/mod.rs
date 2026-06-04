@@ -52,6 +52,12 @@ pub(super) enum ScanOp {
     Files { files: Vec<String>, force: bool },
 }
 
+#[derive(serde::Deserialize)]
+pub(super) struct SourceSpec {
+    pub path: String,
+    pub recursive: bool,
+}
+
 pub(super) async fn run_scan(
     state: &State<'_, AppState>,
     app: tauri::AppHandle,
