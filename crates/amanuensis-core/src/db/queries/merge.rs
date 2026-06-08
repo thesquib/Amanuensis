@@ -18,7 +18,7 @@ impl Database {
     }
 
     /// Build a list containing the target character ID plus all merged source IDs.
-    fn char_ids_for_merged(&self, char_id: i64) -> Result<Vec<i64>> {
+    pub(crate) fn char_ids_for_merged(&self, char_id: i64) -> Result<Vec<i64>> {
         let mut ids = vec![char_id];
         ids.extend(self.merged_source_ids(char_id)?);
         Ok(ids)
