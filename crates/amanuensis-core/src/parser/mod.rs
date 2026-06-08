@@ -451,6 +451,8 @@ impl LogParser {
                     let value = self.creature_db.get_value(&creature).unwrap_or(0);
                     self.db
                         .upsert_kill(char_id, &creature, field, value, &date_str)?;
+                    self.db
+                        .insert_kill_event(char_id, &creature, &verb.to_string(), false, &date_str)?;
                     file_result.events_found += 1;
                 }
                 LogEvent::AssistedKill { creature, verb } => {
@@ -458,6 +460,8 @@ impl LogParser {
                     let value = self.creature_db.get_value(&creature).unwrap_or(0);
                     self.db
                         .upsert_kill(char_id, &creature, field, value, &date_str)?;
+                    self.db
+                        .insert_kill_event(char_id, &creature, &verb.to_string(), true, &date_str)?;
                     file_result.events_found += 1;
                 }
 
@@ -2839,5 +2843,54 @@ mod tests {
         // abandoned_date cleared after resume
         assert!(rat.abandoned_date.is_none());
         assert!(rat.completed_date.is_some());
+    }
+
+    #[test]
+    fn test_kill_events_recorded_during_scan() {
+        let tmp = tempfile::tempdir().unwrap();
+        let char_dir = tmp.path().join("Tester");
+        fs::create_dir(&char_dir).unwrap();
+
+        let log_content = "\
+1/1/24 10:00:00a Welcome to Clan Lord, Tester!
+1/1/24 10:00:01a You slaughtered a Rat.
+1/1/24 10:00:02a You helped kill a Rat.
+";
+        fs::write(
+            char_dir.join("CL Log 2024-01-01 10.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("Tester").unwrap().unwrap();
+        let char_id = char.id.unwrap();
+
+        // Total rows for this character
+        let total: i64 = parser
+            .db()
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM kill_events WHERE character_id = ?1",
+                rusqlite::params![char_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(total, 2, "expected 2 kill_events rows");
+
+        // Solo slaughter (assisted = 0, verb = 'slaughtered')
+        let solo_count: i64 = parser
+            .db()
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM kill_events WHERE character_id = ?1 AND assisted = 0 AND verb = 'slaughtered'",
+                rusqlite::params![char_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(solo_count, 1, "expected 1 solo slaughtered row");
     }
 }
