@@ -98,6 +98,12 @@ impl Database {
         let ids = self.char_ids_for_merged(char_id)?;
         self.kill_frequency_for_char_ids(&ids, true)
     }
+
+    /// Frequency for a (possibly merged) character with explicit assisted control.
+    pub fn kill_frequency_merged_with(&self, char_id: i64, include_assisted: bool) -> Result<Vec<CreatureFrequency>> {
+        let ids = self.char_ids_for_merged(char_id)?;
+        self.kill_frequency_for_char_ids(&ids, include_assisted)
+    }
 }
 
 /// Compute both metrics for one creature's time-sorted events.

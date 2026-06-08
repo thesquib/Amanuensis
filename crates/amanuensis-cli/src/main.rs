@@ -58,6 +58,26 @@ enum Commands {
         /// Character name
         name: String,
     },
+    /// Show max kill-frequency per creature (24h day max + 2h sliding window).
+    Frequency {
+        /// Character name
+        name: String,
+        /// Which metric(s): day, 2h, both
+        #[arg(long, default_value = "both")]
+        bin: String,
+        /// Count solo kills only (exclude assisted)
+        #[arg(long)]
+        solo: bool,
+        /// Include per-verb breakdown columns (csv only)
+        #[arg(long)]
+        by_verb: bool,
+        /// Output format: table, csv, json
+        #[arg(long, default_value = "table")]
+        format: String,
+        /// Limit number of rows
+        #[arg(long)]
+        limit: Option<usize>,
+    },
     /// Show kill statistics
     Kills {
         /// Character name
@@ -327,6 +347,9 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         }
         Commands::Characters => cmd_characters(&db_path),
         Commands::Summary { name } => cmd_summary(&db_path, &name),
+        Commands::Frequency { name, bin, solo, by_verb, format, limit } => {
+            cmd_frequency(&db_path, &name, &bin, solo, by_verb, &format, limit)
+        }
         Commands::Kills { name, sort, limit, family, rarity, seasonal } => {
             cmd_kills(&db_path, &name, &sort, limit, family, rarity, seasonal)
         }
@@ -703,6 +726,103 @@ fn cmd_kills(
 
     println!("Kills for {}:", name);
     println!("{table}");
+    Ok(())
+}
+
+fn cmd_frequency(
+    db_path: &str,
+    name: &str,
+    bin: &str,
+    solo: bool,
+    by_verb: bool,
+    format: &str,
+    limit: Option<usize>,
+) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let char = resolve_character(&db, name)?;
+    let char_id = char.id.unwrap();
+
+    let mut freq = db.kill_frequency_merged_with(char_id, !solo)?;
+    if let Some(limit) = limit {
+        freq.truncate(limit);
+    }
+    if freq.is_empty() {
+        println!("No kill-frequency data for {}. (Run `scan --force` to backfill kill_events.)", name);
+        return Ok(());
+    }
+
+    let show_day = bin == "day" || bin == "both";
+    let show_2h = bin == "2h" || bin == "both";
+    if !show_day && !show_2h {
+        eprintln!("Unknown --bin value '{}'; expected day, 2h, or both.", bin);
+        return Ok(());
+    }
+
+    let verbs_str = |m: &std::collections::BTreeMap<String, i64>| {
+        m.iter().map(|(v, n)| format!("{v}:{n}")).collect::<Vec<_>>().join(" ")
+    };
+
+    match format {
+        "csv" => {
+            let mut header = vec!["creature".to_string()];
+            if show_day { header.push("best_day_count".into()); header.push("best_day_date".into()); }
+            if show_2h { header.push("best_2h_count".into()); header.push("best_2h_start".into()); }
+            if by_verb {
+                if show_day { header.push("best_day_verbs".into()); }
+                if show_2h { header.push("best_2h_verbs".into()); }
+            }
+            println!("{}", header.join(","));
+            for f in &freq {
+                let mut row = vec![f.creature_name.clone()];
+                if show_day {
+                    row.push(f.best_day_count.to_string());
+                    row.push(f.best_day_date.clone().unwrap_or_default());
+                }
+                if show_2h {
+                    row.push(f.best_2h_count.to_string());
+                    row.push(f.best_2h_start.clone().unwrap_or_default());
+                }
+                if by_verb {
+                    if show_day { row.push(verbs_str(&f.best_day_verbs)); }
+                    if show_2h { row.push(verbs_str(&f.best_2h_verbs)); }
+                }
+                let escaped: Vec<String> = row.iter().map(|c| {
+                    if c.contains(',') || c.contains('"') || c.contains(' ') {
+                        format!("\"{}\"", c.replace('"', "\"\""))
+                    } else { c.clone() }
+                }).collect();
+                println!("{}", escaped.join(","));
+            }
+        }
+        "json" => {
+            println!("{}", serde_json::to_string_pretty(&freq)?);
+        }
+        _ => {
+            let mut header = vec!["Creature"];
+            if show_day { header.push("Best Day"); header.push("Day Date"); }
+            if show_2h { header.push("Best 2h"); header.push("2h Start"); }
+            let mut table = Table::new();
+            table
+                .load_preset(UTF8_FULL)
+                .apply_modifier(UTF8_ROUND_CORNERS)
+                .set_content_arrangement(ContentArrangement::Dynamic)
+                .set_header(header);
+            for f in &freq {
+                let mut row = vec![f.creature_name.clone()];
+                if show_day {
+                    row.push(f.best_day_count.to_string());
+                    row.push(f.best_day_date.clone().unwrap_or_default());
+                }
+                if show_2h {
+                    row.push(f.best_2h_count.to_string());
+                    row.push(f.best_2h_start.clone().unwrap_or_default());
+                }
+                table.add_row(row);
+            }
+            println!("Kill frequency for {}:", name);
+            println!("{table}");
+        }
+    }
     Ok(())
 }
 
