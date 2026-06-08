@@ -1,7 +1,22 @@
 # Kill-Frequency Max — Design Spec
 
 **Date:** 2026-06-08
-**Status:** Approved — ready for implementation planning
+**Status:** Implemented (branch `kill-frequency-max`)
+
+> **Revision (2026-06-09): per-event → hourly-bucket storage.** The sections below
+> describe an original per-kill `kill_events` table. During pre-merge testing on a
+> real 25-year, 43-character database (69k kills, 103 MB), the per-event table cost
+> ~6.6 MB and would scale poorly for the tool's typical multi-decade hoarder users.
+> It was replaced with an **hourly-summary table `kill_hourly`** — one row per
+> (character, creature, hour) with the 8 kill-verb count columns, upsert-incremented
+> during scan like the aggregated `kills` table. ~10× smaller (grind monsters
+> collapse 24–35×). **Best calendar day stays exact.** **Best 2h** becomes a sliding
+> window over adjacent hour buckets (densest pair of consecutive clock-hours) — still
+> far better than fixed midnight-aligned bins; the only precision loss is sub-hour
+> bursts straddling three clock-hours, i.e. the GM/invasion-spawn outliers the
+> bestiary author filters anyway. The `CreatureFrequency` struct and all CLI/GUI
+> surfaces are unchanged. Authoritative schema/compute: `kill_hourly` in
+> `crates/amanuensis-core/src/db/{schema.rs,queries/frequency.rs}`.
 
 ## Motivation
 
