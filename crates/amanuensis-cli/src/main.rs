@@ -786,7 +786,7 @@ fn cmd_frequency(
         freq.truncate(limit);
     }
     if freq.is_empty() {
-        println!("No kill-frequency data for {}. (Run `scan --force` to backfill kill_events.)", name);
+        println!("No kill-frequency data for {}. (Run `amanuensis rescan <folder...>`, or the GUI's Rescan Logs, to backfill.)", name);
         return Ok(());
     }
 
