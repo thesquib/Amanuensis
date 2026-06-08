@@ -66,31 +66,31 @@ New table, alongside (not replacing) the existing aggregated `kills` table:
 CREATE TABLE IF NOT EXISTS kill_events (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     character_id  INTEGER NOT NULL,
-    log_id        INTEGER NOT NULL,          -- for idempotent re-scan
     creature_name TEXT    NOT NULL,          -- alias-resolved, same as kills.creature_name
-    verb          TEXT    NOT NULL,          -- killed | slaughtered | vanquished | dispatched
+    verb          TEXT    NOT NULL,          -- killed | slaughtered | vanquished | dispatched (KillVerb Display)
     assisted      INTEGER NOT NULL DEFAULT 0,-- 0 = solo, 1 = helped
     timestamp     TEXT    NOT NULL,          -- "YYYY-MM-DD HH:MM:SS" (same format as kills.date_last)
-    FOREIGN KEY (character_id) REFERENCES characters(id),
-    FOREIGN KEY (log_id)       REFERENCES logs(id)
+    FOREIGN KEY (character_id) REFERENCES characters(id)
 );
 CREATE INDEX IF NOT EXISTS idx_kill_events_char_creature_ts
     ON kill_events(character_id, creature_name, timestamp);
-CREATE INDEX IF NOT EXISTS idx_kill_events_char_ts
-    ON kill_events(character_id, timestamp);
 ```
 
 We record **everything** — all four verbs, solo and assisted — and filter at query
-time, so no fidelity is lost.
+time, so no fidelity is lost. No `log_id` column: idempotency is handled by the
+existing scan machinery (see below), matching the `kills` table which also stores
+no log identity.
 
 ## Scan integration & idempotency
 
 - Populate during the existing scan pass: wherever we currently increment a
   `kills.*_count`, also append a `kill_events` row with the parsed timestamp,
   verb, assisted flag, and `log_id`.
-- **Idempotency rule:** delete-then-insert per log. When (re)scanning log N,
-  `DELETE FROM kill_events WHERE log_id = N` before inserting its events. This
-  matches how a `--force` re-scan must not double-count.
+- **Idempotency:** reuse the existing scan machinery — normal scans **skip**
+  already-scanned logs (`is_log_scanned`), so events insert only for new logs and
+  never double-count. A full re-scan goes through `reset_log_data()`, which we
+  extend to also `DELETE FROM kill_events` (alongside its existing
+  `DELETE FROM kills` etc.). No per-log delete and no `log_id` needed.
 - **Backfill:** existing databases run a one-time `amanuensis scan --force
   <folder>` to populate `kill_events`. This is the same instruction already in
   CLAUDE.md after a bestiary update.
