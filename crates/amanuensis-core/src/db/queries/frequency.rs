@@ -93,12 +93,6 @@ impl Database {
         Ok(out)
     }
 
-    /// Merged-character convenience wrapper. Includes assisted kills.
-    pub fn kill_frequency_merged(&self, char_id: i64) -> Result<Vec<CreatureFrequency>> {
-        let ids = self.char_ids_for_merged(char_id)?;
-        self.kill_frequency_for_char_ids(&ids, true)
-    }
-
     /// Frequency for a (possibly merged) character with explicit assisted control.
     pub fn kill_frequency_merged_with(&self, char_id: i64, include_assisted: bool) -> Result<Vec<CreatureFrequency>> {
         let ids = self.char_ids_for_merged(char_id)?;
