@@ -57,7 +57,7 @@ impl Database {
     pub fn reset_log_data(&self) -> Result<()> {
         self.conn.execute_batch(
             "DELETE FROM kills;
-             DELETE FROM kill_events;
+             DELETE FROM kill_hourly;
              DELETE FROM lastys;
              DELETE FROM pets;
              DELETE FROM log_files;
@@ -86,7 +86,7 @@ impl Database {
     pub fn delete_all_data(&self) -> Result<()> {
         self.conn.execute_batch(
             "DELETE FROM kills;
-             DELETE FROM kill_events;
+             DELETE FROM kill_hourly;
              DELETE FROM lastys;
              DELETE FROM pets;
              DELETE FROM log_files;
