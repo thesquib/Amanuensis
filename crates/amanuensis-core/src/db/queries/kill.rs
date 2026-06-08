@@ -442,6 +442,34 @@ mod tests {
     }
 
     #[test]
+    fn kill_events_table_exists_and_reset_clears_it() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Tester").unwrap();
+
+        db.conn()
+            .execute(
+                "INSERT INTO kill_events (character_id, creature_name, verb, assisted, timestamp)
+                 VALUES (?1, 'Rat', 'killed', 0, '2024-01-01 10:00:00')",
+                rusqlite::params![char_id],
+            )
+            .unwrap();
+
+        let count: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM kill_events", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+
+        db.reset_log_data().unwrap();
+
+        let after: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM kill_events", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(after, 0, "reset_log_data must clear kill_events");
+    }
+
+    #[test]
     fn test_get_encountered_creatures() {
         let db = Database::open_in_memory().unwrap();
         let char_id = db.get_or_create_character("Tester").unwrap();

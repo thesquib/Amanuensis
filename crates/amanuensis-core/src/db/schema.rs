@@ -77,6 +77,18 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             UNIQUE(character_id, creature_name)
         );
 
+        CREATE TABLE IF NOT EXISTS kill_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER NOT NULL,
+            creature_name TEXT NOT NULL,
+            verb TEXT NOT NULL,
+            assisted INTEGER NOT NULL DEFAULT 0,
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY (character_id) REFERENCES characters(id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_kill_events_char_creature_ts
+            ON kill_events(character_id, creature_name, timestamp);
+
         CREATE TABLE IF NOT EXISTS trainers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             character_id INTEGER NOT NULL,
