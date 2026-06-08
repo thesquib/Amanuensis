@@ -221,6 +221,20 @@ enum Commands {
         /// Profession: fighter, healer, mystic, ranger, bloodmage, champion — or "auto" to clear
         profession: String,
     },
+    /// Reset derived data and re-scan the given folder(s) from scratch (safe; no double-counting).
+    /// Pass ALL of your log folders — rescan wipes derived data first, so any folder you omit
+    /// will not be represented afterward. Manual rank overrides are preserved.
+    Rescan {
+        /// One or more log folders to re-scan
+        #[arg(required = true)]
+        folders: Vec<PathBuf>,
+        /// Recurse into subdirectories of each folder
+        #[arg(long)]
+        recursive: bool,
+        /// Skip building the full-text search index
+        #[arg(long)]
+        no_index: bool,
+    },
     /// Print the path to the GUI's default database file
     GuiDbPath,
     /// Scan log files and extract item usage command help blocks (no DB needed)
@@ -342,6 +356,9 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Scan { folder, force, recursive, no_index } => {
             cmd_scan(&db_path, &folder, force, recursive, no_index)
         }
+        Commands::Rescan { folders, recursive, no_index } => {
+            cmd_rescan(&db_path, &folders, recursive, no_index)
+        }
         Commands::ScanFiles { files, force, no_index } => {
             cmd_scan_files(&db_path, &files, force, no_index)
         }
@@ -443,6 +460,28 @@ fn cmd_scan(db_path: &str, folder: &Path, force: bool, recursive: bool, no_index
     parser.finalize_characters()?;
     print_scan_result(&result);
 
+    Ok(())
+}
+
+fn cmd_rescan(db_path: &str, folders: &[PathBuf], recursive: bool, no_index: bool) -> amanuensis_core::Result<()> {
+    println!("Resetting derived data and re-scanning {} folder(s)...", folders.len());
+    for f in folders {
+        println!("  - {}", f.display());
+    }
+    let db = Database::open(db_path)?;
+    let parser = LogParser::new(db)?;
+    let index_lines = !no_index;
+
+    let sources: Vec<(PathBuf, bool)> = folders.iter().map(|f| (f.clone(), recursive)).collect();
+
+    let progress = |current: usize, total: usize, filename: &str| {
+        eprint!("\r[{}/{}] {}", current + 1, total, filename);
+        let _ = io::stderr().flush();
+    };
+
+    let result = parser.rescan_sources(&sources, index_lines, progress)?;
+    eprintln!();
+    print_scan_result(&result);
     Ok(())
 }
 
