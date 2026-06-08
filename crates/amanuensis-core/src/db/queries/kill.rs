@@ -131,6 +131,24 @@ impl Database {
         Ok(())
     }
 
+    /// Append one immutable kill event for windowed-frequency analysis.
+    /// `verb` is the lowercase KillVerb Display string ("killed"/"slaughtered"/...).
+    pub fn insert_kill_event(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+        verb: &str,
+        assisted: bool,
+        timestamp: &str,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO kill_events (character_id, creature_name, verb, assisted, timestamp)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![char_id, creature_name, verb, assisted as i64, timestamp],
+        )?;
+        Ok(())
+    }
+
     /// Get kills for a character, ordered by total count descending.
     pub fn get_kills(&self, char_id: i64) -> Result<Vec<Kill>> {
         let mut stmt = self.conn.prepare(
@@ -467,6 +485,37 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM kill_events", [], |r| r.get(0))
             .unwrap();
         assert_eq!(after, 0, "reset_log_data must clear kill_events");
+    }
+
+    #[test]
+    fn insert_kill_event_persists_row() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Tester").unwrap();
+
+        db.insert_kill_event(char_id, "Rat", "slaughtered", false, "2024-01-01 10:00:00")
+            .unwrap();
+        db.insert_kill_event(char_id, "Rat", "killed", true, "2024-01-01 10:05:00")
+            .unwrap();
+
+        let total: i64 = db
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM kill_events WHERE character_id = ?1 AND creature_name = 'Rat'",
+                rusqlite::params![char_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(total, 2);
+
+        let assisted: i64 = db
+            .conn()
+            .query_row(
+                "SELECT assisted FROM kill_events WHERE verb = 'killed'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(assisted, 1);
     }
 
     #[test]
