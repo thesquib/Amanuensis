@@ -1338,11 +1338,30 @@ impl LogParser {
             // B: If a manual override is set, apply it (takes priority over auto-detection)
             if let Some(override_prof) = &c.profession_override {
                 self.db.update_character_profession(char_id, override_prof)?;
-            } else if c.profession == Profession::Unknown {
-                // Only use trainer-based detection if no direct profession was set
-                let profession = self.determine_profession(char_id)?;
-                if profession != Profession::Unknown {
-                    self.db.update_character_profession(char_id, profession.as_str())?;
+            } else {
+                // Reconcile the profession announced in the logs (if any) with the
+                // trainer-rank evidence. A base-class circle-test announcement
+                // (Fighter/Healer/Mystic) is weak — specialists pass those circles
+                // too — so a trainer-detected specialization must win over it.
+                let detected = self.determine_profession(char_id)?;
+                let scanned = c.profession.clone();
+                let final_prof = if scanned.is_specialization() {
+                    // An explicit specialization announcement ("...become a Bloodmage")
+                    // is authoritative; keep it.
+                    scanned.clone()
+                } else if detected.is_specialization() {
+                    // Trainer ranks reveal a specialization a base circle test masked.
+                    detected
+                } else if scanned != Profession::Unknown {
+                    // Confirmed base class with no specialization evidence; keep it.
+                    scanned.clone()
+                } else {
+                    // No announcement — fall back to trainer-based detection.
+                    detected
+                };
+                if final_prof != Profession::Unknown && final_prof != scanned {
+                    self.db
+                        .update_character_profession(char_id, final_prof.as_str())?;
                 }
             }
             let coin_level = self.compute_coin_level(char_id)?;
@@ -2665,6 +2684,52 @@ mod tests {
 
         let char = parser.db().get_character("Testchar").unwrap().unwrap();
         assert_eq!(char.profession, crate::models::Profession::Bloodmage);
+    }
+
+    #[test]
+    fn test_specialization_trainer_ranks_beat_base_circle_test() {
+        // Regression: a character who passed a base-class *fighter* circle test
+        // (Rangers/Champions/Bloodmages all do, climbing fighter circles) but whose
+        // trainer ranks clearly show a specialization must finalize to the
+        // specialization, not the base class. Previously the circle-test announcement
+        // pinned the profession to Fighter and blocked trainer-based detection.
+        let (tmp, char_dir) = create_test_log_dir();
+
+        let log_content = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p Honor thinks, \"Congratulations go out to TestChar, who has just passed the eighth circle fighter test.\"
+";
+        fs::write(
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        // Strong specialization signal: Gossamer maps to Ranger.
+        let char_id = parser
+            .db()
+            .get_character("Testchar")
+            .unwrap()
+            .unwrap()
+            .id
+            .unwrap();
+        parser
+            .db()
+            .upsert_trainer_rank(char_id, "Gossamer", "2024-01-02 10:00:00", 1.0)
+            .unwrap();
+
+        parser.finalize_characters().unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        assert_eq!(
+            char.profession,
+            crate::models::Profession::Ranger,
+            "a base-class fighter circle test must not mask a trainer-detected Ranger specialization"
+        );
     }
 
     #[test]
