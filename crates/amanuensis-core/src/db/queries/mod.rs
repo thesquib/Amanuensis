@@ -6,6 +6,7 @@ use crate::models::*;
 
 mod character;
 mod checkpoint;
+mod frequency;
 mod kill;
 pub mod trainer;
 mod lasty;
@@ -14,6 +15,7 @@ mod log_file;
 mod merge;
 mod process_log;
 
+pub use frequency::CreatureFrequency;
 pub use kill::{KillsFilter, filter_kills};
 
 // ---------------------------------------------------------------------------

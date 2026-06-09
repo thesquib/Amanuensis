@@ -12,6 +12,7 @@ import type {
   LogSearchResult,
   ProcessLog,
   BestiaryPayload,
+  CreatureFrequency,
 } from "../types";
 
 export async function openDatabase(path: string): Promise<void> {
@@ -225,4 +226,11 @@ export async function getBestiary(): Promise<BestiaryPayload> {
 
 export async function getEncounteredCreatures(charId: number): Promise<string[]> {
   return invoke("get_encountered_creatures", { charId });
+}
+
+export async function getKillFrequency(
+  charId: number,
+  includeAssisted: boolean,
+): Promise<CreatureFrequency[]> {
+  return invoke("get_kill_frequency", { charId, includeAssisted });
 }

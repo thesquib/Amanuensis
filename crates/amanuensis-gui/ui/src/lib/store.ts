@@ -11,6 +11,7 @@ import type {
   ViewType,
   ProcessLog,
   BestiaryEntry,
+  CreatureFrequency,
 } from "../types";
 
 export type Theme = "dark" | "light" | "midnight" | "dark-v2" | "light-v2" | "midnight-v2";
@@ -154,6 +155,11 @@ interface AppStore {
   bestiary: BestiaryEntry[];
   bestiaryByName: Record<string, BestiaryEntry>;
   setBestiary: (payload: { version: string; entries: BestiaryEntry[] }) => void;
+
+  // Kill frequency cache (per active character)
+  killFrequency: Record<string, CreatureFrequency>;
+  killFrequencyCharId: number | null;
+  setKillFrequency: (charId: number, rows: CreatureFrequency[]) => void;
 }
 
 function loadCollapsedGroups(key: string): string[] | null {
@@ -310,5 +316,13 @@ export const useStore = create<AppStore>((set) => ({
       bestiaryVersion: version,
       bestiary: entries,
       bestiaryByName: Object.fromEntries(entries.map((e) => [e.name, e])),
+    }),
+
+  killFrequency: {},
+  killFrequencyCharId: null,
+  setKillFrequency: (charId, rows) =>
+    set({
+      killFrequencyCharId: charId,
+      killFrequency: Object.fromEntries(rows.map((r) => [r.creature_name, r])),
     }),
 }));

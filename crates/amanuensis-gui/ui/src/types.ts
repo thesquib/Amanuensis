@@ -236,3 +236,14 @@ export interface BestiaryPayload {
   version: string;
   entries: BestiaryEntry[];
 }
+
+/** Mirrors Rust `CreatureFrequency` struct */
+export interface CreatureFrequency {
+  creature_name: string;
+  best_day_count: number;
+  best_day_date: string | null;
+  best_day_verbs: Record<string, number>;
+  best_2h_count: number;
+  best_2h_start: string | null;
+  best_2h_verbs: Record<string, number>;
+}

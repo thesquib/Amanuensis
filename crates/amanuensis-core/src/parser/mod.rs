@@ -451,6 +451,8 @@ impl LogParser {
                     let value = self.creature_db.get_value(&creature).unwrap_or(0);
                     self.db
                         .upsert_kill(char_id, &creature, field, value, &date_str)?;
+                    self.db
+                        .upsert_kill_hourly(char_id, &creature, field, &hour_bucket(&date_str))?;
                     file_result.events_found += 1;
                 }
                 LogEvent::AssistedKill { creature, verb } => {
@@ -458,6 +460,8 @@ impl LogParser {
                     let value = self.creature_db.get_value(&creature).unwrap_or(0);
                     self.db
                         .upsert_kill(char_id, &creature, field, value, &date_str)?;
+                    self.db
+                        .upsert_kill_hourly(char_id, &creature, field, &hour_bucket(&date_str))?;
                     file_result.events_found += 1;
                 }
 
@@ -1435,6 +1439,16 @@ fn date_after(log_date: &str, cutoff: &str) -> bool {
     match (parse_date(log_date), parse_date(cutoff)) {
         (Some(log), Some(cut)) => log > cut,
         _ => log_date > cutoff,
+    }
+}
+
+/// Derive the "YYYY-MM-DD HH" hour bucket from a "YYYY-MM-DD HH:MM:SS" date string.
+/// Falls back to hour 00 if the string is date-only.
+fn hour_bucket(date_str: &str) -> String {
+    if date_str.len() >= 13 && date_str.as_bytes().get(10) == Some(&b' ') {
+        date_str[..13].to_string()
+    } else {
+        format!("{} 00", &date_str[..date_str.len().min(10)])
     }
 }
 
@@ -2839,5 +2853,55 @@ mod tests {
         // abandoned_date cleared after resume
         assert!(rat.abandoned_date.is_none());
         assert!(rat.completed_date.is_some());
+    }
+
+    #[test]
+    fn test_kill_hourly_recorded_during_scan() {
+        let tmp = tempfile::tempdir().unwrap();
+        let char_dir = tmp.path().join("Tester");
+        fs::create_dir(&char_dir).unwrap();
+
+        let log_content = "\
+1/1/24 10:00:00a Welcome to Clan Lord, Tester!
+1/1/24 10:00:01a You slaughtered a Rat.
+1/1/24 10:00:02a You helped kill a Rat.
+";
+        fs::write(
+            char_dir.join("CL Log 2024-01-01 10.00.00.txt"),
+            log_content,
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("Tester").unwrap().unwrap();
+        let char_id = char.id.unwrap();
+
+        // A solo slaughter and an assisted kill of a Rat in the same hour collapse to ONE bucket row.
+        let total: i64 = parser
+            .db()
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM kill_hourly WHERE character_id = ?1",
+                rusqlite::params![char_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(total, 1, "expected 1 kill_hourly bucket row");
+
+        // That single bucket has slaughtered_count=1 (solo) and assisted_kill_count=1 (assisted).
+        let (slaughtered, assisted_kill): (i64, i64) = parser
+            .db()
+            .conn()
+            .query_row(
+                "SELECT slaughtered_count, assisted_kill_count FROM kill_hourly WHERE character_id = ?1 AND creature_name = 'Rat'",
+                rusqlite::params![char_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(slaughtered, 1, "expected slaughtered_count=1");
+        assert_eq!(assisted_kill, 1, "expected assisted_kill_count=1");
     }
 }

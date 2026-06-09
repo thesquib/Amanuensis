@@ -1,5 +1,6 @@
 use tauri::State;
 
+use amanuensis_core::db::queries::CreatureFrequency;
 use amanuensis_core::models::{Kill, Lasty, Pet, ProcessLog, Trainer};
 use amanuensis_core::{LogSearchResult, TrainerDb};
 
@@ -103,6 +104,20 @@ pub fn get_encountered_creatures(
                 v.sort();
                 v
             })
+            .map_err(|e| e.to_string())
+    })
+}
+
+/// Per-creature max kill-frequency (24h day max + 2h sliding window), merged sources.
+/// `include_assisted=false` counts solo kills only.
+#[tauri::command]
+pub fn get_kill_frequency(
+    char_id: i64,
+    include_assisted: bool,
+    state: State<'_, AppState>,
+) -> Result<Vec<CreatureFrequency>, String> {
+    state.with_db(|db| {
+        db.kill_frequency_merged_with(char_id, include_assisted)
             .map_err(|e| e.to_string())
     })
 }

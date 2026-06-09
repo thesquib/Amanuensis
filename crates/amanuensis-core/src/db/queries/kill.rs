@@ -131,6 +131,36 @@ impl Database {
         Ok(())
     }
 
+    /// Increment the per-hour verb count for a (character, creature, hour) bucket.
+    /// `field` is one of the kill-verb count columns (same names as `kills`, minus killed_by).
+    /// `hour` is "YYYY-MM-DD HH".
+    pub fn upsert_kill_hourly(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+        field: &str,
+        hour: &str,
+    ) -> Result<()> {
+        let allowed = [
+            "killed_count", "slaughtered_count", "vanquished_count", "dispatched_count",
+            "assisted_kill_count", "assisted_slaughter_count", "assisted_vanquish_count",
+            "assisted_dispatch_count",
+        ];
+        if !allowed.contains(&field) {
+            return Err(crate::error::AmanuensisError::Data(format!(
+                "Unknown kill_hourly field: {}",
+                field
+            )));
+        }
+        let sql = format!(
+            "INSERT INTO kill_hourly (character_id, creature_name, hour, {field})
+             VALUES (?1, ?2, ?3, 1)
+             ON CONFLICT(character_id, creature_name, hour) DO UPDATE SET {field} = {field} + 1",
+        );
+        self.conn.execute(&sql, params![char_id, creature_name, hour])?;
+        Ok(())
+    }
+
     /// Get kills for a character, ordered by total count descending.
     pub fn get_kills(&self, char_id: i64) -> Result<Vec<Kill>> {
         let mut stmt = self.conn.prepare(
@@ -439,6 +469,68 @@ mod tests {
             },
         );
         assert_eq!(extinct.len(), 2);
+    }
+
+    #[test]
+    fn kill_hourly_table_exists_and_reset_clears_it() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Tester").unwrap();
+
+        db.conn()
+            .execute(
+                "INSERT INTO kill_hourly (character_id, creature_name, hour, killed_count)
+                 VALUES (?1, 'Rat', '2024-01-01 10', 1)",
+                rusqlite::params![char_id],
+            )
+            .unwrap();
+
+        let count: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM kill_hourly", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+
+        db.reset_log_data().unwrap();
+
+        let after: i64 = db
+            .conn()
+            .query_row("SELECT COUNT(*) FROM kill_hourly", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(after, 0, "reset_log_data must clear kill_hourly");
+    }
+
+    #[test]
+    fn upsert_kill_hourly_accumulates() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Tester").unwrap();
+
+        db.upsert_kill_hourly(char_id, "Rat", "slaughtered_count", "2024-01-01 10")
+            .unwrap();
+        db.upsert_kill_hourly(char_id, "Rat", "slaughtered_count", "2024-01-01 10")
+            .unwrap();
+        db.upsert_kill_hourly(char_id, "Rat", "killed_count", "2024-01-01 10")
+            .unwrap();
+
+        let total: i64 = db
+            .conn()
+            .query_row(
+                "SELECT COUNT(*) FROM kill_hourly WHERE character_id = ?1 AND creature_name = 'Rat'",
+                rusqlite::params![char_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(total, 1, "expected a single accumulated bucket row");
+
+        let (slaughtered, killed): (i64, i64) = db
+            .conn()
+            .query_row(
+                "SELECT slaughtered_count, killed_count FROM kill_hourly WHERE creature_name = 'Rat'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(slaughtered, 2);
+        assert_eq!(killed, 1);
     }
 
     #[test]

@@ -49,6 +49,7 @@ fn main() {
             commands::set_trainer_note,
             commands::get_bestiary,
             commands::get_encountered_creatures,
+            commands::get_kill_frequency,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

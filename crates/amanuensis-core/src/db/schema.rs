@@ -77,6 +77,24 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             UNIQUE(character_id, creature_name)
         );
 
+        DROP TABLE IF EXISTS kill_events;
+        CREATE TABLE IF NOT EXISTS kill_hourly (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER NOT NULL,
+            creature_name TEXT NOT NULL,
+            hour TEXT NOT NULL,
+            killed_count INTEGER NOT NULL DEFAULT 0,
+            slaughtered_count INTEGER NOT NULL DEFAULT 0,
+            vanquished_count INTEGER NOT NULL DEFAULT 0,
+            dispatched_count INTEGER NOT NULL DEFAULT 0,
+            assisted_kill_count INTEGER NOT NULL DEFAULT 0,
+            assisted_slaughter_count INTEGER NOT NULL DEFAULT 0,
+            assisted_vanquish_count INTEGER NOT NULL DEFAULT 0,
+            assisted_dispatch_count INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (character_id) REFERENCES characters(id),
+            UNIQUE(character_id, creature_name, hour)
+        );
+
         CREATE TABLE IF NOT EXISTS trainers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             character_id INTEGER NOT NULL,
