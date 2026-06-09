@@ -36,6 +36,16 @@ impl Profession {
             _ => Profession::Unknown,
         }
     }
+
+    /// A specialization (sub-profession) layered on top of a base class.
+    /// Specialists also climb base-class circles, so a base-class circle-test
+    /// announcement is weak evidence next to a detected specialization.
+    pub fn is_specialization(&self) -> bool {
+        matches!(
+            self,
+            Profession::Ranger | Profession::Bloodmage | Profession::Champion
+        )
+    }
 }
 
 impl std::fmt::Display for Profession {
