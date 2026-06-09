@@ -6,7 +6,7 @@ import { StatCard } from "../shared/StatCard";
 import { CreatureImage } from "../shared/CreatureImage";
 import { KillDetailModal } from "../shared/KillDetailModal";
 import { KillsFilterBar, type KillsFilterState } from "../shared/KillsFilterBar";
-import { formatDate } from "../../lib/dateUtils";
+import { formatDate, formatTwoHourWindow } from "../../lib/dateUtils";
 import { computeKillStats } from "../../lib/killStats";
 import { getKillFrequency } from "../../lib/commands";
 import type { Kill } from "../../types";
@@ -153,7 +153,7 @@ export function KillsView() {
             const count = freq?.best_day_count ?? 0;
             if (count === 0) return <span>-</span>;
             const tooltip = freq?.best_day_date
-              ? `Best day: ${formatDate(freq.best_day_date)}`
+              ? `${count.toLocaleString()} on ${freq.best_day_date} — the most in any single day`
               : undefined;
             return <span title={tooltip}>{count.toLocaleString()}</span>;
           },
@@ -169,7 +169,7 @@ export function KillsView() {
             const count = freq?.best_2h_count ?? 0;
             if (count === 0) return <span>-</span>;
             const tooltip = freq?.best_2h_start
-              ? `Window start: ${formatDate(freq.best_2h_start)}`
+              ? `${count.toLocaleString()} on ${formatTwoHourWindow(freq.best_2h_start)} — the most in any 2-hour window`
               : undefined;
             return <span title={tooltip}>{count.toLocaleString()}</span>;
           },
