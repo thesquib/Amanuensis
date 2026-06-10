@@ -1,6 +1,7 @@
 use tauri::State;
 
 use amanuensis_core::db::queries::CreatureFrequency;
+use amanuensis_core::export::ExportFormat;
 use amanuensis_core::models::{Kill, Lasty, Pet, ProcessLog, Trainer};
 use amanuensis_core::{LogSearchResult, TrainerDb};
 
@@ -120,6 +121,26 @@ pub fn get_kill_frequency(
         db.kill_frequency_merged_with(char_id, include_assisted)
             .map_err(|e| e.to_string())
     })
+}
+
+/// Export the unified Kills table for a character to a file at `path`.
+/// `format` is "csv" or "text".
+#[tauri::command]
+pub fn export_kills(
+    char_id: i64,
+    format: String,
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let fmt = match format.as_str() {
+        "csv" => ExportFormat::Csv,
+        "text" => ExportFormat::Text,
+        other => return Err(format!("Unknown export format: {other}")),
+    };
+    let contents = state.with_db(|db| {
+        db.export_kills_merged(char_id, fmt).map_err(|e| e.to_string())
+    })?;
+    std::fs::write(&path, contents).map_err(|e| e.to_string())
 }
 
 /// Set or clear a free-text note on a trainer row.
