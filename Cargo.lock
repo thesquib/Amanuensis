@@ -61,6 +61,7 @@ name = "amanuensis-core"
 version = "0.6.0"
 dependencies = [
  "chrono",
+ "comfy-table",
  "encoding_rs",
  "log",
  "once_cell",
