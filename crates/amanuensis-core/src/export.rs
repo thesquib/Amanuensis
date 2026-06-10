@@ -1,7 +1,10 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
 
 use crate::db::queries::CreatureFrequency;
+use crate::error::Result;
 use crate::models::Kill;
+use crate::Database;
 
 /// Output format for the unified kills export.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,6 +114,18 @@ fn format_text(_kills: &[Kill], _freq: &HashMap<&str, &CreatureFrequency>) -> St
     String::new()
 }
 
+impl Database {
+    /// Render the unified Kills table for a (possibly merged) character to a string.
+    /// Fetches merged kills + frequency, sorts by total kills descending (the Kills
+    /// view's default order), joins frequency by creature name, and formats.
+    pub fn export_kills_merged(&self, char_id: i64, format: ExportFormat) -> Result<String> {
+        let mut kills = self.get_kills_merged(char_id)?;
+        kills.sort_by_key(|k| Reverse(k.total_all()));
+        let freq = self.kill_frequency_merged_with(char_id, true)?;
+        Ok(format_kills_export(&kills, &freq, format))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,5 +181,32 @@ mod tests {
             r#""Large Vermine",0,7,0,3,1,70,2024-01-01,2024-01-05,4,2024-01-03,3,"2024-01-03 08:00–10:00""#
         );
         assert_eq!(lines[2], "Rat,0,8,0,0,0,2,2024-02-01,2024-02-02,,,,");
+    }
+
+    #[test]
+    fn export_kills_merged_sorts_by_total_and_joins_frequency() {
+        use crate::db::queries::Database;
+
+        let db = Database::open_in_memory().unwrap();
+        let c = db.get_or_create_character("Tester").unwrap();
+        // Rat: 8 kills. Wolf: 12 kills -> Wolf should sort first (total desc).
+        // upsert_kill creates the row with count 1; bump to the target via UPDATE.
+        db.upsert_kill(c, "Rat", "killed_count", 2, "2024-02-01 09:00:00").unwrap();
+        db.conn().execute(
+            "UPDATE kills SET killed_count = 8 WHERE creature_name = 'Rat'",
+            [],
+        ).unwrap();
+        db.upsert_kill(c, "Wolf", "killed_count", 50, "2024-01-01 09:00:00").unwrap();
+        db.conn().execute(
+            "UPDATE kills SET killed_count = 12 WHERE creature_name = 'Wolf'",
+            [],
+        ).unwrap();
+
+        let csv = db.export_kills_merged(c, ExportFormat::Csv).unwrap();
+        let lines: Vec<&str> = csv.lines().collect();
+        assert!(lines[0].starts_with("Creature,"));
+        // Wolf (12) before Rat (8).
+        assert!(lines[1].starts_with("Wolf,"));
+        assert!(lines[2].starts_with("Rat,"));
     }
 }
