@@ -12,6 +12,7 @@
   --color-danger: #fca5a5;
   --color-danger-bg: rgba(127, 29, 29, 0.3);
   --color-danger-bg-hover: rgba(127, 29, 29, 0.5);
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
 }
 
 [data-theme="light"] {
@@ -26,6 +27,7 @@
   --color-danger: #b91c1c;
   --color-danger-bg: rgba(254, 202, 202, 0.5);
   --color-danger-bg-hover: rgba(254, 202, 202, 0.8);
+  --color-bg-hover: rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="midnight"] {
@@ -40,6 +42,7 @@
   --color-danger: #fca5a5;
   --color-danger-bg: rgba(127, 29, 29, 0.3);
   --color-danger-bg-hover: rgba(127, 29, 29, 0.5);
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
 }
 
 /* v2 themes: same base palette, pastel profession badges */
@@ -55,6 +58,7 @@
   --color-danger: #fca5a5;
   --color-danger-bg: rgba(127, 29, 29, 0.3);
   --color-danger-bg-hover: rgba(127, 29, 29, 0.5);
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
 }
 
 [data-theme="light-v2"] {
@@ -69,6 +73,7 @@
   --color-danger: #b91c1c;
   --color-danger-bg: rgba(254, 202, 202, 0.5);
   --color-danger-bg-hover: rgba(254, 202, 202, 0.8);
+  --color-bg-hover: rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="midnight-v2"] {
@@ -83,6 +88,7 @@
   --color-danger: #fca5a5;
   --color-danger-bg: rgba(127, 29, 29, 0.3);
   --color-danger-bg-hover: rgba(127, 29, 29, 0.5);
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
 }
 
 body {

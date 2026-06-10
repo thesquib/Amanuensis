@@ -97,6 +97,9 @@ enum Commands {
         /// Only show creatures flagged is_seasonal
         #[arg(long)]
         seasonal: bool,
+        /// Output format: table, csv
+        #[arg(long, default_value = "table")]
+        format: String,
     },
     /// Show trainer rank progression
     Trainers {
@@ -367,8 +370,8 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Frequency { name, bin, solo, by_verb, format, limit } => {
             cmd_frequency(&db_path, &name, &bin, solo, by_verb, &format, limit)
         }
-        Commands::Kills { name, sort, limit, family, rarity, seasonal } => {
-            cmd_kills(&db_path, &name, &sort, limit, family, rarity, seasonal)
+        Commands::Kills { name, sort, limit, family, rarity, seasonal, format } => {
+            cmd_kills(&db_path, &name, &sort, limit, family, rarity, seasonal, &format)
         }
         Commands::Trainers { name } => cmd_trainers(&db_path, &name),
         Commands::Pets { name } => cmd_pets(&db_path, &name),
@@ -700,6 +703,7 @@ fn cmd_kills(
     family: Option<String>,
     rarity: Option<String>,
     seasonal: bool,
+    format: &str,
 ) -> amanuensis_core::Result<()> {
     use amanuensis_core::data::CreatureDb;
     use amanuensis_core::db::queries::{filter_kills, KillsFilter};
@@ -738,6 +742,13 @@ fn cmd_kills(
 
     if kills.is_empty() {
         println!("No kills found for {}.", name);
+        return Ok(());
+    }
+
+    if format == "csv" {
+        use amanuensis_core::export::{format_kills_export, ExportFormat};
+        let freq = db.kill_frequency_merged_with(char_id, true)?;
+        print!("{}", format_kills_export(&kills, &freq, ExportFormat::Csv));
         return Ok(());
     }
 

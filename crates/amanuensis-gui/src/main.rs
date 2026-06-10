@@ -17,6 +17,7 @@ fn main() {
             commands::get_character,
             commands::get_character_merged,
             commands::get_kills,
+            commands::export_kills,
             commands::get_trainers,
             commands::set_modified_ranks,
             commands::set_rank_override,
