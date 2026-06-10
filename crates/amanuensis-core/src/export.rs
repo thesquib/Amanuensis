@@ -110,8 +110,24 @@ pub fn format_kills_export(
     }
 }
 
-fn format_text(_kills: &[Kill], _freq: &HashMap<&str, &CreatureFrequency>) -> String {
-    String::new()
+fn format_text(kills: &[Kill], freq_by_name: &HashMap<&str, &CreatureFrequency>) -> String {
+    use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+    use comfy_table::presets::UTF8_FULL;
+    use comfy_table::{ContentArrangement, Table};
+
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_header(HEADERS.to_vec());
+
+    for k in kills {
+        let cells = row_cells(k, freq_by_name.get(k.creature_name.as_str()).copied());
+        table.add_row(cells);
+    }
+
+    table.to_string()
 }
 
 impl Database {
@@ -162,6 +178,25 @@ mod tests {
             best_2h_start: Some("2024-01-03 08:00".into()),
             best_2h_verbs: BTreeMap::new(),
         }
+    }
+
+    #[test]
+    fn text_render_has_headers_and_combined_values() {
+        let kills = vec![lg_vermine(), rat()];
+        let freq = vec![lg_vermine_freq()];
+
+        let out = format_kills_export(&kills, &freq, ExportFormat::Text);
+
+        // comfy_table draws a boxed table; assert key content is present.
+        assert!(out.contains("Creature"));
+        assert!(out.contains("Best 2h Window"));
+        assert!(out.contains("Large Vermine"));
+        // Combined killed total for Large Vermine is 7 (5 solo + 2 assisted).
+        assert!(out.contains("7"));
+        // The 2h window string is rendered.
+        assert!(out.contains("2024-01-03 08:00\u{2013}10:00"));
+        // Rat present with no frequency cells.
+        assert!(out.contains("Rat"));
     }
 
     #[test]
