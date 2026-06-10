@@ -234,3 +234,11 @@ export async function getKillFrequency(
 ): Promise<CreatureFrequency[]> {
   return invoke("get_kill_frequency", { charId, includeAssisted });
 }
+
+export async function exportKills(
+  charId: number,
+  format: "csv" | "text",
+  path: string,
+): Promise<void> {
+  return invoke("export_kills", { charId, format, path });
+}

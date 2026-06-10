@@ -8,7 +8,8 @@ import { KillDetailModal } from "../shared/KillDetailModal";
 import { KillsFilterBar, type KillsFilterState } from "../shared/KillsFilterBar";
 import { formatDate, formatTwoHourWindow } from "../../lib/dateUtils";
 import { computeKillStats } from "../../lib/killStats";
-import { getKillFrequency } from "../../lib/commands";
+import { getKillFrequency, exportKills } from "../../lib/commands";
+import { save, message } from "@tauri-apps/plugin-dialog";
 import type { Kill } from "../../types";
 
 const columnHelper = createColumnHelper<Kill>();
@@ -24,6 +25,7 @@ export function KillsView() {
   });
   const byName = useStore((s) => s.bestiaryByName);
   const selectedCharacterId = useStore((s) => s.selectedCharacterId);
+  const characters = useStore((s) => s.characters);
   const killFrequency = useStore((s) => s.killFrequency);
   const killFrequencyCharId = useStore((s) => s.killFrequencyCharId);
   const setKillFrequency = useStore((s) => s.setKillFrequency);
@@ -190,6 +192,31 @@ export function KillsView() {
     [setViewFilter],
   );
 
+  const handleExport = useCallback(
+    async (format: "csv" | "text") => {
+      if (selectedCharacterId == null) return;
+      const charName =
+        characters.find((c) => c.id === selectedCharacterId)?.name ?? "character";
+      const ext = format === "csv" ? "csv" : "txt";
+      const path = await save({
+        title: "Export Kills",
+        defaultPath: `${charName}-kills.${ext}`,
+        filters:
+          format === "csv"
+            ? [{ name: "CSV", extensions: ["csv"] }]
+            : [{ name: "Text", extensions: ["txt"] }],
+      });
+      if (!path) return; // user cancelled
+      try {
+        await exportKills(selectedCharacterId, format, path);
+        await message(`Exported kills to ${path}.`, { title: "Export Complete" });
+      } catch (e) {
+        await message(String(e), { title: "Export Failed", kind: "error" });
+      }
+    },
+    [selectedCharacterId, characters],
+  );
+
   const stats = useMemo(() => computeKillStats(kills), [kills]);
 
   const visibleKills = useMemo(() => {
@@ -213,6 +240,37 @@ export function KillsView() {
 
   return (
     <div className="flex h-full flex-col">
+      {selectedCharacterId != null && (
+        <div className="mb-2 flex justify-end">
+          <details className="relative">
+            <summary className="cursor-pointer select-none rounded border border-[var(--color-border)] px-3 py-1 text-sm">
+              Export ▾
+            </summary>
+            <div className="absolute right-0 z-10 mt-1 w-44 rounded border border-[var(--color-border)] bg-[var(--color-bg)] shadow">
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-bg-hover)]"
+                onClick={(e) => {
+                  (e.currentTarget.closest("details") as HTMLDetailsElement)?.removeAttribute("open");
+                  handleExport("csv");
+                }}
+              >
+                CSV file (.csv)
+              </button>
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-bg-hover)]"
+                onClick={(e) => {
+                  (e.currentTarget.closest("details") as HTMLDetailsElement)?.removeAttribute("open");
+                  handleExport("text");
+                }}
+              >
+                Plain text (.txt)
+              </button>
+            </div>
+          </details>
+        </div>
+      )}
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
           label="Solo Kills"
