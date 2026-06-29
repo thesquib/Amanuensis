@@ -85,13 +85,26 @@ impl Database {
             .map(|c| format!(", {c} = NULLIF(MAX(COALESCE(kills.{c}, ''), COALESCE(excluded.{c}, '')), '')"))
             .unwrap_or_default();
 
-        // Track first-kill date only for the kill verb (not slaughter/vanquish/dispatch/death)
-        let is_kill_verb = field == "killed_count" || field == "assisted_kill_count";
-        let date_first_killed_insert = if is_kill_verb { ", date_first_killed" } else { "" };
-        let date_first_killed_value = if is_kill_verb { ", NULLIF(?4, '')" } else { "" };
-        let date_first_killed_update = if is_kill_verb {
-            ", date_first_killed = COALESCE(NULLIF(kills.date_first_killed, ''), NULLIF(excluded.date_first_killed, ''))"
-        } else { "" };
+        // Track the first-ever date for this verb (earliest), in its own per-verb column.
+        // Uses MIN over the two non-empty candidates so out-of-order scans (or appended
+        // tail scans) still settle on the truly-earliest date for each verb.
+        let date_first_col = match field {
+            "killed_count" | "assisted_kill_count" => Some("date_first_killed"),
+            "slaughtered_count" | "assisted_slaughter_count" => Some("date_first_slaughtered"),
+            "vanquished_count" | "assisted_vanquish_count" => Some("date_first_vanquished"),
+            "dispatched_count" | "assisted_dispatch_count" => Some("date_first_dispatched"),
+            _ => None,
+        };
+        let date_first_col_insert = date_first_col.map(|c| format!(", {c}")).unwrap_or_default();
+        let date_first_col_value = if date_first_col.is_some() { ", NULLIF(?4, '')" } else { "" };
+        let date_first_col_update = date_first_col
+            .map(|c| format!(
+                ", {c} = NULLIF(MIN(\
+                    COALESCE(NULLIF(kills.{c}, ''), excluded.{c}), \
+                    COALESCE(NULLIF(excluded.{c}, ''), kills.{c})\
+                  ), '')"
+            ))
+            .unwrap_or_default();
 
         let is_death = field == "killed_by_count";
 
@@ -117,11 +130,11 @@ impl Database {
                    date_last = NULLIF(MAX(COALESCE(kills.date_last, ''), COALESCE(excluded.date_last, '')), '')";
 
             let sql = format!(
-                "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert}{date_first_killed_insert})
-                 VALUES (?1, ?2, 1, ?3, NULLIF(?4, ''), NULLIF(?4, ''){date_col_value}{date_first_killed_value})
+                "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert}{date_first_col_insert})
+                 VALUES (?1, ?2, 1, ?3, NULLIF(?4, ''), NULLIF(?4, ''){date_col_value}{date_first_col_value})
                  ON CONFLICT(character_id, creature_name) DO UPDATE SET
                     {field} = {field} + 1,
-                    creature_value = MAX(kills.creature_value, excluded.creature_value){date_update}{date_col_update}{date_first_killed_update}",
+                    creature_value = MAX(kills.creature_value, excluded.creature_value){date_update}{date_col_update}{date_first_col_update}",
             );
             self.conn.execute(
                 &sql,
@@ -168,7 +181,8 @@ impl Database {
                     killed_count, slaughtered_count, vanquished_count, dispatched_count,
                     assisted_kill_count, assisted_slaughter_count, assisted_vanquish_count, assisted_dispatch_count,
                     killed_by_count, date_first, date_last, creature_value,
-                    date_first_killed, date_last_killed, date_last_slaughtered, date_last_vanquished, date_last_dispatched,
+                    date_first_killed, date_first_slaughtered, date_first_vanquished, date_first_dispatched,
+                    date_last_killed, date_last_slaughtered, date_last_vanquished, date_last_dispatched,
                     COALESCE(best_loot_value, 0), COALESCE(best_loot_item, '')
              FROM kills WHERE character_id = ?1
              ORDER BY (killed_count + slaughtered_count + vanquished_count + dispatched_count +
@@ -193,12 +207,15 @@ impl Database {
                 date_last: row.get(13)?,
                 creature_value: row.get(14)?,
                 date_first_killed: row.get(15)?,
-                date_last_killed: row.get(16)?,
-                date_last_slaughtered: row.get(17)?,
-                date_last_vanquished: row.get(18)?,
-                date_last_dispatched: row.get(19)?,
-                best_loot_value: row.get(20)?,
-                best_loot_item: row.get(21)?,
+                date_first_slaughtered: row.get(16)?,
+                date_first_vanquished: row.get(17)?,
+                date_first_dispatched: row.get(18)?,
+                date_last_killed: row.get(19)?,
+                date_last_slaughtered: row.get(20)?,
+                date_last_vanquished: row.get(21)?,
+                date_last_dispatched: row.get(22)?,
+                best_loot_value: row.get(23)?,
+                best_loot_item: row.get(24)?,
             })
         })?;
 
@@ -531,6 +548,26 @@ mod tests {
             .unwrap();
         assert_eq!(slaughtered, 2);
         assert_eq!(killed, 1);
+    }
+
+    #[test]
+    fn upsert_kill_tracks_first_date_per_verb() {
+        let db = Database::open_in_memory().unwrap();
+        let char_id = db.get_or_create_character("Tester").unwrap();
+
+        // Slaughter on a later date first, then an earlier one — first-date must be the MIN.
+        db.upsert_kill(char_id, "Rat", "slaughtered_count", 2, "2024-03-01 10:00:00").unwrap();
+        db.upsert_kill(char_id, "Rat", "slaughtered_count", 2, "2024-01-01 09:00:00").unwrap();
+        db.upsert_kill(char_id, "Rat", "vanquished_count", 2, "2024-05-05 12:00:00").unwrap();
+        db.upsert_kill(char_id, "Rat", "dispatched_count", 2, "2024-06-06 06:00:00").unwrap();
+        db.upsert_kill(char_id, "Rat", "killed_count", 2, "2024-02-02 02:00:00").unwrap();
+
+        let kills = db.get_kills(char_id).unwrap();
+        let rat = kills.iter().find(|k| k.creature_name == "Rat").unwrap();
+        assert_eq!(rat.date_first_killed.as_deref(), Some("2024-02-02 02:00:00"));
+        assert_eq!(rat.date_first_slaughtered.as_deref(), Some("2024-01-01 09:00:00"));
+        assert_eq!(rat.date_first_vanquished.as_deref(), Some("2024-05-05 12:00:00"));
+        assert_eq!(rat.date_first_dispatched.as_deref(), Some("2024-06-06 06:00:00"));
     }
 
     #[test]

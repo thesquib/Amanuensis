@@ -23,6 +23,17 @@ export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
     kill.assisted_vanquish_count +
     kill.assisted_dispatch_count;
 
+  // First-ever date per verb (solo + assisted of that verb). Only shown when both a
+  // count and a recorded date exist. Dates are "YYYY-MM-DD HH:MM:SS"; show the day.
+  const firsts: { label: string; date: string }[] = [
+    { label: "First killed", count: kill.killed_count + kill.assisted_kill_count, date: kill.date_first_killed },
+    { label: "First slaughtered", count: kill.slaughtered_count + kill.assisted_slaughter_count, date: kill.date_first_slaughtered },
+    { label: "First vanquished", count: kill.vanquished_count + kill.assisted_vanquish_count, date: kill.date_first_vanquished },
+    { label: "First dispatched", count: kill.dispatched_count + kill.assisted_dispatch_count, date: kill.date_first_dispatched },
+  ]
+    .filter((f) => f.count > 0 && f.date)
+    .map((f) => ({ label: f.label, date: f.date!.slice(0, 10) }));
+
   return (
     <div
       role="dialog"
@@ -77,6 +88,19 @@ export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
           <p className="text-sm text-[var(--color-text-muted)]">
             No bestiary record for &quot;{kill.creature_name}&quot;.
           </p>
+        )}
+
+        {firsts.length > 0 && (
+          <div className="mt-4 border-t border-[var(--color-border)] pt-3">
+            <p className="mb-1 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
+              Firsts
+            </p>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm md:grid-cols-2">
+              {firsts.map((f) => (
+                <Field key={f.label} label={f.label} value={f.date} />
+              ))}
+            </div>
+          </div>
         )}
 
         <footer className="mt-4 flex items-center justify-between">

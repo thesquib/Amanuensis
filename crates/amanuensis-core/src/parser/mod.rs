@@ -200,44 +200,52 @@ impl LogParser {
             for log_path in &log_files {
                 let path_str = log_path.to_string_lossy().to_string();
 
-                // Skip by path (fast check for exact same file)
-                if !force && self.db.is_log_scanned(&path_str)? {
-                    result.skipped += 1;
-                    char_files_skipped += 1;
-                    continue;
-                }
+                let (bytes, offset, full_hash, count_login) =
+                    match self.plan_file_scan(log_path, &path_str, force)? {
+                        ScanPlan::Skip => {
+                            result.skipped += 1;
+                            char_files_skipped += 1;
+                            continue;
+                        }
+                        ScanPlan::SkipDuplicate => {
+                            let fname = Path::new(&path_str).file_name()
+                                .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                            log::debug!("Skipping duplicate content: {}", path_str);
+                            let _ = self.db.add_process_log(
+                                "info",
+                                &format!("Skipped duplicate file (same content already scanned): {fname}"),
+                            );
+                            result.skipped += 1;
+                            char_files_skipped += 1;
+                            continue;
+                        }
+                        ScanPlan::SkipChanged => {
+                            let fname = Path::new(&path_str).file_name()
+                                .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                            let _ = self.db.add_process_log(
+                                "warn",
+                                &format!("Log file changed unexpectedly (rotated/truncated); skipped — run Rescan Logs to reconcile: {fname}"),
+                            );
+                            result.skipped += 1;
+                            char_files_skipped += 1;
+                            continue;
+                        }
+                        ScanPlan::ReadError(e) => {
+                            log::warn!("Error reading {}: {}", path_str, e);
+                            let _ = self.db.add_process_log(
+                                "error",
+                                &format!("Could not read file: {} — {}", path_str, e),
+                            );
+                            result.errors += 1;
+                            char_files_skipped += 1;
+                            continue;
+                        }
+                        ScanPlan::Scan { bytes, offset, full_hash, count_login } => {
+                            (bytes, offset, full_hash, count_login)
+                        }
+                    };
 
-                // Read file bytes for hashing and parsing
-                let bytes = match std::fs::read(log_path) {
-                    Ok(b) => b,
-                    Err(e) => {
-                        log::warn!("Error reading {}: {}", path_str, e);
-                        let _ = self.db.add_process_log(
-                            "error",
-                            &format!("Could not read file: {} — {}", path_str, e),
-                        );
-                        result.errors += 1;
-                        char_files_skipped += 1;
-                        continue;
-                    }
-                };
-
-                // Content hash dedup: skip if identical file was already scanned at another path
-                let content_hash = hash_bytes(&bytes);
-                if !force && self.db.is_hash_scanned(&content_hash)? {
-                    log::debug!("Skipping duplicate content: {}", path_str);
-                    let fname = Path::new(&path_str).file_name()
-                        .and_then(|n| n.to_str()).unwrap_or(&path_str);
-                    let _ = self.db.add_process_log(
-                        "info",
-                        &format!("Skipped duplicate file (same content already scanned): {fname}"),
-                    );
-                    result.skipped += 1;
-                    char_files_skipped += 1;
-                    continue;
-                }
-
-                match self.scan_bytes(&bytes, char_id, &char_name, &path_str, true) {
+                match self.scan_bytes(&bytes[offset..], char_id, &char_name, &path_str, true, count_login) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -256,7 +264,7 @@ impl LogParser {
 
                         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
                         self.db
-                            .mark_log_scanned(char_id, &path_str, &content_hash, &now)?;
+                            .mark_log_scanned(char_id, &path_str, &full_hash, bytes.len() as i64, &now)?;
                     }
                     Err(e) => {
                         log::warn!("Error scanning {}: {}", path_str, e);
@@ -285,6 +293,77 @@ impl LogParser {
     }
 
     /// Scan log file bytes and process events into the database.
+    /// Decide how to (re)scan a single log file, implementing offset-resume so that a
+    /// daily Clan Lord log which GROWS as the player keeps playing is picked up on the
+    /// next incremental scan instead of being skipped wholesale.
+    ///
+    /// Fast path: a previously-scanned file whose on-disk size is unchanged is skipped
+    /// without reading it. Only files that grew (or are new) are read.
+    fn plan_file_scan(&self, log_path: &Path, path_str: &str, force: bool) -> Result<ScanPlan> {
+        let prior = if force {
+            None
+        } else {
+            self.db.get_log_scan_state(path_str)?
+        };
+
+        if let Some((prev_len, _)) = &prior {
+            if *prev_len > 0 {
+                // Known length: skip without reading when the file hasn't grown.
+                if let Ok(meta) = std::fs::metadata(log_path) {
+                    if meta.len() == *prev_len as u64 {
+                        return Ok(ScanPlan::Skip);
+                    }
+                }
+            } else {
+                // Legacy row recorded before offset-resume (byte_len unknown): preserve the
+                // old skip-by-path behavior. A full Rescan Logs repopulates byte_len.
+                return Ok(ScanPlan::Skip);
+            }
+        }
+
+        let bytes = match std::fs::read(log_path) {
+            Ok(b) => b,
+            Err(e) => return Ok(ScanPlan::ReadError(e)),
+        };
+
+        match prior {
+            None => {
+                // Never-seen path. Dedup against identical content scanned under another path.
+                let full_hash = hash_bytes(&bytes);
+                if !force && self.db.is_hash_scanned(&full_hash)? {
+                    return Ok(ScanPlan::SkipDuplicate);
+                }
+                Ok(ScanPlan::Scan {
+                    bytes,
+                    offset: 0,
+                    full_hash,
+                    count_login: true,
+                })
+            }
+            Some((prev_len, prev_hash)) => {
+                let prev_len = prev_len as usize;
+                let cur_len = bytes.len();
+                if cur_len == prev_len {
+                    // Unchanged (metadata fast-path was unavailable).
+                    Ok(ScanPlan::Skip)
+                } else if cur_len > prev_len && hash_bytes(&bytes[..prev_len]) == prev_hash {
+                    // True append: scan only the new tail; the login was already counted.
+                    let full_hash = hash_bytes(&bytes);
+                    Ok(ScanPlan::Scan {
+                        bytes,
+                        offset: prev_len,
+                        full_hash,
+                        count_login: false,
+                    })
+                } else {
+                    // Shrunk or prefix changed → rotated/replaced. Can't reconcile
+                    // incrementally without double-counting; skip and defer to a rescan.
+                    Ok(ScanPlan::SkipChanged)
+                }
+            }
+        }
+    }
+
     fn scan_bytes(
         &self,
         bytes: &[u8],
@@ -292,6 +371,7 @@ impl LogParser {
         char_name: &str,
         file_path: &str,
         index_lines: bool,
+        count_login: bool,
     ) -> Result<FileResult> {
         let content = decode_log_bytes(bytes);
 
@@ -785,7 +865,10 @@ impl LogParser {
         }
 
         // Every scanned file counts as exactly 1 login (matching Scribius behavior).
-        self.db.increment_character_field(char_id, "logins", 1)?;
+        // A continuation/tail scan of an already-counted file must NOT re-count the login.
+        if count_login {
+            self.db.increment_character_field(char_id, "logins", 1)?;
+        }
         // If no Login/Reconnect had a timestamp, use the file's first timestamp for start_date
         if !found_login {
             if let Some(ref first_ts) = first_date_str {
@@ -1081,27 +1164,23 @@ impl LogParser {
 
                 let path_str = log_path.to_string_lossy().to_string();
 
-                if !force && self.db.is_log_scanned(&path_str)? {
-                    result.skipped += 1;
-                    continue;
-                }
+                let (bytes, offset, full_hash, count_login) =
+                    match self.plan_file_scan(log_path, &path_str, force)? {
+                        ScanPlan::Skip | ScanPlan::SkipDuplicate | ScanPlan::SkipChanged => {
+                            result.skipped += 1;
+                            continue;
+                        }
+                        ScanPlan::ReadError(e) => {
+                            log::warn!("Error reading {}: {}", path_str, e);
+                            result.errors += 1;
+                            continue;
+                        }
+                        ScanPlan::Scan { bytes, offset, full_hash, count_login } => {
+                            (bytes, offset, full_hash, count_login)
+                        }
+                    };
 
-                let bytes = match std::fs::read(log_path) {
-                    Ok(b) => b,
-                    Err(e) => {
-                        log::warn!("Error reading {}: {}", path_str, e);
-                        result.errors += 1;
-                        continue;
-                    }
-                };
-
-                let content_hash = hash_bytes(&bytes);
-                if !force && self.db.is_hash_scanned(&content_hash)? {
-                    result.skipped += 1;
-                    continue;
-                }
-
-                match self.scan_bytes(&bytes, char_id, char_name, &path_str, index_lines) {
+                match self.scan_bytes(&bytes[offset..], char_id, char_name, &path_str, index_lines, count_login) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -1109,7 +1188,7 @@ impl LogParser {
 
                         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
                         self.db
-                            .mark_log_scanned(char_id, &path_str, &content_hash, &now)?;
+                            .mark_log_scanned(char_id, &path_str, &full_hash, bytes.len() as i64, &now)?;
                     }
                     Err(e) => {
                         log::warn!("Error scanning {}: {}", path_str, e);
@@ -1185,27 +1264,23 @@ impl LogParser {
 
             let path_str = log_path.to_string_lossy().to_string();
 
-            if !force && self.db.is_log_scanned(&path_str)? {
-                result.skipped += 1;
-                continue;
-            }
+            let (bytes, offset, full_hash, count_login) =
+                match self.plan_file_scan(log_path, &path_str, force)? {
+                    ScanPlan::Skip | ScanPlan::SkipDuplicate | ScanPlan::SkipChanged => {
+                        result.skipped += 1;
+                        continue;
+                    }
+                    ScanPlan::ReadError(e) => {
+                        log::warn!("Error reading {}: {}", path_str, e);
+                        result.errors += 1;
+                        continue;
+                    }
+                    ScanPlan::Scan { bytes, offset, full_hash, count_login } => {
+                        (bytes, offset, full_hash, count_login)
+                    }
+                };
 
-            let bytes = match std::fs::read(log_path) {
-                Ok(b) => b,
-                Err(e) => {
-                    log::warn!("Error reading {}: {}", path_str, e);
-                    result.errors += 1;
-                    continue;
-                }
-            };
-
-            let content_hash = hash_bytes(&bytes);
-            if !force && self.db.is_hash_scanned(&content_hash)? {
-                result.skipped += 1;
-                continue;
-            }
-
-            // Determine character name from file content or parent directory
+            // Determine character name from full file content or parent directory
             let char_name = extract_character_name(&bytes).unwrap_or_else(|| {
                 log_path
                     .parent()
@@ -1220,7 +1295,7 @@ impl LogParser {
                 self.load_override_config(char_id)?;
             }
 
-            match self.scan_bytes(&bytes, char_id, &char_name, &path_str, index_lines) {
+            match self.scan_bytes(&bytes[offset..], char_id, &char_name, &path_str, index_lines, count_login) {
                 Ok(file_result) => {
                     result.files_scanned += 1;
                     result.lines_parsed += file_result.lines_parsed;
@@ -1228,7 +1303,7 @@ impl LogParser {
 
                     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
                     self.db
-                        .mark_log_scanned(char_id, &path_str, &content_hash, &now)?;
+                        .mark_log_scanned(char_id, &path_str, &full_hash, bytes.len() as i64, &now)?;
                 }
                 Err(e) => {
                     log::warn!("Error scanning {}: {}", path_str, e);
@@ -1563,6 +1638,26 @@ struct FileResult {
     pub override_skips: HashMap<String, u32>,
 }
 
+/// Outcome of deciding how to (re)scan a single log file. See `plan_file_scan`.
+enum ScanPlan {
+    /// File unchanged (or a legacy row with unknown length) — skip silently.
+    Skip,
+    /// New path whose content was already scanned at another path — skip as a duplicate.
+    SkipDuplicate,
+    /// File shrank or its already-scanned prefix changed (rotated/replaced) — skip and warn.
+    SkipChanged,
+    /// Reading the file failed.
+    ReadError(std::io::Error),
+    /// Scan `bytes[offset..]`; record `full_hash` + `bytes.len()` afterward.
+    /// `count_login` is false for tail (append) scans so the login isn't re-counted.
+    Scan {
+        bytes: Vec<u8>,
+        offset: usize,
+        full_hash: String,
+        count_login: bool,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1573,6 +1668,140 @@ mod tests {
         let char_dir = tmp.path().join("TestChar");
         fs::create_dir(&char_dir).unwrap();
         (tmp, char_dir)
+    }
+
+    #[test]
+    fn incremental_scan_picks_up_appended_kills() {
+        // Clan Lord writes one daily log file that GROWS as the player keeps playing.
+        // An incremental (force=false) re-scan must catch events appended after the
+        // first scan, without re-counting the file as a new login.
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+
+        let initial = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You slaughtered a Rat.
+";
+        fs::write(&log_path, initial).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        let char_id = char.id.unwrap();
+        assert_eq!(char.logins, 1);
+        let kills = parser.db().get_kills(char_id).unwrap();
+        assert_eq!(
+            kills.iter().map(|k| k.slaughtered_count).sum::<i64>(),
+            1
+        );
+
+        // Same file grows with more kills (including a brand-new creature).
+        let appended = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You slaughtered a Rat.
+1/1/24 2:01:00p You slaughtered a Rat.
+1/1/24 2:02:00p You vanquished a Large Vermine.
+";
+        fs::write(&log_path, appended).unwrap();
+
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        assert_eq!(
+            char.logins, 1,
+            "appended re-scan must NOT count the same file as a new login"
+        );
+        let kills = parser.db().get_kills(char_id).unwrap();
+        let rat = kills.iter().find(|k| k.creature_name == "Rat").unwrap();
+        assert_eq!(
+            rat.slaughtered_count, 2,
+            "the second (appended) Rat slaughter must be counted"
+        );
+        assert!(
+            kills.iter().any(|k| k.creature_name == "Large Vermine"),
+            "the appended Large Vermine vanquish must be picked up"
+        );
+        assert!(
+            result.files_scanned >= 1,
+            "the grown file should be (re)scanned, not skipped"
+        );
+    }
+
+    #[test]
+    fn legacy_log_row_without_byte_len_is_skipped() {
+        // A DB scanned before offset-resume has log_files rows with byte_len = 0
+        // (length unknown). These must keep the old skip-by-path behavior — never
+        // re-scanned (which would double-count) until a full Rescan Logs.
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        fs::write(
+            &log_path,
+            "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You slaughtered a Rat.
+",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        // Simulate a legacy row: clear byte_len back to 0 for the scanned file.
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        parser
+            .db()
+            .conn()
+            .execute("UPDATE log_files SET byte_len = 0", [])
+            .unwrap();
+
+        // Even if the file grows, a legacy row is skipped (no re-scan, no double count).
+        fs::write(
+            &log_path,
+            "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You slaughtered a Rat.
+1/1/24 2:01:00p You slaughtered a Rat.
+",
+        )
+        .unwrap();
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+        assert_eq!(result.files_scanned, 0, "legacy row must be skipped, not re-scanned");
+
+        let kills = parser.db().get_kills(char.id.unwrap()).unwrap();
+        let rat = kills.iter().find(|k| k.creature_name == "Rat").unwrap();
+        assert_eq!(rat.slaughtered_count, 1, "legacy skip must not double-count");
+    }
+
+    #[test]
+    fn incremental_scan_skips_unchanged_file() {
+        // An unchanged file must be skipped on re-scan — no double counting.
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        fs::write(
+            &log_path,
+            "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You slaughtered a Rat.
+",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+
+        assert_eq!(result.files_scanned, 0, "unchanged file should not be re-scanned");
+        assert_eq!(result.skipped, 1, "unchanged file should be skipped");
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        assert_eq!(char.logins, 1);
+        let kills = parser.db().get_kills(char.id.unwrap()).unwrap();
+        let rat = kills.iter().find(|k| k.creature_name == "Rat").unwrap();
+        assert_eq!(rat.slaughtered_count, 1, "unchanged re-scan must not double-count");
     }
 
     #[test]

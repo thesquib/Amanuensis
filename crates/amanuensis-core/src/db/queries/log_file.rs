@@ -24,18 +24,41 @@ impl Database {
         Ok(count > 0)
     }
 
-    /// Mark a log file as scanned with its content hash.
+    /// Return the offset-resume state recorded for a path: `(byte_len, content_hash)`.
+    /// `byte_len` is the number of bytes consumed at the last scan (0 for legacy rows
+    /// recorded before offset-resume existed). Returns None if the path was never scanned.
+    pub fn get_log_scan_state(&self, file_path: &str) -> Result<Option<(i64, String)>> {
+        let res = self.conn.query_row(
+            "SELECT byte_len, content_hash FROM log_files WHERE file_path = ?1",
+            params![file_path],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        );
+        match res {
+            Ok(r) => Ok(Some(r)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Mark a log file as scanned, recording its content hash and the byte length
+    /// consumed so far. Upserts by path so an appended file's offset is advanced
+    /// (rather than ignored) on re-scan.
     pub fn mark_log_scanned(
         &self,
         char_id: i64,
         file_path: &str,
         content_hash: &str,
+        byte_len: i64,
         date_read: &str,
     ) -> Result<()> {
         self.conn.execute(
-            "INSERT OR IGNORE INTO log_files (character_id, file_path, content_hash, date_read)
-             VALUES (?1, ?2, ?3, ?4)",
-            params![char_id, file_path, content_hash, date_read],
+            "INSERT INTO log_files (character_id, file_path, content_hash, byte_len, date_read)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(file_path) DO UPDATE SET
+                content_hash = excluded.content_hash,
+                byte_len = excluded.byte_len,
+                date_read = excluded.date_read",
+            params![char_id, file_path, content_hash, byte_len, date_read],
         )?;
         Ok(())
     }

@@ -140,8 +140,8 @@ export function SummaryView() {
 
   // Prefer the TS-computed coinLevelKill.creature_value over char.coin_level:
   // the Rust SQL has no stuffable filter (no family data in creatures.csv), so it can
-  // include non-stuffable creatures (e.g. Ghastly Presence at 650). The TS computation
-  // correctly excludes those and is the authoritative displayed value.
+  // include non-stuffable creatures (e.g. Ethereal-family creatures with averaged
+  // values). The TS computation excludes those and is the authoritative displayed value.
   const confirmedCoinLevel = coinLevelKill?.creature_value ?? char.coin_level;
   const displayCoinLevel = confirmedCoinLevel > 0 ? confirmedCoinLevel : char.coin_level_interim;
   const coinLevelEstimated = confirmedCoinLevel === 0 && char.coin_level_interim > 0;

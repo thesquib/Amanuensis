@@ -67,6 +67,9 @@ export interface Kill {
   killed_by_count: number;
   date_first: string | null;
   date_first_killed: string | null;
+  date_first_slaughtered: string | null;
+  date_first_vanquished: string | null;
+  date_first_dispatched: string | null;
   date_last: string | null;
   creature_value: number;
   date_last_killed: string | null;

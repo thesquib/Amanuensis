@@ -183,7 +183,8 @@ impl Database {
                     SUM(killed_count), SUM(slaughtered_count), SUM(vanquished_count), SUM(dispatched_count),
                     SUM(assisted_kill_count), SUM(assisted_slaughter_count), SUM(assisted_vanquish_count), SUM(assisted_dispatch_count),
                     SUM(killed_by_count), MIN(date_first), MAX(date_last), MAX(creature_value),
-                    MIN(date_first_killed), MAX(date_last_killed), MAX(date_last_slaughtered), MAX(date_last_vanquished), MAX(date_last_dispatched),
+                    MIN(date_first_killed), MIN(date_first_slaughtered), MIN(date_first_vanquished), MIN(date_first_dispatched),
+                    MAX(date_last_killed), MAX(date_last_slaughtered), MAX(date_last_vanquished), MAX(date_last_dispatched),
                     COALESCE(MAX(best_loot_value), 0),
                     COALESCE((SELECT best_loot_item FROM kills k2 WHERE k2.character_id IN ({}) AND k2.creature_name = kills.creature_name ORDER BY best_loot_value DESC LIMIT 1), '')
              FROM kills WHERE character_id IN ({})
@@ -214,12 +215,15 @@ impl Database {
                 date_last: row.get(13)?,
                 creature_value: row.get(14)?,
                 date_first_killed: row.get(15)?,
-                date_last_killed: row.get(16)?,
-                date_last_slaughtered: row.get(17)?,
-                date_last_vanquished: row.get(18)?,
-                date_last_dispatched: row.get(19)?,
-                best_loot_value: row.get(20)?,
-                best_loot_item: row.get(21)?,
+                date_first_slaughtered: row.get(16)?,
+                date_first_vanquished: row.get(17)?,
+                date_first_dispatched: row.get(18)?,
+                date_last_killed: row.get(19)?,
+                date_last_slaughtered: row.get(20)?,
+                date_last_vanquished: row.get(21)?,
+                date_last_dispatched: row.get(22)?,
+                best_loot_value: row.get(23)?,
+                best_loot_item: row.get(24)?,
             })
         })?;
         Ok(kills.filter_map(|r| r.ok()).collect())

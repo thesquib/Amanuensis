@@ -199,6 +199,13 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE kills ADD COLUMN best_loot_value INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE kills ADD COLUMN best_loot_item TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE kills ADD COLUMN date_first_killed TEXT",
+        "ALTER TABLE kills ADD COLUMN date_first_slaughtered TEXT",
+        "ALTER TABLE kills ADD COLUMN date_first_vanquished TEXT",
+        "ALTER TABLE kills ADD COLUMN date_first_dispatched TEXT",
+        // Bytes consumed from each log file, enabling incremental offset-resume of
+        // daily logs that grow as the player keeps playing. Legacy rows default to 0
+        // (length unknown) and are treated as fully-scanned until the next full rescan.
+        "ALTER TABLE log_files ADD COLUMN byte_len INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN coin_level_interim INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN ore_found INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE characters ADD COLUMN tin_ore_found INTEGER NOT NULL DEFAULT 0",

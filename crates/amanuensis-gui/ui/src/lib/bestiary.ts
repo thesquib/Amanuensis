@@ -29,13 +29,16 @@ export function getCreatureFamily(name: string): string {
 
 /**
  * Families excluded from coin-level and CV graph because their bestiary values are
- * averaged across multiple population strengths (e.g. Ghastly Presence appears in
- * weak and strong variants, averaged to ~650). Demonic Undine (e.g. Ancient Darshak
- * Liche) is NOT excluded — these are specific enemies with reliable, consistent values.
+ * unreliable for CV tracking. Demonic Undine (e.g. Ancient Darshak Liche) is NOT
+ * excluded — these are specific enemies with reliable, consistent values.
+ *
+ * Insubstantial Undine was removed from this list: although a few members have
+ * population-averaged values (e.g. Ghastly Presence ~650), most are specific named
+ * creatures with precise values (e.g. Gho-Wei Ghoulish at 933), so excluding the
+ * whole family hid legitimate highest-kills / CV progression.
  */
 export const NON_STUFFABLE_FAMILIES = new Set<string>([
   "Ethereal",
-  "Insubstantial Undine",
 ]);
 
 /** Returns false for creatures whose bestiary values are unreliable for CV tracking. */

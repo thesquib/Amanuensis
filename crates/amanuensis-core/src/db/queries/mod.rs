@@ -323,10 +323,14 @@ mod tests {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Fen").unwrap();
         assert!(!db.is_log_scanned("/logs/test.txt").unwrap());
-        db.mark_log_scanned(id, "/logs/test.txt", "abc123hash", "2024-01-01")
+        db.mark_log_scanned(id, "/logs/test.txt", "abc123hash", 100, "2024-01-01")
             .unwrap();
         assert!(db.is_log_scanned("/logs/test.txt").unwrap());
         assert_eq!(db.scanned_log_count().unwrap(), 1);
+        assert_eq!(
+            db.get_log_scan_state("/logs/test.txt").unwrap(),
+            Some((100, "abc123hash".to_string()))
+        );
     }
 
     #[test]
@@ -335,7 +339,7 @@ mod tests {
         let id = db.get_or_create_character("Fen").unwrap();
         let hash = "deadbeef12345678";
         assert!(!db.is_hash_scanned(hash).unwrap());
-        db.mark_log_scanned(id, "/logs/a.txt", hash, "2024-01-01")
+        db.mark_log_scanned(id, "/logs/a.txt", hash, 50, "2024-01-01")
             .unwrap();
         assert!(db.is_hash_scanned(hash).unwrap());
         // Same hash at different path should be detected as duplicate
