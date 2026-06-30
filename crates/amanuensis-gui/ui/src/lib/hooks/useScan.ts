@@ -2,7 +2,7 @@ import { open, confirm } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useCallback } from "react";
 import { useStore } from "../store";
-import { scanLogs, rescanLogs, scanFiles, listCharacters, getScannedLogCount, getLogLineCount, getProcessLogs } from "../commands";
+import { scanLogs, rescanLogs, scanFiles, updateLogs, getPendingLogCount, listCharacters, getScannedLogCount, getLogLineCount, getProcessLogs } from "../commands";
 import type { ScanProgress } from "../../types";
 
 export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCharacters>>) => Promise<void>) {
@@ -13,10 +13,13 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     setIsScanning,
     scanProgress,
     setScanProgress,
+    characters,
     setCharacters,
     setScannedLogCount,
     setLogLineCount,
     setProcessLogs,
+    setPendingLogCount,
+    setUpdateResult,
     recursiveScan,
     indexLogLines,
   } = useStore();
@@ -30,8 +33,10 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     setLogLineCount(lineCount);
     const logs = await getProcessLogs();
     setProcessLogs(logs);
+    const pending = await getPendingLogCount(sources);
+    setPendingLogCount(pending);
     await onScanComplete(chars);
-  }, [setCharacters, setScannedLogCount, setLogLineCount, setProcessLogs, onScanComplete]);
+  }, [setCharacters, setScannedLogCount, setLogLineCount, setProcessLogs, sources, setPendingLogCount, onScanComplete]);
 
   // Listen for scan progress events
   useEffect(() => {
@@ -110,6 +115,33 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     }
   }, [sources, indexLogLines, setIsScanning, setScanProgress, finishScan]);
 
+  const handleUpdateLogs = useCallback(async () => {
+    if (sources.length === 0) return;
+    setIsScanning(true);
+    setScanProgress(null);
+    try {
+      // Snapshot per-character stats before the run so we can report the deltas.
+      const before = new Map(characters.map((c) => [c.name, c]));
+      const scan = await updateLogs(sources, indexLogLines);
+      await finishScan();
+      const after = await listCharacters();
+      const perCharacter = after
+        .map((c) => ({
+          name: c.name,
+          loginsDelta: c.logins - (before.get(c.name)?.logins ?? 0),
+          deathsDelta: c.deaths - (before.get(c.name)?.deaths ?? 0),
+        }))
+        .filter((d) => d.loginsDelta !== 0 || d.deathsDelta !== 0)
+        .sort((a, b) => b.loginsDelta - a.loginsDelta);
+      setUpdateResult({ scan, perCharacter });
+    } catch (e) {
+      console.error("Update logs failed:", e);
+    } finally {
+      setIsScanning(false);
+      setScanProgress(null);
+    }
+  }, [sources, indexLogLines, characters, setIsScanning, setScanProgress, finishScan, setUpdateResult]);
+
   return {
     isScanning,
     scanProgress,
@@ -117,5 +149,6 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     handleScanFolder,
     handleScanFiles,
     handleRescanLogs,
+    handleUpdateLogs,
   };
 }

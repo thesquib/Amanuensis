@@ -151,3 +151,49 @@ as a one-line note near the button rather than special-casing it.
   reset and does not double-count on repeated invocation.
 - Keep the watcher thin (all logic lives in the tested `pending_files`); do not attempt
   brittle cross-platform FS-event unit tests.
+
+---
+
+## Design revision (2026-06-30, post-implementation)
+
+The live filesystem watcher was **removed** after smoke testing. Root cause: macOS
+FSEvents (used by the `notify` crate's recommended watcher) silently accepts a watch on
+external/USB-mounted APFS volumes but never delivers events — and the test user (like many
+players) keeps logs on a USB volume (`/Volumes/Aux`). The watcher registered without error
+yet no events ever fired, so the live badge update never happened.
+
+Rather than fight FSEvents (poll-watcher fallback, etc.), the watcher is dropped entirely:
+
+- **Removed:** the `notify` dependency, `commands/watcher.rs` (`start_log_watcher` /
+  `stop_log_watcher`), the `AppState.log_watcher` field, the `pending-changed` event, the
+  `watchLogsEnabled` setting, and the "Watch log folders for changes" toggle.
+- **Kept (works on every volume — no FSEvents):** the stat-based pending badge. The
+  `usePendingLogCount` hook recomputes the count on DB-open / source-change, on **window
+  focus**, and after every scan. This keeps the badge usefully fresh without a watcher.
+- **Added:** a post-update **`UpdateResultDialog`** confirmation showing the `ScanResult`
+  counts plus a per-character logins/deaths delta (before/after `listCharacters` diff in
+  `handleUpdateLogs`), or an "Already up to date" message when nothing was found.
+
+Net effect: the feature is purely on-demand (click → process → confirmation), with a
+stat-based hint badge, and no platform-fragile event source.
+
+### Pending-count correctness (post-verification fixes)
+
+Manual verification surfaced two enumeration/decision mismatches between `pending_files` and
+the actual scanner that left the badge stuck (counting files Update would never clear):
+
+1. **Wrong depth.** The scanner scans `CL Log` files inside each log root's *character
+   subfolders* (`scan_folder_inner` iterates subdirs, `find_log_files` each). `pending_files`
+   was instead reading files *directly in the log root*, so it both missed real character
+   logs and counted a stray loose file that the scanner can never reach. Fixed by `char_log_files`,
+   which mirrors the scanner's subfolder enumeration.
+2. **`SkipDuplicate` not modelled.** A new-path file whose content was already scanned
+   elsewhere is a `SkipDuplicate` — the scanner never records it, so a metadata-only check
+   counted it forever (the user has two source folders with overlapping logs). Fixed by
+   `would_scan`, the read-only twin of `plan_file_scan` that reads the candidate and applies
+   the content-hash dedup. Consequence: `pending_files` is no longer metadata-only — it reads
+   candidate (new/grown) files. In steady state candidates are few; with overlapping source
+   folders the duplicate set is re-read on each refresh (acceptable; optimise if it lags).
+
+Invariant restated: **the badge must count a file iff `plan_file_scan` would `Scan` it.**
+Regression tests cover the loose-file and duplicate-content cases.

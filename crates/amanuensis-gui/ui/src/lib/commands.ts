@@ -152,6 +152,19 @@ export async function rescanLogs(
   return invoke("rescan_logs", { sources, indexLines });
 }
 
+export async function getPendingLogCount(
+  sources: { path: string; recursive: boolean }[],
+): Promise<number> {
+  return invoke("get_pending_log_count", { sources });
+}
+
+export async function updateLogs(
+  sources: { path: string; recursive: boolean }[],
+  indexLines: boolean = true,
+): Promise<ScanResult> {
+  return invoke("update_logs", { sources, indexLines });
+}
+
 export async function clearRankOverrides(): Promise<void> {
   return invoke("clear_rank_overrides");
 }

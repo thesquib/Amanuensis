@@ -8,10 +8,11 @@ import { ProgressBar } from "../shared/ProgressBar";
 import { CharacterList } from "./CharacterList";
 import { MergeDialog } from "../shared/MergeDialog";
 import { SourcesDialog } from "../shared/SourcesDialog";
+import { UpdateResultDialog } from "../shared/UpdateResultDialog";
 import type { Theme } from "../../lib/store";
 
 export function Sidebar() {
-  const { dbPath, sources, scannedLogCount, recursiveScan, setRecursiveScan, indexLogLines, setIndexLogLines, theme, setTheme, characters, setCharacters } = useStore();
+  const { dbPath, sources, scannedLogCount, recursiveScan, setRecursiveScan, indexLogLines, setIndexLogLines, theme, setTheme, characters, setCharacters, pendingLogCount, updateResult, setUpdateResult } = useStore();
 
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [showMergeDialog, setShowMergeDialog] = useState(false);
@@ -19,7 +20,7 @@ export function Sidebar() {
 
   const { handleOpenDb, handleReset, handleDeleteAll, handleImportScribius, handleSelectCharacter, ensureDb, isScanning } = useDatabase();
 
-  const { scanProgress, handleScanFolder, handleScanFiles, handleRescanLogs } = useScan(
+  const { scanProgress, handleScanFolder, handleScanFiles, handleRescanLogs, handleUpdateLogs } = useScan(
     async (chars) => {
       if (chars.length > 0 && chars[0].id !== null) {
         await handleSelectCharacter(chars[0].id);
@@ -60,6 +61,19 @@ export function Sidebar() {
           <input type="checkbox" checked={recursiveScan} onChange={(e) => setRecursiveScan(e.target.checked)} disabled={isScanning} className="accent-[var(--color-accent)]" />
           Deep scan (find logs recursively)
         </label>
+        <button
+          onClick={handleUpdateLogs}
+          disabled={isScanning || sources.length === 0}
+          className="flex items-center justify-center gap-2 rounded bg-[var(--color-accent)]/90 px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--color-accent)]/70 disabled:opacity-50"
+          title={sources.length > 0 ? "Process new and updated logs from your sources (incremental — no reset)" : "No log sources yet — scan a folder first"}
+        >
+          Update Logs
+          {pendingLogCount > 0 && (
+            <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-xs font-semibold leading-none">
+              {pendingLogCount}
+            </span>
+          )}
+        </button>
         {/* Advanced section */}
         <button
           onClick={() => setAdvancedOpen((o) => !o)}
@@ -180,6 +194,9 @@ export function Sidebar() {
           onRescan={handleRescanLogs}
           isScanning={isScanning}
         />
+      )}
+      {updateResult && (
+        <UpdateResultDialog result={updateResult} onClose={() => setUpdateResult(null)} />
       )}
     </div>
   );

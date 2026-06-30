@@ -12,6 +12,7 @@ import type {
   ProcessLog,
   BestiaryEntry,
   CreatureFrequency,
+  UpdateResult,
 } from "../types";
 
 export type Theme = "dark" | "light" | "midnight" | "dark-v2" | "light-v2" | "midnight-v2";
@@ -122,6 +123,12 @@ interface AppStore {
   // Index log lines for search
   indexLogLines: boolean;
   setIndexLogLines: (index: boolean) => void;
+
+  // Pending-logs badge count + last update-run result (for the confirmation dialog)
+  pendingLogCount: number;
+  setPendingLogCount: (n: number) => void;
+  updateResult: UpdateResult | null;
+  setUpdateResult: (r: UpdateResult | null) => void;
 
   // Log line count (FTS5 indexed)
   logLineCount: number;
@@ -243,6 +250,11 @@ export const useStore = create<AppStore>((set) => ({
     localStorage.setItem(STORAGE_KEYS.INDEX_LOGS, String(index));
     set({ indexLogLines: index });
   },
+
+  pendingLogCount: 0,
+  setPendingLogCount: (n) => set({ pendingLogCount: n }),
+  updateResult: null,
+  setUpdateResult: (r) => set({ updateResult: r }),
 
   logLineCount: 0,
   setLogLineCount: (count) => set({ logLineCount: count }),

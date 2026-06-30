@@ -1385,6 +1385,38 @@ impl LogParser {
             return Ok(ScanResult::default());
         }
         self.db.reset_log_data()?;
+        self.scan_sources(sources, index_lines, progress)
+    }
+
+    /// Incrementally process all sources (force=false) WITHOUT resetting first. New files are
+    /// scanned (login counted); grown files are tail-scanned (login not re-counted); unchanged
+    /// files are skipped. Safe to call repeatedly.
+    pub fn update_sources<F>(
+        &self,
+        sources: &[(std::path::PathBuf, bool)],
+        index_lines: bool,
+        progress: F,
+    ) -> Result<ScanResult>
+    where
+        F: Fn(usize, usize, &str),
+    {
+        if sources.is_empty() {
+            return Ok(ScanResult::default());
+        }
+        self.scan_sources(sources, index_lines, progress)
+    }
+
+    /// Shared body for `rescan_sources` / `update_sources`: scan every source, finalize
+    /// characters, and report the combined `ScanResult`. Does NOT reset.
+    fn scan_sources<F>(
+        &self,
+        sources: &[(std::path::PathBuf, bool)],
+        index_lines: bool,
+        progress: F,
+    ) -> Result<ScanResult>
+    where
+        F: Fn(usize, usize, &str),
+    {
         let mut combined = ScanResult::default();
         for (path, recursive) in sources {
             let r = if *recursive {
@@ -1600,6 +1632,125 @@ fn discover_log_folders_inner(dir: &Path, results: &mut Vec<PathBuf>) {
             discover_log_folders_inner(sub, results);
         }
     }
+}
+
+/// Return the log files across `sources` that an incremental scan would actually touch right
+/// now — brand-new *unique* files plus files that have grown with an unchanged prefix. This
+/// uses the SAME decision as the scanner (`would_scan`, the read-only twin of
+/// `plan_file_scan`), so the badge can never count a file Update will skip. In particular a
+/// new-path file whose content was already scanned elsewhere is a `SkipDuplicate` for the
+/// scanner — and since the scanner never records it, a metadata-only check would count it
+/// forever; `would_scan` reads the candidate and applies the content-hash dedup so it does
+/// not. `sources` is `(root, recursive)` exactly like `rescan_sources`.
+pub fn pending_files(
+    db: &crate::db::Database,
+    sources: &[(PathBuf, bool)],
+) -> Result<Vec<PathBuf>> {
+    let mut pending = Vec::new();
+    for (root, recursive) in sources {
+        for file in source_log_files(root, *recursive) {
+            let path_str = file.to_string_lossy();
+            if would_scan(db, &file, &path_str)? {
+                pending.push(file);
+            }
+        }
+    }
+    Ok(pending)
+}
+
+/// Whether an incremental (force=false) scan would actually scan `log_path` — the read-only
+/// twin of `plan_file_scan`. MUST stay in lockstep with `plan_file_scan`'s skip decisions:
+///   - unchanged size                                  -> false (Skip)
+///   - shrank / already-scanned prefix changed         -> false (SkipChanged)
+///   - legacy `byte_len == 0`                          -> false (legacy Skip)
+///   - new path, content already scanned elsewhere     -> false (SkipDuplicate)
+///   - new unique path / true append (prefix matches)  -> true  (Scan)
+/// Reads the candidate file's bytes only for the cases the scanner itself must read.
+fn would_scan(db: &crate::db::Database, log_path: &Path, path_str: &str) -> Result<bool> {
+    let prior = db.get_log_scan_state(path_str)?;
+
+    if let Some((prev_len, _)) = &prior {
+        if *prev_len > 0 {
+            // Known length: cheap metadata fast-path — unchanged size means Skip.
+            if let Ok(meta) = std::fs::metadata(log_path) {
+                if meta.len() == *prev_len as u64 {
+                    return Ok(false);
+                }
+            }
+        } else {
+            return Ok(false); // legacy byte_len == 0
+        }
+    }
+
+    let bytes = match std::fs::read(log_path) {
+        Ok(b) => b,
+        Err(_) => return Ok(false), // unreadable -> the scanner reports an error, not a scan
+    };
+
+    match prior {
+        None => {
+            // New path: the scanner SkipDuplicates if this exact content was already scanned.
+            let full_hash = hash_bytes(&bytes);
+            Ok(!db.is_hash_scanned(&full_hash)?)
+        }
+        Some((prev_len, prev_hash)) => {
+            let prev_len = prev_len as usize;
+            let cur_len = bytes.len();
+            if cur_len == prev_len {
+                Ok(false) // unchanged
+            } else if cur_len > prev_len && hash_bytes(&bytes[..prev_len]) == prev_hash {
+                Ok(true) // true append -> tail scan
+            } else {
+                Ok(false) // shrank / prefix changed -> SkipChanged
+            }
+        }
+    }
+}
+
+/// Expand one `(root, recursive)` source into exactly the `CL Log` files the scanner would
+/// process — i.e. the files inside each log root's **character subfolders**. This must mirror
+/// `scan_folder_inner` / `scan_folder_with_progress_inner`, which iterate a log root's
+/// immediate subdirectories (character folders) and `find_log_files` each. A file sitting
+/// loose directly in a log root is NOT scanned, so it must NOT be counted here either.
+fn source_log_files(root: &Path, recursive: bool) -> Vec<PathBuf> {
+    // The set of log roots the scanner would scan for this source.
+    let log_roots: Vec<PathBuf> = if recursive {
+        let discovered = discover_log_folders(root);
+        if discovered.is_empty() {
+            // Fallback matches `scan_recursive_with_progress`: treat root as a direct log root.
+            vec![root.to_path_buf()]
+        } else {
+            discovered
+        }
+    } else {
+        vec![root.to_path_buf()]
+    };
+
+    log_roots
+        .iter()
+        .flat_map(|log_root| char_log_files(log_root))
+        .collect()
+}
+
+/// All `CL Log` files in the character subfolders of a single log root — the scanner's own
+/// enumeration: one level of subdirectories, skipping hidden dirs and `CL_Movies`.
+fn char_log_files(log_root: &Path) -> Vec<PathBuf> {
+    let entries = match std::fs::read_dir(log_root) {
+        Ok(rd) => rd,
+        Err(_) => return Vec::new(),
+    };
+    let mut files = Vec::new();
+    for entry in entries.filter_map(|e| e.ok()) {
+        if !entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') || name == "CL_Movies" {
+            continue;
+        }
+        files.extend(find_log_files(&entry.path()).unwrap_or_default());
+    }
+    files
 }
 
 /// Find CL Log files in a directory.
@@ -3197,5 +3348,188 @@ mod tests {
             .unwrap();
         assert_eq!(slaughtered, 1, "expected slaughtered_count=1");
         assert_eq!(assisted_kill, 1, "expected assisted_kill_count=1");
+    }
+
+    #[test]
+    fn pending_files_detects_new_grown_unchanged_shrank_and_legacy() {
+        use super::pending_files;
+
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        let initial = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You slaughtered a Rat.
+";
+        fs::write(&log_path, initial).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+
+        // A source points at the PARENT of character folders (here `tmp`, parent of
+        // `TestChar`) — exactly what the scanner scans via `scan_folder(tmp)`.
+        let sources = vec![(tmp.path().to_path_buf(), false)];
+
+        // (a) Brand-new file, never scanned -> pending.
+        let pend = pending_files(&db, &sources).unwrap();
+        assert_eq!(pend, vec![log_path.clone()], "new file should be pending");
+
+        // Scan it so it is recorded with byte_len > 0.
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let db = parser.into_db();
+
+        // (b) Unchanged -> not pending.
+        assert!(
+            pending_files(&db, &sources).unwrap().is_empty(),
+            "unchanged file should not be pending"
+        );
+
+        // (c) Grown (appended) -> pending.
+        let appended = format!("{initial}1/1/24 2:01:00p You slaughtered a Rat.\n");
+        fs::write(&log_path, &appended).unwrap();
+        assert_eq!(
+            pending_files(&db, &sources).unwrap(),
+            vec![log_path.clone()],
+            "grown file should be pending"
+        );
+
+        // (d) Shrank/rotated (smaller than recorded byte_len) -> not pending.
+        fs::write(&log_path, "1/1/24 1:00:00p Welcome to Clan Lord, TestChar!\n").unwrap();
+        assert!(
+            pending_files(&db, &sources).unwrap().is_empty(),
+            "shrunk file should not be pending"
+        );
+
+        // (e) Legacy byte_len = 0 with a grown file -> not pending.
+        fs::write(&log_path, &appended).unwrap();
+        db.conn()
+            .execute("UPDATE log_files SET byte_len = 0", [])
+            .unwrap();
+        assert!(
+            pending_files(&db, &sources).unwrap().is_empty(),
+            "legacy byte_len=0 file should not be pending"
+        );
+    }
+
+    #[test]
+    fn pending_files_ignores_non_cl_log_files() {
+        use super::pending_files;
+        let (tmp, char_dir) = create_test_log_dir();
+        fs::write(char_dir.join("notes.txt"), "not a log").unwrap();
+        let db = Database::open_in_memory().unwrap();
+        assert!(
+            pending_files(&db, &vec![(tmp.path().to_path_buf(), false)])
+                .unwrap()
+                .is_empty(),
+            "non 'CL Log ' files must be ignored"
+        );
+    }
+
+    #[test]
+    fn pending_files_ignores_loose_file_in_log_root() {
+        use super::pending_files;
+        // A stray "CL Log" file sitting loose directly in a log root (a sibling of the
+        // character folders) must NOT be counted: the scanner only scans files inside
+        // character subfolders, so a loose file is unscannable and would otherwise stick in
+        // the badge forever (the real-world bug this guards against).
+        let (tmp, char_dir) = create_test_log_dir(); // tmp/TestChar
+        fs::write(
+            char_dir.join("CL Log 2024-01-02 10.00.00.txt"),
+            "1/2/24 1:00:00p Welcome to Clan Lord, TestChar!\n",
+        )
+        .unwrap();
+        let loose = tmp.path().join("CL Log 2020-02-07 23.28.54.txt");
+        fs::write(&loose, "1/1/20 1:00:00p Welcome to Clan Lord, Ghost!\n").unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let pend = pending_files(&db, &vec![(tmp.path().to_path_buf(), true)]).unwrap();
+        assert_eq!(pend.len(), 1, "only the character-folder log is pending");
+        assert!(
+            pend[0].ends_with("CL Log 2024-01-02 10.00.00.txt"),
+            "should be the char-folder log, got {:?}",
+            pend[0]
+        );
+        assert!(
+            !pend.iter().any(|p| *p == loose),
+            "loose root-level file must not be counted"
+        );
+    }
+
+    #[test]
+    fn pending_files_excludes_duplicate_content_new_path() {
+        use super::pending_files;
+        // A new-path file whose content was already scanned under another path is a
+        // SkipDuplicate for the scanner — and the scanner never records it, so a metadata-only
+        // check would count it forever. The badge must not count it. Mirrors the real-world
+        // "two source folders with overlapping logs" case.
+        let (tmp, char_dir) = create_test_log_dir(); // tmp/TestChar
+        let content =
+            "1/1/24 1:00:00p Welcome to Clan Lord, TestChar!\n1/1/24 1:01:00p You slaughtered a Rat.\n";
+        fs::write(char_dir.join("CL Log 2024-01-01 10.00.00.txt"), content).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap(); // records the original
+        let db = parser.into_db();
+
+        // A second character folder holds a byte-identical copy under a different path.
+        let dup_dir = tmp.path().join("OtherChar");
+        fs::create_dir(&dup_dir).unwrap();
+        fs::write(dup_dir.join("CL Log 2024-01-01 10.00.00.txt"), content).unwrap();
+
+        // Original unchanged (not pending); the duplicate-content copy is a new path but
+        // SkipDuplicate -> must NOT be pending.
+        let pend = pending_files(&db, &vec![(tmp.path().to_path_buf(), false)]).unwrap();
+        assert!(
+            pend.is_empty(),
+            "duplicate-content new-path file must not be pending, got {:?}",
+            pend
+        );
+    }
+
+    #[test]
+    fn update_sources_picks_up_appends_without_resetting_or_double_counting() {
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        let initial = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You slaughtered a Rat.
+";
+        fs::write(&log_path, initial).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let sources = vec![(tmp.path().to_path_buf(), true)];
+
+        // First full scan via update_sources.
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        assert_eq!(char.logins, 1);
+        let char_id = char.id.unwrap();
+        assert_eq!(
+            parser.db().get_kills(char_id).unwrap().iter().map(|k| k.slaughtered_count).sum::<i64>(),
+            1
+        );
+
+        // Append a kill; update again.
+        let appended = format!("{initial}1/1/24 2:01:00p You slaughtered a Rat.\n");
+        fs::write(&log_path, &appended).unwrap();
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        assert_eq!(char.logins, 1, "tail scan must not re-count the login");
+        assert_eq!(
+            parser.db().get_kills(char_id).unwrap().iter().map(|k| k.slaughtered_count).sum::<i64>(),
+            2,
+            "appended kill should be counted exactly once"
+        );
+
+        // No-op update keeps totals stable (no reset, no double-count).
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        let char = parser.db().get_character("Testchar").unwrap().unwrap();
+        assert_eq!(char.logins, 1);
+        assert_eq!(
+            parser.db().get_kills(char_id).unwrap().iter().map(|k| k.slaughtered_count).sum::<i64>(),
+            2
+        );
     }
 }

@@ -128,6 +128,19 @@ export interface ScanResult {
   errors: number;
 }
 
+/** Per-character activity delta produced by an Update Logs run. */
+export interface CharacterDelta {
+  name: string;
+  loginsDelta: number;
+  deathsDelta: number;
+}
+
+/** Result of an Update Logs run, shown in the confirmation dialog. */
+export interface UpdateResult {
+  scan: ScanResult;
+  perCharacter: CharacterDelta[];
+}
+
 /** Mirrors Rust `ScanProgress` struct */
 export interface ScanProgress {
   current_file: number;

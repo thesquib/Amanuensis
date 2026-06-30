@@ -13,4 +13,4 @@ pub use db::import::{import_scribius, ImportResult};
 pub use error::{Result, AmanuensisError};
 pub use export::ExportFormat;
 pub use fighter_stats::compute_fighter_stats;
-pub use parser::LogParser;
+pub use parser::{LogParser, pending_files};

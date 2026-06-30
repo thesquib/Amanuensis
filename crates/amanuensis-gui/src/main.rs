@@ -28,6 +28,8 @@ fn main() {
             commands::scan_logs,
             commands::rescan_logs,
             commands::scan_files,
+            commands::update_logs,
+            commands::get_pending_log_count,
             commands::clear_rank_overrides,
             commands::set_profession_override,
             commands::import_scribius_db,
