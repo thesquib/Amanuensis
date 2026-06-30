@@ -200,7 +200,7 @@ impl LogParser {
             for log_path in &log_files {
                 let path_str = log_path.to_string_lossy().to_string();
 
-                let (bytes, offset, full_hash, count_login) =
+                let (bytes, offset, full_hash, is_full_scan) =
                     match self.plan_file_scan(log_path, &path_str, force)? {
                         ScanPlan::Skip => {
                             result.skipped += 1;
@@ -240,12 +240,18 @@ impl LogParser {
                             char_files_skipped += 1;
                             continue;
                         }
-                        ScanPlan::Scan { bytes, offset, full_hash, count_login } => {
-                            (bytes, offset, full_hash, count_login)
+                        ScanPlan::Scan { bytes, offset, full_hash, count_login: is_full_scan } => {
+                            (bytes, offset, full_hash, is_full_scan)
                         }
                     };
 
-                match self.scan_bytes(&bytes[offset..], char_id, &char_name, &path_str, true, count_login) {
+                let initial = if offset > 0 {
+                    self.active_char_at_offset(&bytes, offset)?
+                        .or_else(|| Some((char_id, char_name.clone())))
+                } else {
+                    Some((char_id, char_name.clone()))
+                };
+                match self.scan_bytes(&bytes[offset..], initial, &path_str, true, is_full_scan) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -289,7 +295,63 @@ impl LogParser {
             result.characters += 1;
         }
 
+        // Also scan loose CL Log files sitting directly in this log root.
+        for log_path in find_log_files(folder)? {
+            self.scan_loose_file(&log_path, force, true, result)?;
+        }
+
         Ok(())
+    }
+
+    /// Scan a single loose log file (one sitting directly in a log root, with no character
+    /// folder). Attributed purely by content (active character starts as None). Returns
+    /// Ok(true) if scanned, Ok(false) if skipped as undetermined (logged + counted).
+    fn scan_loose_file(
+        &self,
+        log_path: &Path,
+        force: bool,
+        index_lines: bool,
+        result: &mut ScanResult,
+    ) -> Result<bool> {
+        let path_str = log_path.to_string_lossy().to_string();
+        let (bytes, offset, full_hash, is_full_scan) = match self.plan_file_scan(log_path, &path_str, force)? {
+            ScanPlan::Skip | ScanPlan::SkipDuplicate | ScanPlan::SkipChanged => {
+                result.skipped += 1;
+                return Ok(false);
+            }
+            ScanPlan::ReadError(e) => {
+                log::warn!("Error reading {}: {}", path_str, e);
+                result.errors += 1;
+                return Ok(false);
+            }
+            ScanPlan::Scan { bytes, offset, full_hash, count_login } => (bytes, offset, full_hash, count_login),
+        };
+
+        let initial = self.active_char_at_offset(&bytes, offset)?;
+        let file_result = self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan)?;
+        if !file_result.attributed {
+            // No determinable character anywhere in the file — skip and log; do NOT mark
+            // scanned, and never create an "Unknown" character.
+            let _ = self.db.add_process_log("warn", &format!("skipped: could not determine character ({path_str})"));
+            result.skipped += 1;
+            return Ok(false);
+        }
+
+        result.files_scanned += 1;
+        result.lines_parsed += file_result.lines_parsed;
+        result.events_found += file_result.events_found;
+        // The log_files.character_id FK is enforced (rusqlite's bundled SQLite is built with
+        // SQLITE_DEFAULT_FOREIGN_KEYS=1), so a placeholder 0 would be rejected. Use the first
+        // real character the file attributed to for the bookkeeping row (events themselves were
+        // already attributed to their real characters inside scan_bytes). attributed == true
+        // guarantees first_char_id is Some. NOTE: for a multi-character loose file this stored
+        // log_files.character_id is the FIRST attributed character ONLY — it is bookkeeping /
+        // offset-resume metadata (skip-guard + tail-resume), not an attribution of the file's
+        // events, which were each counted under their real active character in scan_bytes.
+        let book_char_id = file_result.first_char_id.expect("attributed file must have a first_char_id");
+        let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        self.db.mark_log_scanned(book_char_id, &path_str, &full_hash, bytes.len() as i64, &now)?;
+        Ok(true)
     }
 
     /// Scan log file bytes and process events into the database.
@@ -367,13 +429,16 @@ impl LogParser {
     fn scan_bytes(
         &self,
         bytes: &[u8],
-        char_id: i64,
-        char_name: &str,
+        initial_char: Option<(i64, String)>,
         file_path: &str,
         index_lines: bool,
-        count_login: bool,
+        is_full_scan: bool,
     ) -> Result<FileResult> {
         let content = decode_log_bytes(bytes);
+        // Logins are counted per `Welcome to Clan Lord` (credited to that welcome's character);
+        // the start_date fallback and the no-welcome fallback login are credited to the initial
+        // (folder) character. Event attribution follows the mutable `active` below.
+        let initial_char_id: Option<i64> = initial_char.as_ref().map(|(id, _)| *id);
 
         let mut file_result = FileResult::default();
         let mut found_login = false;
@@ -403,6 +468,11 @@ impl LogParser {
         // bow_seen=true: bow seen, awaiting rank message
         let mut pending_bow_checkpoints: HashMap<String, (String, bool)> = HashMap::new();
 
+        // The character active at the current point in the file. Switches on each welcome
+        // line. Starts as the caller-provided fallback (folder name) or None for loose files.
+        let mut active: Option<(i64, String)> = initial_char.clone();
+        let mut saw_welcome_login = false;
+
         for line in content.lines() {
             file_result.lines_parsed += 1;
 
@@ -420,6 +490,36 @@ impl LogParser {
                 s
             } else {
                 current_date.clone()
+            };
+
+            // Welcome lines switch the active character (and `Welcome to Clan Lord` will
+            // also be counted as a login in Task 2). Fall through afterward so the existing
+            // WelcomeLogin event still records start_date under the now-active character.
+            if let Some(caps) = patterns::WELCOME_LOGIN.captures(message) {
+                let name = titlecase_name(&caps[1]);
+                let id = self.db.get_or_create_character(&name)?;
+                self.load_override_config(id)?;
+                self.db.increment_character_field(id, "logins", 1)?;
+                saw_welcome_login = true;
+                active = Some((id, name));
+            } else if let Some(caps) = patterns::WELCOME_BACK.captures(message) {
+                let name = titlecase_name(&caps[1]);
+                let id = self.db.get_or_create_character(&name)?;
+                self.load_override_config(id)?;
+                active = Some((id, name));
+            }
+
+            // Everything below this point attributes to the active character. If none is
+            // known yet (a loose file before its first welcome), skip the line entirely.
+            let (char_id, char_name): (i64, &str) = match &active {
+                Some((id, name)) => {
+                    file_result.attributed = true;
+                    if file_result.first_char_id.is_none() {
+                        file_result.first_char_id = Some(*id);
+                    }
+                    (*id, name.as_str())
+                }
+                None => continue,
             };
 
             if index_lines && !line.trim().is_empty() {
@@ -864,15 +964,20 @@ impl LogParser {
             }
         }
 
-        // Every scanned file counts as exactly 1 login (matching Scribius behavior).
-        // A continuation/tail scan of an already-counted file must NOT re-count the login.
-        if count_login {
-            self.db.increment_character_field(char_id, "logins", 1)?;
+        // No `Welcome to Clan Lord` anywhere in a full scan: credit one fallback login to the
+        // initial (folder-fallback) character, preserving the mid-session-start behavior.
+        // Tail scans (is_full_scan == false) never apply this — prefix welcomes aren't re-seen.
+        if is_full_scan && !saw_welcome_login {
+            if let Some((id, _)) = &initial_char {
+                self.db.increment_character_field(*id, "logins", 1)?;
+            }
         }
         // If no Login/Reconnect had a timestamp, use the file's first timestamp for start_date
         if !found_login {
             if let Some(ref first_ts) = first_date_str {
-                self.db.update_start_date(char_id, first_ts)?;
+                if let Some(id) = initial_char_id {
+                    self.db.update_start_date(id, first_ts)?;
+                }
             }
         }
 
@@ -1147,6 +1252,11 @@ impl LogParser {
             all_work.push((char_dir, char_name, log_files));
         }
 
+        // Loose CL Log files sitting directly in the log root also get scanned.
+        // Collect once: reuse the same vec for the file count and the loose-file loop below.
+        let loose_files = find_log_files(folder)?;
+        total_files += loose_files.len();
+
         let mut current_file: usize = 0;
 
         for (_char_dir, char_name, log_files) in &all_work {
@@ -1164,7 +1274,7 @@ impl LogParser {
 
                 let path_str = log_path.to_string_lossy().to_string();
 
-                let (bytes, offset, full_hash, count_login) =
+                let (bytes, offset, full_hash, is_full_scan) =
                     match self.plan_file_scan(log_path, &path_str, force)? {
                         ScanPlan::Skip | ScanPlan::SkipDuplicate | ScanPlan::SkipChanged => {
                             result.skipped += 1;
@@ -1175,12 +1285,18 @@ impl LogParser {
                             result.errors += 1;
                             continue;
                         }
-                        ScanPlan::Scan { bytes, offset, full_hash, count_login } => {
-                            (bytes, offset, full_hash, count_login)
+                        ScanPlan::Scan { bytes, offset, full_hash, count_login: is_full_scan } => {
+                            (bytes, offset, full_hash, is_full_scan)
                         }
                     };
 
-                match self.scan_bytes(&bytes[offset..], char_id, char_name, &path_str, index_lines, count_login) {
+                let initial = if offset > 0 {
+                    self.active_char_at_offset(&bytes, offset)?
+                        .or_else(|| Some((char_id, char_name.clone())))
+                } else {
+                    Some((char_id, char_name.clone()))
+                };
+                match self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -1199,6 +1315,14 @@ impl LogParser {
             // Apply only the most recent reflect output for this character
             self.flush_reflect_lastys(char_id)?;
             result.characters += 1;
+        }
+
+        // Also scan loose CL Log files sitting directly in this log root.
+        for log_path in &loose_files {
+            current_file += 1;
+            let filename = log_path.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+            progress(current_file, total_files, &filename);
+            self.scan_loose_file(log_path, force, index_lines, result)?;
         }
 
         Ok(())
@@ -1264,7 +1388,7 @@ impl LogParser {
 
             let path_str = log_path.to_string_lossy().to_string();
 
-            let (bytes, offset, full_hash, count_login) =
+            let (bytes, offset, full_hash, is_full_scan) =
                 match self.plan_file_scan(log_path, &path_str, force)? {
                     ScanPlan::Skip | ScanPlan::SkipDuplicate | ScanPlan::SkipChanged => {
                         result.skipped += 1;
@@ -1275,19 +1399,25 @@ impl LogParser {
                         result.errors += 1;
                         continue;
                     }
-                    ScanPlan::Scan { bytes, offset, full_hash, count_login } => {
-                        (bytes, offset, full_hash, count_login)
+                    ScanPlan::Scan { bytes, offset, full_hash, count_login: is_full_scan } => {
+                        (bytes, offset, full_hash, is_full_scan)
                     }
                 };
 
-            // Determine character name from full file content or parent directory
-            let char_name = extract_character_name(&bytes).unwrap_or_else(|| {
-                log_path
-                    .parent()
-                    .and_then(|p| p.file_name())
-                    .map(|n| titlecase_name(&n.to_string_lossy()))
-                    .unwrap_or_else(|| "Unknown".to_string())
+            // Determine character from content; fall back to the parent directory name (an
+            // explicit pick is usually inside a character folder). If neither yields a name,
+            // skip and log — never invent an "Unknown" character.
+            let char_name = extract_character_name(&bytes).or_else(|| {
+                log_path.parent().and_then(|p| p.file_name()).map(|n| titlecase_name(&n.to_string_lossy()))
             });
+            let char_name = match char_name {
+                Some(n) => n,
+                None => {
+                    let _ = self.db.add_process_log("warn", &format!("skipped: could not determine character ({path_str})"));
+                    result.skipped += 1;
+                    continue;
+                }
+            };
 
             let char_id = self.db.get_or_create_character(&char_name)?;
             if seen_characters.insert(char_name.clone()) {
@@ -1295,7 +1425,13 @@ impl LogParser {
                 self.load_override_config(char_id)?;
             }
 
-            match self.scan_bytes(&bytes[offset..], char_id, &char_name, &path_str, index_lines, count_login) {
+            let initial = if offset > 0 {
+                self.active_char_at_offset(&bytes, offset)?
+                    .or_else(|| Some((char_id, char_name.clone())))
+            } else {
+                Some((char_id, char_name.clone()))
+            };
+            match self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan) {
                 Ok(file_result) => {
                     result.files_scanned += 1;
                     result.lines_parsed += file_result.lines_parsed;
@@ -1433,6 +1569,35 @@ impl LogParser {
         self.finalize_characters()?;
         combined.characters = self.db.list_characters()?.len();
         Ok(combined)
+    }
+
+    /// The character active at byte `offset` of `bytes` — the last `Welcome …` before it.
+    /// Used to seed a tail (append) scan so events after the offset attribute correctly.
+    fn active_char_at_offset(&self, bytes: &[u8], offset: usize) -> Result<Option<(i64, String)>> {
+        if offset == 0 { return Ok(None); }
+        let prefix = decode_log_bytes(&bytes[..offset.min(bytes.len())]);
+        let mut name: Option<String> = None;
+        for line in prefix.lines() {
+            let message = match parse_timestamp(line) { Some((_dt, msg)) => msg, None => line };
+            if let Some(caps) = patterns::WELCOME_LOGIN.captures(message) {
+                name = Some(titlecase_name(&caps[1]));
+            } else if let Some(caps) = patterns::WELCOME_BACK.captures(message) {
+                name = Some(titlecase_name(&caps[1]));
+            }
+        }
+        match name {
+            Some(n) => {
+                let id = self.db.get_or_create_character(&n)?;
+                // Seed override config for the prefix-resolved active character. On a tail
+                // (append) scan whose appended bytes contain NO welcome line, the welcome
+                // block in `scan_bytes` never runs, so without this `should_count_rank`
+                // would default to true and wrongly count an override-skip trainer's ranks.
+                // Idempotent; mirrors what the welcome block does.
+                self.load_override_config(id)?;
+                Ok(Some((id, n)))
+            }
+            None => Ok(None),
+        }
     }
 
     /// After scanning, determine professions and coin levels for all characters.
@@ -1648,9 +1813,9 @@ pub fn pending_files(
 ) -> Result<Vec<PathBuf>> {
     let mut pending = Vec::new();
     for (root, recursive) in sources {
-        for file in source_log_files(root, *recursive) {
+        for (file, loose) in source_log_files(root, *recursive) {
             let path_str = file.to_string_lossy();
-            if would_scan(db, &file, &path_str)? {
+            if would_scan(db, &file, &path_str, loose)? {
                 pending.push(file);
             }
         }
@@ -1664,9 +1829,12 @@ pub fn pending_files(
 ///   - shrank / already-scanned prefix changed         -> false (SkipChanged)
 ///   - legacy `byte_len == 0`                          -> false (legacy Skip)
 ///   - new path, content already scanned elsewhere     -> false (SkipDuplicate)
+///   - loose new path, no determinable character       -> false (undetermined)
 ///   - new unique path / true append (prefix matches)  -> true  (Scan)
 /// Reads the candidate file's bytes only for the cases the scanner itself must read.
-fn would_scan(db: &crate::db::Database, log_path: &Path, path_str: &str) -> Result<bool> {
+/// `loose` = the file sits directly in the log root (not in a character subfolder); such files
+/// are skipped by the scanner when no character can be determined from their content.
+fn would_scan(db: &crate::db::Database, log_path: &Path, path_str: &str, loose: bool) -> Result<bool> {
     let prior = db.get_log_scan_state(path_str)?;
 
     if let Some((prev_len, _)) = &prior {
@@ -1691,7 +1859,11 @@ fn would_scan(db: &crate::db::Database, log_path: &Path, path_str: &str) -> Resu
         None => {
             // New path: the scanner SkipDuplicates if this exact content was already scanned.
             let full_hash = hash_bytes(&bytes);
-            Ok(!db.is_hash_scanned(&full_hash)?)
+            if db.is_hash_scanned(&full_hash)? { return Ok(false); }
+            // Loose files are scanned only if a character can be determined from content
+            // (subfolder files always have the folder fallback, so they're always scannable).
+            if loose && extract_character_name(&bytes).is_none() { return Ok(false); }
+            Ok(true)
         }
         Some((prev_len, prev_hash)) => {
             let prev_len = prev_len as usize;
@@ -1708,11 +1880,11 @@ fn would_scan(db: &crate::db::Database, log_path: &Path, path_str: &str) -> Resu
 }
 
 /// Expand one `(root, recursive)` source into exactly the `CL Log` files the scanner would
-/// process — i.e. the files inside each log root's **character subfolders**. This must mirror
-/// `scan_folder_inner` / `scan_folder_with_progress_inner`, which iterate a log root's
-/// immediate subdirectories (character folders) and `find_log_files` each. A file sitting
-/// loose directly in a log root is NOT scanned, so it must NOT be counted here either.
-fn source_log_files(root: &Path, recursive: bool) -> Vec<PathBuf> {
+/// process — i.e. the files inside each log root's **character subfolders** (tagged `loose=false`)
+/// **and** loose files sitting directly in the log root (tagged `loose=true`). This mirrors
+/// `scan_folder_inner` / `scan_folder_with_progress_inner`, which scan both groups. The `loose`
+/// flag is passed through to `would_scan`, which applies the determinability gate for loose files.
+fn source_log_files(root: &Path, recursive: bool) -> Vec<(PathBuf, bool)> {
     // The set of log roots the scanner would scan for this source.
     let log_roots: Vec<PathBuf> = if recursive {
         let discovered = discover_log_folders(root);
@@ -1726,10 +1898,16 @@ fn source_log_files(root: &Path, recursive: bool) -> Vec<PathBuf> {
         vec![root.to_path_buf()]
     };
 
-    log_roots
-        .iter()
-        .flat_map(|log_root| char_log_files(log_root))
-        .collect()
+    let mut out = Vec::new();
+    for log_root in &log_roots {
+        for f in char_log_files(log_root) {
+            out.push((f, false)); // subfolder file — character determined by folder name
+        }
+        for f in find_log_files(log_root).unwrap_or_default() {
+            out.push((f, true)); // loose file directly in the log root
+        }
+    }
+    out
 }
 
 /// All `CL Log` files in the character subfolders of a single log root — the scanner's own
@@ -1787,6 +1965,11 @@ struct FileResult {
     pub lines_parsed: usize,
     pub events_found: usize,
     pub override_skips: HashMap<String, u32>,
+    pub attributed: bool,
+    /// The first character id this file attributed an event/login to. Used as the
+    /// `log_files` bookkeeping `character_id` for loose files (the FK is enforced, so a
+    /// real id is required — char_id 0 would be rejected).
+    pub first_char_id: Option<i64>,
 }
 
 /// Outcome of deciding how to (re)scan a single log file. See `plan_file_scan`.
@@ -1819,6 +2002,167 @@ mod tests {
         let char_dir = tmp.path().join("TestChar");
         fs::create_dir(&char_dir).unwrap();
         (tmp, char_dir)
+    }
+
+    #[test]
+    fn scan_attributes_events_to_active_character_within_one_file() {
+        // One file containing two characters' sessions, each introduced by its own welcome.
+        // Each character's kills must land on that character, not all on the first.
+        let (tmp, char_dir) = create_test_log_dir();
+        let body = "\
+1/1/24 1:00:00p Welcome to Clan Lord, Alpha!
+1/1/24 1:01:00p You slaughtered a Rat.
+1/1/24 2:00:00p Welcome to Clan Lord, Beta!
+1/1/24 2:01:00p You vanquished a Large Vermine.
+";
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), body).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let alpha = parser.db().get_character("Alpha").unwrap().unwrap();
+        let beta = parser.db().get_character("Beta").unwrap().unwrap();
+        let alpha_kills = parser.db().get_kills(alpha.id.unwrap()).unwrap();
+        let beta_kills = parser.db().get_kills(beta.id.unwrap()).unwrap();
+
+        assert_eq!(
+            alpha_kills.iter().map(|k| k.slaughtered_count).sum::<i64>(),
+            1,
+            "Alpha's Rat slaughter must be on Alpha"
+        );
+        assert!(
+            beta_kills.iter().any(|k| k.creature_name == "Large Vermine"),
+            "Beta's Large Vermine must be on Beta, not dropped"
+        );
+        assert_eq!(
+            alpha_kills.iter().filter(|k| k.creature_name == "Large Vermine").count(),
+            0,
+            "Beta's kill must NOT be attributed to Alpha"
+        );
+    }
+
+    #[test]
+    fn loose_file_in_log_root_is_scanned_and_attributed_by_content() {
+        // A CL Log file directly in the log root (not in a character subfolder) must be scanned
+        // and attributed to the character named in its welcome.
+        let (tmp, char_dir) = create_test_log_dir(); // tmp/TestChar (so tmp is a log root)
+        fs::write(char_dir.join("CL Log 2024-01-02 10.00.00.txt"),
+            "1/2/24 1:00:00p Welcome to Clan Lord, TestChar!\n").unwrap();
+        fs::write(tmp.path().join("CL Log 2024-01-01 09.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, Wanderer!\n1/1/24 1:01:00p You slaughtered a Rat.\n").unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let w = parser.db().get_character("Wanderer").unwrap().expect("loose file's character scanned");
+        assert_eq!(w.logins, 1);
+        assert_eq!(parser.db().get_kills(w.id.unwrap()).unwrap().iter().map(|k| k.slaughtered_count).sum::<i64>(), 1);
+    }
+
+    #[test]
+    fn tail_scan_seeds_override_config_from_prefix_welcome() {
+        // Regression: a tail (append) scan that seeds the active character from the prefix's
+        // last welcome (via active_char_at_offset) must also load that character's override
+        // config. Otherwise an override-skip trainer's rank messages appended in the tail
+        // (which contains NO welcome line) are wrongly counted instead of skipped.
+        let (tmp, _char_dir) = create_test_log_dir(); // tmp is the log root
+        let loose = tmp.path().join("CL Log 2024-03-01 09.00.00.txt");
+
+        // Prefix: a welcome (seeds the active character) + a kill, but NO rank messages.
+        let prefix = "3/1/24 1:00:00p Welcome to Clan Lord, Alpha!\n\
+3/1/24 1:01:00p You slaughtered a Rat.\n";
+        fs::write(&loose, prefix).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        // Put Bangus Anmash into Override (skip) mode for Alpha. This zeroes ranks.
+        let alpha = parser.db().get_or_create_character("Alpha").unwrap();
+        parser.db()
+            .set_rank_override(alpha, "Bangus Anmash", RankMode::Override.as_str(), 0, None)
+            .unwrap();
+
+        // Grow the file: keep the prefix unchanged, append a Bangus Anmash rank message
+        // ("¥Your combat ability improves.") with NO welcome line in the appended tail.
+        let grown = format!(
+            "{prefix}3/1/24 2:00:00p \u{00a5}Your combat ability improves.\n"
+        );
+        fs::write(&loose, grown).unwrap();
+
+        // Incremental (force=false) re-scan: only the appended tail is parsed, and the active
+        // character is seeded from the prefix welcome via active_char_at_offset.
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let trainers = parser.db().get_trainers(alpha).unwrap();
+        let bangus = trainers
+            .iter()
+            .find(|t| t.trainer_name == "Bangus Anmash")
+            .expect("Bangus Anmash override row exists");
+        assert_eq!(
+            bangus.rank_mode, "override",
+            "override mode must persist across the tail re-scan"
+        );
+        assert_eq!(
+            bangus.ranks, 0,
+            "the appended rank must be SKIPPED (override config seeded on tail scan), not counted"
+        );
+    }
+
+    #[test]
+    fn loose_file_without_welcome_is_skipped_and_logged_not_unknown() {
+        let (tmp, _char_dir) = create_test_log_dir();
+        fs::write(tmp.path().join("CL Log 2020-02-07 23.28.54.txt"),
+            "2/7/20 1:01:00p You slaughtered a Rat.\n").unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+
+        assert!(parser.db().get_character("Unknown").unwrap().is_none(), "no 'Unknown' character is created");
+        assert!(result.skipped >= 1, "the undetermined loose file is counted as skipped");
+    }
+
+    #[test]
+    fn logins_counted_per_welcome_to_clan_lord() {
+        // Two full logins as the same character in one file => 2 logins (per-welcome, not per-file).
+        // A "Welcome back" reconnect adds no login.
+        let (tmp, char_dir) = create_test_log_dir();
+        let body = "\
+1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!
+1/1/24 1:30:00p Welcome back, Ruuk!
+1/1/24 2:00:00p Welcome to Clan Lord, Ruuk!
+";
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), body).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let ruuk = parser.db().get_character("Ruuk").unwrap().unwrap();
+        assert_eq!(ruuk.logins, 2, "two 'Welcome to Clan Lord' => 2 logins; 'Welcome back' adds none");
+    }
+
+    #[test]
+    fn no_welcome_file_counts_one_login_for_folder_character() {
+        // A subfolder file with no welcome at all still counts 1 login for the folder character.
+        let (tmp, char_dir) = create_test_log_dir();
+        fs::write(
+            char_dir.join("CL Log 2024-01-01 13.00.00.txt"),
+            "1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        // The folder is named "TestChar" and there is no welcome line, so the character is
+        // stored under the raw (case-sensitive) directory name "TestChar".
+        let ch = parser.db().get_character("TestChar").unwrap().unwrap();
+        assert_eq!(ch.logins, 1, "no-welcome file => 1 fallback login for the folder character");
     }
 
     #[test]
@@ -3428,29 +3772,40 @@ mod tests {
     fn pending_files_ignores_loose_file_in_log_root() {
         use super::pending_files;
         // A stray "CL Log" file sitting loose directly in a log root (a sibling of the
-        // character folders) must NOT be counted: the scanner only scans files inside
-        // character subfolders, so a loose file is unscannable and would otherwise stick in
-        // the badge forever (the real-world bug this guards against).
+        // character folders) is now scanned when a character can be determined from its content
+        // (Task 3/4). This test verifies:
+        //   - attributable loose file (has a Welcome message) IS pending
+        //   - undetermined loose file (no Welcome) is NOT pending
+        // Previously (pre-Task 3/4) loose files were never pending; that was updated because the
+        // scanner now attributes loose files by content and skips only undetermined ones.
         let (tmp, char_dir) = create_test_log_dir(); // tmp/TestChar
         fs::write(
             char_dir.join("CL Log 2024-01-02 10.00.00.txt"),
             "1/2/24 1:00:00p Welcome to Clan Lord, TestChar!\n",
         )
         .unwrap();
-        let loose = tmp.path().join("CL Log 2020-02-07 23.28.54.txt");
-        fs::write(&loose, "1/1/20 1:00:00p Welcome to Clan Lord, Ghost!\n").unwrap();
+        // Attributable loose file: has a Welcome -> character "Ghost" can be determined.
+        let loose_attr = tmp.path().join("CL Log 2020-02-07 23.28.54.txt");
+        fs::write(&loose_attr, "1/1/20 1:00:00p Welcome to Clan Lord, Ghost!\n").unwrap();
+        // Undetermined loose file: no Welcome -> scanner would skip it -> not pending.
+        let loose_undet = tmp.path().join("CL Log 2019-12-31 00.00.00.txt");
+        fs::write(&loose_undet, "12/31/19 1:00:00p You slaughtered a Rat.\n").unwrap();
 
         let db = Database::open_in_memory().unwrap();
         let pend = pending_files(&db, &vec![(tmp.path().to_path_buf(), true)]).unwrap();
-        assert_eq!(pend.len(), 1, "only the character-folder log is pending");
+        // Both the char-folder log and the attributable loose file are pending (2 total).
+        assert_eq!(pend.len(), 2, "char-folder log and attributable loose file are both pending, got {:?}", pend);
         assert!(
-            pend[0].ends_with("CL Log 2024-01-02 10.00.00.txt"),
-            "should be the char-folder log, got {:?}",
-            pend[0]
+            pend.iter().any(|p| p.ends_with("CL Log 2024-01-02 10.00.00.txt")),
+            "char-folder log should be pending"
         );
         assert!(
-            !pend.iter().any(|p| *p == loose),
-            "loose root-level file must not be counted"
+            pend.iter().any(|p| *p == loose_attr),
+            "attributable loose file should be pending"
+        );
+        assert!(
+            !pend.iter().any(|p| *p == loose_undet),
+            "undetermined loose file must NOT be pending"
         );
     }
 
@@ -3484,6 +3839,24 @@ mod tests {
             "duplicate-content new-path file must not be pending, got {:?}",
             pend
         );
+    }
+
+    #[test]
+    fn pending_counts_attributable_loose_file_but_not_undetermined() {
+        use super::pending_files;
+        let (tmp, char_dir) = create_test_log_dir();
+        fs::write(char_dir.join("CL Log 2024-01-02 10.00.00.txt"),
+            "1/2/24 1:00:00p Welcome to Clan Lord, TestChar!\n").unwrap();
+        let good = tmp.path().join("CL Log 2024-01-03 11.00.00.txt"); // loose, has welcome
+        fs::write(&good, "1/3/24 1:00:00p Welcome to Clan Lord, Wanderer!\n").unwrap();
+        let bad = tmp.path().join("CL Log 2020-02-07 23.28.54.txt"); // loose, no welcome
+        fs::write(&bad, "2/7/20 1:01:00p You slaughtered a Rat.\n").unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let pend = pending_files(&db, &vec![(tmp.path().to_path_buf(), true)]).unwrap();
+
+        assert!(pend.iter().any(|p| *p == good), "attributable loose file is pending");
+        assert!(!pend.iter().any(|p| *p == bad), "undetermined loose file is NOT pending");
     }
 
     #[test]
@@ -3530,6 +3903,40 @@ mod tests {
         assert_eq!(
             parser.db().get_kills(char_id).unwrap().iter().map(|k| k.slaughtered_count).sum::<i64>(),
             2
+        );
+    }
+
+    #[test]
+    fn tail_scan_attributes_appended_events_to_prefix_character() {
+        // A growing daily file: first scan establishes the character; the appended tail (no new
+        // welcome) must still attribute to that character, not be dropped as undetermined.
+        //
+        // Use only a loose file (no char_dir file) so it isn't deduped on the first scan —
+        // dedup would make the second scan treat it as a new file (offset 0, welcome present),
+        // which would mask the real bug (offset > 0 tail with no welcome → initial_char = None).
+        let (tmp, _char_dir) = create_test_log_dir();
+        // _char_dir (TestChar/) gets no log files → scan_folder_inner skips it.
+        let initial = "1/1/24 1:00:00p Welcome to Clan Lord, Ruuk!\n1/1/24 1:01:00p You slaughtered a Rat.\n";
+        let loose = tmp.path().join("CL Log 2024-01-01 13.00.00.txt");
+        fs::write(&loose, initial).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        // Verify first scan established Ruuk via the welcome in the loose file.
+        let ruuk = parser.db().get_character("Ruuk").unwrap().expect("Ruuk must exist after first scan");
+        assert_eq!(ruuk.logins, 1);
+
+        // Append a kill with NO new welcome — second scan will be an offset-based tail scan.
+        // Without the fix, initial_char = None, and the Large Vermine kill is dropped.
+        fs::write(&loose, format!("{initial}1/1/24 2:01:00p You vanquished a Large Vermine.\n")).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let ruuk = parser.db().get_character("Ruuk").unwrap().unwrap();
+        assert!(
+            parser.db().get_kills(ruuk.id.unwrap()).unwrap().iter().any(|k| k.creature_name == "Large Vermine"),
+            "appended Large Vermine must attribute to Ruuk via prefix re-derivation"
         );
     }
 }
