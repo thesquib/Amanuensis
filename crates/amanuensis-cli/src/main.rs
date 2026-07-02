@@ -149,6 +149,29 @@ enum Commands {
         /// Modified rank count to set
         ranks: i64,
     },
+    /// Set or clear a freeform note on a trainer row (mirrors the GUI's trainer note field)
+    SetTrainerNote {
+        /// Character name
+        name: String,
+        /// Trainer name
+        trainer: String,
+        /// Note text; omit to clear the existing note
+        note: Option<String>,
+    },
+    /// Clear ALL rank overrides/modifiers across every character (mirrors the GUI's bulk clear)
+    ClearRankOverrides {
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Reset derived log data (kills, trainers, coins, ...) while PRESERVING rank overrides and
+    /// trainer notes. Unlike `reset`, this keeps the database file and your manual configuration
+    /// — the same override-preserving reset the GUI performs.
+    ResetLogs {
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
+    },
     /// Search log text (requires FTS5 index; scan without --no-index first)
     Search {
         /// Search query (FTS5 syntax)
@@ -237,6 +260,33 @@ enum Commands {
         /// Skip building the full-text search index
         #[arg(long)]
         no_index: bool,
+    },
+    /// Incrementally process new and grown logs WITHOUT resetting (mirrors the GUI's
+    /// "Update Logs"). New files are scanned, grown files are tail-scanned, unchanged
+    /// files are skipped. Safe to run repeatedly.
+    Update {
+        /// One or more log folders to update from
+        #[arg(required = true)]
+        folders: Vec<PathBuf>,
+        /// Recurse into subdirectories of each folder
+        #[arg(long)]
+        recursive: bool,
+        /// Skip building the full-text search index
+        #[arg(long)]
+        no_index: bool,
+    },
+    /// Report how many log files an incremental Update would process right now (the GUI's
+    /// "Update Logs (N)" badge count), without modifying the database.
+    Pending {
+        /// One or more log folders to check
+        #[arg(required = true)]
+        folders: Vec<PathBuf>,
+        /// Recurse into subdirectories of each folder
+        #[arg(long)]
+        recursive: bool,
+        /// List each pending file path, not just the count
+        #[arg(long)]
+        list: bool,
     },
     /// Print the path to the GUI's default database file
     GuiDbPath,
@@ -359,6 +409,12 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Scan { folder, force, recursive, no_index } => {
             cmd_scan(&db_path, &folder, force, recursive, no_index)
         }
+        Commands::Update { folders, recursive, no_index } => {
+            cmd_update(&db_path, &folders, recursive, no_index)
+        }
+        Commands::Pending { folders, recursive, list } => {
+            cmd_pending(&db_path, &folders, recursive, list)
+        }
         Commands::Rescan { folders, recursive, no_index } => {
             cmd_rescan(&db_path, &folders, recursive, no_index)
         }
@@ -379,6 +435,11 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Merge { target, sources } => cmd_merge(&db_path, &target, &sources),
         Commands::Unmerge { name } => cmd_unmerge(&db_path, &name),
         Commands::Import { source, output, force } => cmd_import(&source, &output, force),
+        Commands::SetTrainerNote { name, trainer, note } => {
+            cmd_set_trainer_note(&db_path, &name, &trainer, note.as_deref())
+        }
+        Commands::ClearRankOverrides { yes } => cmd_clear_rank_overrides(&db_path, yes),
+        Commands::ResetLogs { yes } => cmd_reset_logs(&db_path, yes),
         Commands::SetRanks { name, trainer, ranks } => {
             cmd_set_ranks(&db_path, &name, &trainer, ranks)
         }
@@ -485,6 +546,45 @@ fn cmd_rescan(db_path: &str, folders: &[PathBuf], recursive: bool, no_index: boo
     let result = parser.rescan_sources(&sources, index_lines, progress)?;
     eprintln!();
     print_scan_result(&result);
+    Ok(())
+}
+
+fn cmd_update(db_path: &str, folders: &[PathBuf], recursive: bool, no_index: bool) -> amanuensis_core::Result<()> {
+    println!("Updating from {} folder(s) (incremental, no reset)...", folders.len());
+    for f in folders {
+        println!("  - {}", f.display());
+    }
+    let db = Database::open(db_path)?;
+    let parser = LogParser::new(db)?;
+    let index_lines = !no_index;
+
+    let sources: Vec<(PathBuf, bool)> = folders.iter().map(|f| (f.clone(), recursive)).collect();
+
+    let progress = |current: usize, total: usize, filename: &str| {
+        eprint!("\r[{}/{}] {}", current + 1, total, filename);
+        let _ = io::stderr().flush();
+    };
+
+    let result = parser.update_sources(&sources, index_lines, progress)?;
+    eprintln!();
+    if result.files_scanned == 0 && result.errors == 0 {
+        println!("Already up to date — no new or grown logs found.");
+    } else {
+        print_scan_result(&result);
+    }
+    Ok(())
+}
+
+fn cmd_pending(db_path: &str, folders: &[PathBuf], recursive: bool, list: bool) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let sources: Vec<(PathBuf, bool)> = folders.iter().map(|f| (f.clone(), recursive)).collect();
+    let pending = amanuensis_core::pending_files(&db, &sources)?;
+    println!("{} file(s) pending an incremental Update.", pending.len());
+    if list {
+        for p in &pending {
+            println!("  {}", p.display());
+        }
+    }
     Ok(())
 }
 
@@ -1106,6 +1206,59 @@ fn cmd_set_ranks(db_path: &str, name: &str, trainer: &str, ranks: i64) -> amanue
     db.set_modified_ranks(char_id, trainer, ranks)?;
     println!("Set modified ranks for {} with {}: {}", name, trainer, ranks);
 
+    Ok(())
+}
+
+fn cmd_set_trainer_note(db_path: &str, name: &str, trainer: &str, note: Option<&str>) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let char = resolve_character(&db, name)?;
+    let char_id = char.id.unwrap();
+
+    // An empty string clears the note, matching the GUI's behavior.
+    let note = note.filter(|n| !n.trim().is_empty());
+    db.set_trainer_note(char_id, trainer, note)?;
+    match note {
+        Some(n) => println!("Set note for {} ({}): {}", trainer, name, n),
+        None => println!("Cleared note for {} ({})", trainer, name),
+    }
+    Ok(())
+}
+
+fn cmd_clear_rank_overrides(db_path: &str, yes: bool) -> amanuensis_core::Result<()> {
+    if !yes {
+        eprint!("This will clear ALL rank overrides/modifiers for every character. Continue? [y/N] ");
+        let _ = io::stderr().flush();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).map_err(|e| {
+            amanuensis_core::AmanuensisError::Data(format!("Failed to read input: {}", e))
+        })?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+    let db = Database::open(db_path)?;
+    db.clear_rank_overrides()?;
+    println!("All rank overrides cleared.");
+    Ok(())
+}
+
+fn cmd_reset_logs(db_path: &str, yes: bool) -> amanuensis_core::Result<()> {
+    if !yes {
+        eprint!("This will clear derived log data (kills, trainers, coins, ...) but KEEP rank overrides and notes. Continue? [y/N] ");
+        let _ = io::stderr().flush();
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).map_err(|e| {
+            amanuensis_core::AmanuensisError::Data(format!("Failed to read input: {}", e))
+        })?;
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("Aborted.");
+            return Ok(());
+        }
+    }
+    let db = Database::open(db_path)?;
+    db.reset_log_data()?;
+    println!("Derived log data reset (rank overrides and notes preserved). Re-scan your log folders to repopulate.");
     Ok(())
 }
 
@@ -2007,4 +2160,98 @@ fn default_bestiary_path() -> PathBuf {
 fn count_aliases(bytes: &[u8]) -> amanuensis_core::Result<usize> {
     let parsed: serde_json::Value = serde_json::from_slice(bytes)?;
     Ok(parsed.as_array().map(|a| a.len()).unwrap_or(0))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    /// clap's own structural consistency check — catches conflicting args, bad defaults,
+    /// duplicate names, etc. across the whole Commands enum.
+    #[test]
+    fn cli_definition_is_valid() {
+        Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn parses_update_command() {
+        let cli = Cli::try_parse_from(["amanuensis", "update", "logs1", "logs2", "--recursive", "--no-index"]).unwrap();
+        match cli.command {
+            Commands::Update { folders, recursive, no_index } => {
+                assert_eq!(folders.len(), 2);
+                assert!(recursive);
+                assert!(no_index);
+            }
+            _ => panic!("expected Update"),
+        }
+    }
+
+    #[test]
+    fn parses_pending_command_with_list() {
+        let cli = Cli::try_parse_from(["amanuensis", "pending", "logs", "--list"]).unwrap();
+        match cli.command {
+            Commands::Pending { folders, recursive, list } => {
+                assert_eq!(folders, vec![PathBuf::from("logs")]);
+                assert!(!recursive);
+                assert!(list);
+            }
+            _ => panic!("expected Pending"),
+        }
+    }
+
+    #[test]
+    fn update_and_pending_require_a_folder() {
+        assert!(Cli::try_parse_from(["amanuensis", "update"]).is_err());
+        assert!(Cli::try_parse_from(["amanuensis", "pending"]).is_err());
+    }
+
+    #[test]
+    fn parses_set_trainer_note_with_and_without_note() {
+        let with = Cli::try_parse_from(["amanuensis", "set-trainer-note", "Gandor", "Detha", "a note"]).unwrap();
+        match with.command {
+            Commands::SetTrainerNote { name, trainer, note } => {
+                assert_eq!(name, "Gandor");
+                assert_eq!(trainer, "Detha");
+                assert_eq!(note.as_deref(), Some("a note"));
+            }
+            _ => panic!("expected SetTrainerNote"),
+        }
+        let without = Cli::try_parse_from(["amanuensis", "set-trainer-note", "Gandor", "Detha"]).unwrap();
+        match without.command {
+            Commands::SetTrainerNote { note, .. } => assert!(note.is_none()),
+            _ => panic!("expected SetTrainerNote"),
+        }
+    }
+
+    #[test]
+    fn parses_clear_and_reset_logs_flags() {
+        match Cli::try_parse_from(["amanuensis", "clear-rank-overrides", "--yes"]).unwrap().command {
+            Commands::ClearRankOverrides { yes } => assert!(yes),
+            _ => panic!("expected ClearRankOverrides"),
+        }
+        match Cli::try_parse_from(["amanuensis", "reset-logs"]).unwrap().command {
+            Commands::ResetLogs { yes } => assert!(!yes),
+            _ => panic!("expected ResetLogs"),
+        }
+    }
+
+    #[test]
+    fn parses_frequency_flags() {
+        let cli = Cli::try_parse_from([
+            "amanuensis", "frequency", "Gandor",
+            "--bin", "2h", "--solo", "--by-verb", "--format", "csv", "--limit", "5",
+        ]).unwrap();
+        match cli.command {
+            Commands::Frequency { name, bin, solo, by_verb, format, limit } => {
+                assert_eq!(name, "Gandor");
+                assert_eq!(bin, "2h");
+                assert!(solo);
+                assert!(by_verb);
+                assert_eq!(format, "csv");
+                assert_eq!(limit, Some(5));
+            }
+            _ => panic!("expected Frequency"),
+        }
+    }
 }

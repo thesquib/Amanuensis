@@ -545,6 +545,17 @@ mod tests {
         assert_eq!(kills.len(), 2); // Rat (combined) + Wolf
         let rat = kills.iter().find(|k| k.creature_name == "Rat").unwrap();
         assert_eq!(rat.killed_count, 2); // 1 + 1
+        // Per-verb first/last dates must aggregate across merge sources: MIN of first, MAX of last.
+        assert_eq!(
+            rat.date_first_killed.as_deref(),
+            Some("2024-01-01"),
+            "merged first-killed date must be the MIN across sources (A=01-01, B=01-05)"
+        );
+        assert_eq!(
+            rat.date_last_killed.as_deref(),
+            Some("2024-01-05"),
+            "merged last-killed date must be the MAX across sources"
+        );
 
         // Merged trainers should combine
         let trainers = db.get_trainers_merged(id_a).unwrap();

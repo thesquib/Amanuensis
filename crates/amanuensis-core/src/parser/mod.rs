@@ -1264,6 +1264,10 @@ impl LogParser {
             let char_id = self.db.get_or_create_character(char_name)?;
             self.load_override_config(char_id)?;
 
+            let mut char_files_scanned: usize = 0;
+            let mut char_files_skipped: usize = 0;
+            let mut char_events_found: usize = 0;
+
             for log_path in log_files {
                 current_file += 1;
                 let filename = log_path
@@ -1276,13 +1280,41 @@ impl LogParser {
 
                 let (bytes, offset, full_hash, is_full_scan) =
                     match self.plan_file_scan(log_path, &path_str, force)? {
-                        ScanPlan::Skip | ScanPlan::SkipDuplicate | ScanPlan::SkipChanged => {
+                        ScanPlan::Skip => {
                             result.skipped += 1;
+                            char_files_skipped += 1;
+                            continue;
+                        }
+                        ScanPlan::SkipDuplicate => {
+                            let fname = Path::new(&path_str).file_name()
+                                .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                            let _ = self.db.add_process_log(
+                                "info",
+                                &format!("Skipped duplicate file (same content already scanned): {fname}"),
+                            );
+                            result.skipped += 1;
+                            char_files_skipped += 1;
+                            continue;
+                        }
+                        ScanPlan::SkipChanged => {
+                            let fname = Path::new(&path_str).file_name()
+                                .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                            let _ = self.db.add_process_log(
+                                "warn",
+                                &format!("Log file changed unexpectedly (rotated/truncated); skipped — run Rescan Logs to reconcile: {fname}"),
+                            );
+                            result.skipped += 1;
+                            char_files_skipped += 1;
                             continue;
                         }
                         ScanPlan::ReadError(e) => {
                             log::warn!("Error reading {}: {}", path_str, e);
+                            let _ = self.db.add_process_log(
+                                "error",
+                                &format!("Could not read file: {} — {}", path_str, e),
+                            );
                             result.errors += 1;
+                            char_files_skipped += 1;
                             continue;
                         }
                         ScanPlan::Scan { bytes, offset, full_hash, count_login: is_full_scan } => {
@@ -1301,6 +1333,17 @@ impl LogParser {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
                         result.events_found += file_result.events_found;
+                        char_files_scanned += 1;
+                        char_events_found += file_result.events_found;
+
+                        for (trainer, count) in &file_result.override_skips {
+                            let fname = Path::new(&path_str).file_name()
+                                .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                            let _ = self.db.add_process_log(
+                                "info",
+                                &format!("Skipped {count} rank(s) for {trainer} ({char_name}) — override active: {fname}"),
+                            );
+                        }
 
                         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
                         self.db
@@ -1308,12 +1351,24 @@ impl LogParser {
                     }
                     Err(e) => {
                         log::warn!("Error scanning {}: {}", path_str, e);
+                        let _ = self.db.add_process_log(
+                            "error",
+                            &format!("Error scanning file: {} — {}", path_str, e),
+                        );
                         result.errors += 1;
+                        char_files_skipped += 1;
                     }
                 }
             }
             // Apply only the most recent reflect output for this character
             self.flush_reflect_lastys(char_id)?;
+            let _ = self.db.add_process_log(
+                "info",
+                &format!(
+                    "Scanned {char_name}: {char_files_scanned} file(s) processed, \
+                     {char_files_skipped} skipped, {char_events_found} events found"
+                ),
+            );
             result.characters += 1;
         }
 
@@ -1390,12 +1445,36 @@ impl LogParser {
 
             let (bytes, offset, full_hash, is_full_scan) =
                 match self.plan_file_scan(log_path, &path_str, force)? {
-                    ScanPlan::Skip | ScanPlan::SkipDuplicate | ScanPlan::SkipChanged => {
+                    ScanPlan::Skip => {
+                        result.skipped += 1;
+                        continue;
+                    }
+                    ScanPlan::SkipDuplicate => {
+                        let fname = Path::new(&path_str).file_name()
+                            .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                        let _ = self.db.add_process_log(
+                            "info",
+                            &format!("Skipped duplicate file (same content already scanned): {fname}"),
+                        );
+                        result.skipped += 1;
+                        continue;
+                    }
+                    ScanPlan::SkipChanged => {
+                        let fname = Path::new(&path_str).file_name()
+                            .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                        let _ = self.db.add_process_log(
+                            "warn",
+                            &format!("Log file changed unexpectedly (rotated/truncated); skipped — run Rescan Logs to reconcile: {fname}"),
+                        );
                         result.skipped += 1;
                         continue;
                     }
                     ScanPlan::ReadError(e) => {
                         log::warn!("Error reading {}: {}", path_str, e);
+                        let _ = self.db.add_process_log(
+                            "error",
+                            &format!("Could not read file: {} — {}", path_str, e),
+                        );
                         result.errors += 1;
                         continue;
                     }
@@ -1437,12 +1516,25 @@ impl LogParser {
                     result.lines_parsed += file_result.lines_parsed;
                     result.events_found += file_result.events_found;
 
+                    for (trainer, count) in &file_result.override_skips {
+                        let fname = Path::new(&path_str).file_name()
+                            .and_then(|n| n.to_str()).unwrap_or(&path_str);
+                        let _ = self.db.add_process_log(
+                            "info",
+                            &format!("Skipped {count} rank(s) for {trainer} ({char_name}) — override active: {fname}"),
+                        );
+                    }
+
                     let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
                     self.db
                         .mark_log_scanned(char_id, &path_str, &full_hash, bytes.len() as i64, &now)?;
                 }
                 Err(e) => {
                     log::warn!("Error scanning {}: {}", path_str, e);
+                    let _ = self.db.add_process_log(
+                        "error",
+                        &format!("Error scanning file: {} — {}", path_str, e),
+                    );
                     result.errors += 1;
                 }
             }
@@ -2122,7 +2214,7 @@ mod tests {
         let result = parser.scan_folder(tmp.path(), false).unwrap();
 
         assert!(parser.db().get_character("Unknown").unwrap().is_none(), "no 'Unknown' character is created");
-        assert!(result.skipped >= 1, "the undetermined loose file is counted as skipped");
+        assert_eq!(result.skipped, 1, "exactly the one undetermined loose file is counted as skipped");
     }
 
     #[test]
@@ -2218,9 +2310,52 @@ mod tests {
             kills.iter().any(|k| k.creature_name == "Large Vermine"),
             "the appended Large Vermine vanquish must be picked up"
         );
+        assert_eq!(
+            result.files_scanned, 1,
+            "exactly the one grown file should be (re)scanned, not skipped"
+        );
+    }
+
+    #[test]
+    fn progress_scan_logs_skipchanged_to_process_log() {
+        // The production scan path (scan_folder_with_progress) must record a process-log
+        // entry when a previously-scanned file is rotated/truncated, so the GUI Process Logs
+        // panel tells the user a Rescan is needed. Regression guard: this feedback used to be
+        // emitted only by the test-only non-progress path.
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        fs::write(
+            &log_path,
+            "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You slaughtered a Rat.
+1/1/24 1:02:00p You slaughtered a Rat.
+",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let noop = |_: usize, _: usize, _: &str| {};
+        parser
+            .scan_folder_with_progress(tmp.path(), false, false, noop)
+            .unwrap();
+
+        // Rotate: replace with shorter, different content (a fresh empty-ish file at same path).
+        fs::write(&log_path, "1/1/24 9:00:00p Welcome back, TestChar!\n").unwrap();
+
+        let result = parser
+            .scan_folder_with_progress(tmp.path(), false, false, noop)
+            .unwrap();
+        assert_eq!(result.skipped, 1, "the rotated file must be skipped, not re-scanned");
+
+        let logs = parser.db().get_process_logs().unwrap();
         assert!(
-            result.files_scanned >= 1,
-            "the grown file should be (re)scanned, not skipped"
+            logs.iter().any(|l| l.level == "warn"
+                && l.message.contains("rotated/truncated")
+                && l.message.contains("run Rescan Logs")),
+            "production scan must emit a SkipChanged warning to process_logs; got: {:?}",
+            logs.iter().map(|l| (&l.level, &l.message)).collect::<Vec<_>>()
         );
     }
 
@@ -3857,6 +3992,62 @@ mod tests {
 
         assert!(pend.iter().any(|p| *p == good), "attributable loose file is pending");
         assert!(!pend.iter().any(|p| *p == bad), "undetermined loose file is NOT pending");
+    }
+
+    #[test]
+    fn pending_count_equals_files_scanned_lockstep() {
+        // The critical badge invariant: the number pending_files reports MUST equal the number
+        // of files update_sources actually scans — otherwise the "Update Logs (N)" badge gets
+        // stuck or lies. Cross-check them directly over a mixed directory (char-folder log +
+        // attributable loose file + undetermined loose file), across a new-files pass and an
+        // append pass.
+        use super::pending_files;
+        let (tmp, char_dir) = create_test_log_dir(); // tmp/TestChar
+        let sub_log = char_dir.join("CL Log 2024-01-01 10.00.00.txt");
+        fs::write(
+            &sub_log,
+            "1/1/24 1:00:00p Welcome to Clan Lord, TestChar!\n1/1/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+        // Attributable loose file (has a welcome) -> scanned; undetermined loose (no welcome) -> skipped.
+        fs::write(
+            tmp.path().join("CL Log 2024-01-02 11.00.00.txt"),
+            "1/2/24 1:00:00p Welcome to Clan Lord, Wanderer!\n1/2/24 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+        fs::write(
+            tmp.path().join("CL Log 2020-02-07 23.28.54.txt"),
+            "2/7/20 1:01:00p You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        let sources = vec![(tmp.path().to_path_buf(), true)];
+
+        // New-files pass: 2 pending (sub-folder + attributable loose), undetermined excluded.
+        let pending_before = pending_files(parser.db(), &sources).unwrap().len();
+        assert_eq!(pending_before, 2, "two attributable files should be pending");
+        let r1 = parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        assert_eq!(
+            pending_before, r1.files_scanned,
+            "pending count must equal files actually scanned (new-files pass)"
+        );
+        // Nothing left pending after a clean update.
+        assert_eq!(pending_files(parser.db(), &sources).unwrap().len(), 0);
+
+        // Append pass: grow the sub-folder log; exactly one file becomes pending and is scanned.
+        let mut f = fs::OpenOptions::new().append(true).open(&sub_log).unwrap();
+        use std::io::Write as _;
+        writeln!(f, "1/1/24 2:00:00p You vanquished a Large Vermine.").unwrap();
+        drop(f);
+        let pending_append = pending_files(parser.db(), &sources).unwrap().len();
+        assert_eq!(pending_append, 1, "the grown file should be the only pending file");
+        let r2 = parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        assert_eq!(
+            pending_append, r2.files_scanned,
+            "pending count must equal files actually scanned (append pass)"
+        );
     }
 
     #[test]

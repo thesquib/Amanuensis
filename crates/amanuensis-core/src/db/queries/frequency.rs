@@ -243,6 +243,40 @@ mod tests {
     }
 
     #[test]
+    fn best_2h_excludes_buckets_exactly_two_hours_apart() {
+        // 01:00 and 03:00 are exactly 2h apart — the sliding window must NOT combine them
+        // (the `>= TWO_HOURS_SECS` left-advance expels the pair), so the max window is 1.
+        let db = Database::open_in_memory().unwrap();
+        let c = db.get_or_create_character("Tester").unwrap();
+        insert(&db, c, "Orga", "killed", "2024-01-01 01:00:00");
+        insert(&db, c, "Orga", "killed", "2024-01-01 03:00:00");
+
+        let freq = db.kill_frequency_for_char_ids(&[c], true).unwrap();
+        let orga = freq.iter().find(|f| f.creature_name == "Orga").unwrap();
+        assert_eq!(
+            orga.best_2h_count, 1,
+            "hour buckets exactly 2h apart must not combine into one 2h window"
+        );
+    }
+
+    #[test]
+    fn merged_char_ids_accumulate_shared_hour_bucket() {
+        // Multiple character ids (a merged character) sharing the same (creature, hour)
+        // bucket must accumulate, not overwrite — the documented merge behavior.
+        let db = Database::open_in_memory().unwrap();
+        let a = db.get_or_create_character("Alpha").unwrap();
+        let b = db.get_or_create_character("Beta").unwrap();
+        insert(&db, a, "Rat", "killed", "2024-01-01 09:00:00");
+        insert(&db, b, "Rat", "killed", "2024-01-01 09:30:00"); // same "2024-01-01 09" bucket
+
+        let freq = db.kill_frequency_for_char_ids(&[a, b], true).unwrap();
+        let rat = freq.iter().find(|f| f.creature_name == "Rat").unwrap();
+        assert_eq!(rat.best_day_count, 2, "both characters' kills must sum in the shared day");
+        assert_eq!(rat.best_2h_count, 2, "both characters' kills must sum in the shared hour bucket");
+        assert_eq!(rat.best_day_verbs.get("killed").copied(), Some(2));
+    }
+
+    #[test]
     fn per_verb_breakdown_of_best_day() {
         let db = Database::open_in_memory().unwrap();
         let c = db.get_or_create_character("Tester").unwrap();
