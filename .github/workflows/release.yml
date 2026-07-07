@@ -57,10 +57,23 @@ jobs:
         working-directory: crates/amanuensis-gui/ui
         run: npm run build
 
+      - name: Prepare App Store Connect API key
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          echo "$APPLE_API_KEY_CONTENT" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         with:
           projectPath: crates/amanuensis-gui
           args: --target ${{ matrix.target }}
@@ -80,7 +93,7 @@ jobs:
           releaseDraft: false
           prerelease: true
 
-      - name: Ad-hoc sign and re-package macOS app
+      - name: Verify notarization and upload macOS app tarball
         if: matrix.platform == 'macos-latest'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -88,29 +101,18 @@ jobs:
           BUNDLE_DIR="target/${{ matrix.target }}/release/bundle"
           APP_PATH="$BUNDLE_DIR/macos/Amanuensis.app"
 
-          # Ad-hoc sign the .app bundle
-          codesign --force --deep -s - "$APP_PATH"
-          codesign -vv "$APP_PATH"
+          codesign -vv --deep --strict "$APP_PATH"
+          spctl -a -vv -t exec "$APP_PATH"
+          xcrun stapler validate "$APP_PATH"
 
-          # Determine arch suffix for filenames
           if [[ "${{ matrix.target }}" == "aarch64-apple-darwin" ]]; then
             ARCH="aarch64"
           else
             ARCH="x64"
           fi
 
-          # Rebuild the tar.gz with the signed app
           tar czf "Amanuensis_${ARCH}.app.tar.gz" -C "$BUNDLE_DIR/macos" "Amanuensis.app"
           gh release upload ${{ github.ref_name }} "Amanuensis_${ARCH}.app.tar.gz" --clobber
-
-          # Rebuild the DMG with the signed app
-          DMG_NAME=$(ls $BUNDLE_DIR/dmg/*.dmg 2>/dev/null | head -1)
-          if [ -n "$DMG_NAME" ]; then
-            DMG_BASENAME=$(basename "$DMG_NAME")
-            rm -f "$DMG_NAME"
-            hdiutil create -volname "Amanuensis" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_NAME"
-            gh release upload ${{ github.ref_name }} "$DMG_NAME" --clobber
-          fi
 
       - name: Create portable Windows zip
         if: matrix.platform == 'windows-latest'
