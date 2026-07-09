@@ -15,8 +15,16 @@ function StatusBadge({ state }: { state: StudyState }) {
       );
     case "in_progress":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-medium text-yellow-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" /> {state.message_count}
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-medium text-yellow-400"
+          title={
+            state.kills_left != null
+              ? `Latest progress message puts fewer than ${state.kills_left} lasties remaining (${state.message_count} message${state.message_count !== 1 ? "s" : ""} seen)`
+              : `${state.message_count} progress message${state.message_count !== 1 ? "s" : ""} seen; no milestone wording recorded yet`
+          }
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+          {state.kills_left != null ? `< ${state.kills_left} left` : state.message_count}
         </span>
       );
     case "abandoned":

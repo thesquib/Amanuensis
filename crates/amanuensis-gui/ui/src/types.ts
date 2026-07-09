@@ -112,6 +112,8 @@ export interface Lasty {
   lasty_type: string;
   finished: boolean;
   message_count: number;
+  /** Upper bound on lasties remaining, from milestone wording ("a lot to learn" → 700); null until a milestone is seen */
+  kills_left: number | null;
   first_seen_date: string | null;
   last_seen_date: string | null;
   completed_date: string | null;

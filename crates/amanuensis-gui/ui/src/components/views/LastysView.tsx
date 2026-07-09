@@ -18,6 +18,14 @@ const columns = [
     header: "Count",
     cell: (info) => info.getValue(),
   }),
+  columnHelper.accessor("kills_left", {
+    header: "Remaining",
+    cell: (info) => {
+      if (info.row.original.finished) return "";
+      const v = info.getValue();
+      return v != null ? `< ${v}` : "";
+    },
+  }),
   columnHelper.accessor("finished", {
     header: "Completed",
     cell: (info) => {

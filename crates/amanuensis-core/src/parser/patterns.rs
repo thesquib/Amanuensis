@@ -161,8 +161,27 @@ pub static LASTY_COMPLETED: Lazy<Regex> =
 pub static LASTY_BEGIN_STUDY: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^You begin studying the (movements|ways|essence) of (?:the|an?) (.+)\.$").expect("regex compile error"));
 // Progress: "You have {amount} left to learn about the (movements|ways|essence) of the/a {creature}."
+// Captures: 1 = milestone descriptor ("a lot", "almost nothing", …), 2 = study type, 3 = creature.
 pub static LASTY_LEARN_PROGRESS: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You have .+ (?:left )?to learn about the (movements|ways|essence) of (?:the|an?) (.+)\.$").expect("regex compile error"));
+    Lazy::new(|| Regex::new(r"^You have (.+?) (?:left )?to learn about the (movements|ways|essence) of (?:the|an?) (.+)\.$").expect("regex compile error"));
+
+/// Upper bound on lasties remaining for a study milestone descriptor, per the
+/// clump.clanlord.net Rangers "Creature Progress Messages" table (48 messages,
+/// grouped into 8 wording bands; the bound is the band's max "Kills Left").
+/// Unknown wordings return None — the progress event still counts, just unbounded.
+pub fn study_milestone_kills_left(descriptor: &str) -> Option<i64> {
+    match descriptor {
+        "almost nothing" => Some(12),
+        "a few things" => Some(27),
+        "more than a few things" => Some(63),
+        "some things" => Some(144),
+        "many things" => Some(280),
+        "much" => Some(480),
+        "a lot" => Some(700),
+        "a vast amount" => Some(1300),
+        _ => None,
+    }
+}
 
 // === Ranger reflect: study-list headers ===
 // Each study type has its own header preceding a multi-line creature list.

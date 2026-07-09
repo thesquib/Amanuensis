@@ -114,6 +114,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             lasty_type TEXT NOT NULL DEFAULT '',
             finished INTEGER NOT NULL DEFAULT 0,
             message_count INTEGER NOT NULL DEFAULT 0,
+            kills_left INTEGER,
             FOREIGN KEY (character_id) REFERENCES characters(id),
             UNIQUE(character_id, creature_name, lasty_type)
         );
@@ -222,6 +223,9 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         // Marks rows inserted after the character-name filter was added.
         // Existing rows (recorded before the filter) default to 0 and are purged below.
         "ALTER TABLE trainer_checkpoints ADD COLUMN name_filtered INTEGER NOT NULL DEFAULT 0",
+        // Upper bound on lasties remaining, from the ranger study milestone wording
+        // ("a lot to learn" → <700). NULL = no milestone message seen yet.
+        "ALTER TABLE lastys ADD COLUMN kills_left INTEGER",
     ];
 
     for sql in &migrations {
@@ -265,6 +269,7 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
                     lasty_type TEXT NOT NULL DEFAULT '',
                     finished INTEGER NOT NULL DEFAULT 0,
                     message_count INTEGER NOT NULL DEFAULT 0,
+                    kills_left INTEGER,
                     first_seen_date TEXT,
                     last_seen_date TEXT,
                     completed_date TEXT,
@@ -274,9 +279,9 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
                  );
                  INSERT INTO lastys_new
                     (id, character_id, creature_name, lasty_type, finished, message_count,
-                     first_seen_date, last_seen_date, completed_date, abandoned_date)
+                     kills_left, first_seen_date, last_seen_date, completed_date, abandoned_date)
                     SELECT id, character_id, creature_name, lasty_type, finished, message_count,
-                           first_seen_date, last_seen_date, completed_date, abandoned_date
+                           kills_left, first_seen_date, last_seen_date, completed_date, abandoned_date
                     FROM lastys;
                  DROP TABLE lastys;
                  ALTER TABLE lastys_new RENAME TO lastys;

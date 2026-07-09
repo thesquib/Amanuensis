@@ -7,6 +7,8 @@ export type StudyStatus = "none" | "in_progress" | "completed" | "abandoned";
 export interface StudyState {
   status: StudyStatus;
   message_count: number;
+  /** Upper bound on lasties remaining ("a lot to learn" → 700); null until a milestone message is seen */
+  kills_left: number | null;
   date: string | null;
 }
 
@@ -77,7 +79,7 @@ const COST_BEFRIEND = 10;
 const COST_MORPH = 5;
 
 function emptyStudyState(): StudyState {
-  return { status: "none", message_count: 0, date: null };
+  return { status: "none", message_count: 0, kills_left: null, date: null };
 }
 
 function lastyToStudyState(lasty: Lasty): StudyState {
@@ -92,6 +94,7 @@ function lastyToStudyState(lasty: Lasty): StudyState {
   return {
     status,
     message_count: lasty.message_count,
+    kills_left: lasty.kills_left,
     date: lasty.completed_date ?? lasty.abandoned_date ?? lasty.last_seen_date,
   };
 }

@@ -298,7 +298,8 @@ impl Database {
     }
 
     /// Get lastys aggregated across a character and all its merge sources.
-    /// For the same creature: keep the one with higher message_count, prefer finished=1.
+    /// One row per (creature, lasty_type): message counts sum, finished/dates take
+    /// the furthest progress across sources.
     pub fn get_lastys_merged(&self, char_id: i64) -> Result<Vec<Lasty>> {
         let all_ids = self.char_ids_for_merged(char_id)?;
         if all_ids.len() == 1 {
@@ -307,11 +308,11 @@ impl Database {
         let placeholders = all_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
             "SELECT MIN(id), {}, creature_name, lasty_type,
-                    MAX(finished), SUM(message_count),
+                    MAX(finished), SUM(message_count), MIN(kills_left),
                     MIN(first_seen_date), MAX(last_seen_date),
                     MAX(completed_date), MAX(abandoned_date)
              FROM lastys WHERE character_id IN ({})
-             GROUP BY creature_name
+             GROUP BY creature_name, lasty_type
              ORDER BY creature_name",
             char_id, placeholders
         );
@@ -324,10 +325,11 @@ impl Database {
                 lasty_type: row.get(3)?,
                 finished: row.get::<_, i64>(4)? != 0,
                 message_count: row.get(5)?,
-                first_seen_date: row.get(6)?,
-                last_seen_date: row.get(7)?,
-                completed_date: row.get(8)?,
-                abandoned_date: row.get(9)?,
+                kills_left: row.get(6)?,
+                first_seen_date: row.get(7)?,
+                last_seen_date: row.get(8)?,
+                completed_date: row.get(9)?,
+                abandoned_date: row.get(10)?,
             })
         })?;
         Ok(lastys.filter_map(|r| r.ok()).collect())

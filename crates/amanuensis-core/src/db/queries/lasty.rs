@@ -6,6 +6,9 @@ use super::Database;
 
 impl Database {
     /// Upsert a lasty record. Increments message_count on subsequent encounters.
+    /// `kills_left` is the milestone upper bound from progress-message wording;
+    /// the stored value only ever tightens (MIN of known bounds), since progress
+    /// decreases monotonically and rescans may replay messages out of order.
     /// Uses INSERT...ON CONFLICT for single-statement upsert performance.
     pub fn upsert_lasty(
         &self,
@@ -13,14 +16,17 @@ impl Database {
         creature_name: &str,
         lasty_type: &str,
         date: &str,
+        kills_left: Option<i64>,
     ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count, first_seen_date, last_seen_date)
-             VALUES (?1, ?2, ?3, 1, ?4, ?4)
+            "INSERT INTO lastys (character_id, creature_name, lasty_type, message_count, kills_left, first_seen_date, last_seen_date)
+             VALUES (?1, ?2, ?3, 1, ?5, ?4, ?4)
              ON CONFLICT(character_id, creature_name, lasty_type) DO UPDATE SET
                 message_count = message_count + 1,
+                kills_left = COALESCE(MIN(lastys.kills_left, excluded.kills_left),
+                                      lastys.kills_left, excluded.kills_left),
                 last_seen_date = excluded.last_seen_date",
-            params![char_id, creature_name, lasty_type, date],
+            params![char_id, creature_name, lasty_type, date, kills_left],
         )?;
         Ok(())
     }
@@ -120,7 +126,7 @@ impl Database {
     pub fn get_lastys(&self, char_id: i64) -> Result<Vec<Lasty>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, character_id, creature_name, lasty_type, finished, message_count,
-                    first_seen_date, last_seen_date, completed_date, abandoned_date
+                    kills_left, first_seen_date, last_seen_date, completed_date, abandoned_date
              FROM lastys WHERE character_id = ?1 ORDER BY creature_name",
         )?;
 
@@ -132,10 +138,11 @@ impl Database {
                 lasty_type: row.get(3)?,
                 finished: row.get::<_, i64>(4)? != 0,
                 message_count: row.get(5)?,
-                first_seen_date: row.get(6)?,
-                last_seen_date: row.get(7)?,
-                completed_date: row.get(8)?,
-                abandoned_date: row.get(9)?,
+                kills_left: row.get(6)?,
+                first_seen_date: row.get(7)?,
+                last_seen_date: row.get(8)?,
+                completed_date: row.get(9)?,
+                abandoned_date: row.get(10)?,
             })
         })?;
 

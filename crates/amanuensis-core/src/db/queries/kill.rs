@@ -586,7 +586,7 @@ mod tests {
         ).unwrap();
 
         // Insert one lasty for a creature not in kills.
-        db.upsert_lasty(char_id, "Tesla", "Movements", "2024-01-01").unwrap();
+        db.upsert_lasty(char_id, "Tesla", "Movements", "2024-01-01", None).unwrap();
 
         let encountered = db.get_encountered_creatures(char_id).unwrap();
         assert!(encountered.contains("Rat"));

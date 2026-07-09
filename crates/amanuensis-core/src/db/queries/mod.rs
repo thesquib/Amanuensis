@@ -403,9 +403,9 @@ mod tests {
     fn test_upsert_lasty() {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Fen").unwrap();
-        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
-        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-02").unwrap();
-        db.upsert_lasty(id, "Orga Anger", "Morph", "2024-01-03").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01", None).unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-02", None).unwrap();
+        db.upsert_lasty(id, "Orga Anger", "Morph", "2024-01-03", None).unwrap();
 
         let lastys = db.get_lastys(id).unwrap();
         assert_eq!(lastys.len(), 2);
@@ -423,10 +423,38 @@ mod tests {
     }
 
     #[test]
+    fn test_upsert_lasty_kills_left_only_tightens() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+
+        // No milestone seen yet → NULL
+        db.upsert_lasty(id, "Rat", "Befriend", "2024-01-01", None).unwrap();
+        assert_eq!(db.get_lastys(id).unwrap()[0].kills_left, None);
+
+        // First milestone sets the bound
+        db.upsert_lasty(id, "Rat", "Befriend", "2024-01-02", Some(700)).unwrap();
+        assert_eq!(db.get_lastys(id).unwrap()[0].kills_left, Some(700));
+
+        // A None (unrecognized wording) must not clear an existing bound
+        db.upsert_lasty(id, "Rat", "Befriend", "2024-01-03", None).unwrap();
+        assert_eq!(db.get_lastys(id).unwrap()[0].kills_left, Some(700));
+
+        // Progress tightens the bound
+        db.upsert_lasty(id, "Rat", "Befriend", "2024-01-04", Some(480)).unwrap();
+        assert_eq!(db.get_lastys(id).unwrap()[0].kills_left, Some(480));
+
+        // Replaying an older (looser) milestone must not widen it back
+        db.upsert_lasty(id, "Rat", "Befriend", "2024-01-05", Some(1300)).unwrap();
+        let rat = &db.get_lastys(id).unwrap()[0];
+        assert_eq!(rat.kills_left, Some(480));
+        assert_eq!(rat.message_count, 5);
+    }
+
+    #[test]
     fn test_complete_lasty() {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Fen").unwrap();
-        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01", None).unwrap();
         db.complete_lasty(id, "Sespus").unwrap();
 
         let lastys = db.get_lastys(id).unwrap();
@@ -438,7 +466,7 @@ mod tests {
     fn test_finish_lasty() {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Fen").unwrap();
-        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01", None).unwrap();
         db.finish_lasty(id, "Maha Ruknee", "Befriend", "2024-01-05").unwrap();
 
         let lastys = db.get_lastys(id).unwrap();
@@ -467,7 +495,7 @@ mod tests {
     fn test_abandon_lasty() {
         let db = Database::open_in_memory().unwrap();
         let id = db.get_or_create_character("Fen").unwrap();
-        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
+        db.upsert_lasty(id, "Maha Ruknee", "Befriend", "2024-01-01", None).unwrap();
         db.abandon_lasty(id, "Maha Ruknee", "2024-01-02").unwrap();
 
         let lastys = db.get_lastys(id).unwrap();
@@ -518,9 +546,9 @@ mod tests {
         db.upsert_pet(id_a, "Cat").unwrap();
         db.upsert_pet(id_b, "Cat").unwrap(); // duplicate pet
         db.upsert_pet(id_b, "Dog").unwrap();
-        db.upsert_lasty(id_a, "Maha Ruknee", "Befriend", "2024-01-01").unwrap();
-        db.upsert_lasty(id_b, "Maha Ruknee", "Befriend", "2024-01-05").unwrap();
-        db.upsert_lasty(id_b, "Orga Anger", "Morph", "2024-01-03").unwrap();
+        db.upsert_lasty(id_a, "Maha Ruknee", "Befriend", "2024-01-01", None).unwrap();
+        db.upsert_lasty(id_b, "Maha Ruknee", "Befriend", "2024-01-05", None).unwrap();
+        db.upsert_lasty(id_b, "Orga Anger", "Morph", "2024-01-03", None).unwrap();
 
         // Merge B into A
         db.merge_characters(&[id_b], id_a).unwrap();
@@ -573,6 +601,43 @@ mod tests {
         assert_eq!(lastys.len(), 2); // Maha Ruknee + Orga Anger
         let maha = lastys.iter().find(|l| l.creature_name == "Maha Ruknee").unwrap();
         assert_eq!(maha.message_count, 2); // 1 + 1
+    }
+
+    #[test]
+    fn test_merged_lastys_preserve_per_type_rows() {
+        // A creature can have independent lastys per type (Movements/Befriend/Morph).
+        // Merged queries must keep one row per (creature, type): collapsing across
+        // types made an in-progress Befriend/Morph disappear behind a finished
+        // Movements when the character had merge sources (e.g. Scribius import).
+        let db = Database::open_in_memory().unwrap();
+        let id_a = db.get_or_create_character("CharA").unwrap();
+        let id_b = db.get_or_create_character("CharB").unwrap();
+
+        db.finish_lasty(id_a, "Snowstag", "Movements", "2026-04-01").unwrap();
+        db.upsert_lasty(id_b, "Snowstag", "Morph", "2026-04-02", Some(1300)).unwrap();
+        db.upsert_lasty(id_b, "Snowstag", "Morph", "2026-04-03", Some(700)).unwrap();
+        db.upsert_lasty(id_a, "Snowstag", "Befriend", "2026-04-04", None).unwrap();
+
+        db.merge_characters(&[id_b], id_a).unwrap();
+
+        let lastys = db.get_lastys_merged(id_a).unwrap();
+        assert_eq!(lastys.len(), 3, "each lasty type must remain a distinct row");
+
+        let morph = lastys
+            .iter()
+            .find(|l| l.lasty_type == "Morph")
+            .expect("in-progress Morph row must survive the merge");
+        assert!(!morph.finished, "Morph must not inherit finished from Movements");
+        assert_eq!(morph.message_count, 2);
+        assert_eq!(morph.kills_left, Some(700), "merged bound is the tightest across sources");
+
+        let movements = lastys.iter().find(|l| l.lasty_type == "Movements").unwrap();
+        assert!(movements.finished);
+        assert_eq!(movements.message_count, 1);
+
+        let befriend = lastys.iter().find(|l| l.lasty_type == "Befriend").unwrap();
+        assert!(!befriend.finished);
+        assert_eq!(befriend.message_count, 1);
     }
 
     #[test]

@@ -413,8 +413,9 @@ fn classify_system_message(message: &str, trainer_db: &TrainerDb) -> LogEvent {
     }
     if let Some(caps) = patterns::LASTY_LEARN_PROGRESS.captures(body) {
         return LogEvent::LastyProgress {
-            creature: caps[2].to_string(),
-            lasty_type: study_type_to_lasty(&caps[1]),
+            creature: caps[3].to_string(),
+            lasty_type: study_type_to_lasty(&caps[2]),
+            kills_left: patterns::study_milestone_kills_left(&caps[1]),
         };
     }
 
@@ -907,9 +908,39 @@ mod tests {
             event,
             LogEvent::LastyProgress {
                 ref creature,
-                ref lasty_type
+                ref lasty_type,
+                kills_left: Some(12),
             } if creature == "Vermine" && lasty_type == "Movements"
         ));
+    }
+
+    #[test]
+    fn test_lasty_learn_progress_milestone_bounds() {
+        // Milestone wording maps to the clump-table "kills left" upper bound.
+        // Wordings without "left" (the larger bands) must parse too.
+        let db = test_db();
+        let cases = [
+            ("¥ You have a few things left to learn about the ways of the Rat.", "Rat", "Befriend", Some(27)),
+            ("¥ You have more than a few things to learn about the ways of the Rat.", "Rat", "Befriend", Some(63)),
+            ("¥ You have some things to learn about the ways of the Rat.", "Rat", "Befriend", Some(144)),
+            ("¥ You have many things to learn about the ways of the Rat.", "Rat", "Befriend", Some(280)),
+            ("¥ You have much to learn about the ways of the Rat.", "Rat", "Befriend", Some(480)),
+            ("• You have a lot to learn about the essence of the Snowstag.", "Snowstag", "Morph", Some(700)),
+            ("• You have a vast amount to learn about the essence of the Snowstag.", "Snowstag", "Morph", Some(1300)),
+            // Unknown wording still records progress, just without a bound
+            ("¥ You have heaps to learn about the ways of the Rat.", "Rat", "Befriend", None),
+        ];
+        for (line, want_creature, want_type, want_left) in cases {
+            let event = classify_line(line, &db);
+            match event {
+                LogEvent::LastyProgress { creature, lasty_type, kills_left } => {
+                    assert_eq!(creature, want_creature, "creature for {line:?}");
+                    assert_eq!(lasty_type, want_type, "type for {line:?}");
+                    assert_eq!(kills_left, want_left, "kills_left for {line:?}");
+                }
+                other => panic!("expected LastyProgress for {line:?}, got {other:?}"),
+            }
+        }
     }
 
     #[test]

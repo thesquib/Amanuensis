@@ -40,6 +40,9 @@ pub struct Lasty {
     pub lasty_type: String,
     pub finished: bool,
     pub message_count: i64,
+    /// Upper bound on lasties remaining, from the latest study milestone wording
+    /// ("a lot to learn" → <700). None until a milestone message has been seen.
+    pub kills_left: Option<i64>,
     pub first_seen_date: Option<String>,
     pub last_seen_date: Option<String>,
     pub completed_date: Option<String>,
@@ -55,6 +58,7 @@ impl Lasty {
             lasty_type,
             finished: false,
             message_count: 0,
+            kills_left: None,
             first_seen_date: None,
             last_seen_date: None,
             completed_date: None,

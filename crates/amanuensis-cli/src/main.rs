@@ -1074,7 +1074,7 @@ fn cmd_lastys(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
         .load_preset(UTF8_FULL)
         .apply_modifier(UTF8_ROUND_CORNERS)
         .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_header(vec!["Creature", "Type", "Messages", "Status", "First Seen", "Last Seen"]);
+        .set_header(vec!["Creature", "Type", "Messages", "Remaining", "Status", "First Seen", "Last Seen"]);
 
     for l in &lastys {
         let status = if l.finished {
@@ -1086,11 +1086,16 @@ fn cmd_lastys(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
         } else {
             "Active".to_string()
         };
+        let remaining = match (l.finished, l.kills_left) {
+            (false, Some(n)) => format!("< {}", n),
+            _ => String::new(),
+        };
 
         table.add_row(vec![
             l.creature_name.clone(),
             l.lasty_type.clone(),
             l.message_count.to_string(),
+            remaining,
             status,
             l.first_seen_date.clone().unwrap_or_default(),
             l.last_seen_date.clone().unwrap_or_default(),

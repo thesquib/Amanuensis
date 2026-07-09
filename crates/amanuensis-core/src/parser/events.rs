@@ -76,8 +76,10 @@ pub enum LogEvent {
     Disconnect,
     /// Study charge: coins for advanced studies
     StudyCharge { amount: i64 },
-    /// Lasty progress: learning to befriend/morph/fight a creature
-    LastyProgress { creature: String, lasty_type: String },
+    /// Lasty progress: learning to befriend/morph/fight a creature.
+    /// `kills_left` is the upper bound implied by the milestone wording
+    /// ("a lot to learn" → <700), None for unrecognized wordings.
+    LastyProgress { creature: String, lasty_type: String, kills_left: Option<i64> },
     /// Lasty finished: completed learning to befriend/morph/fight a creature
     LastyFinished { creature: String, lasty_type: String },
     /// Lasty begin study: started studying a creature

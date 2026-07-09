@@ -606,7 +606,7 @@ impl LogParser {
                     // Track as in-progress — these lines precede the reflect header and identify
                     // creatures that are not yet finished (excluded from finished marking later).
                     reflect_in_progress.insert(creature.clone());
-                    self.db.upsert_lasty(char_id, &creature, "Movements", &date_str)?;
+                    self.db.upsert_lasty(char_id, &creature, "Movements", &date_str, None)?;
                     file_result.events_found += 1;
                 }
 
@@ -885,12 +885,13 @@ impl LogParser {
                         .or_default()
                         .remove(&creature);
                     self.db.clear_lasty_abandon(char_id, &creature)?;
-                    self.db.upsert_lasty(char_id, &creature, &lasty_type, &date_str)?;
+                    self.db.upsert_lasty(char_id, &creature, &lasty_type, &date_str, None)?;
                     file_result.events_found += 1;
                 }
                 LogEvent::LastyProgress {
                     creature,
                     lasty_type,
+                    kills_left,
                 } => {
                     // Skip progress for abandoned studies
                     let is_abandoned = self
@@ -900,7 +901,7 @@ impl LogParser {
                         .map(|set| set.contains(&creature))
                         .unwrap_or(false);
                     if !is_abandoned {
-                        self.db.upsert_lasty(char_id, &creature, &lasty_type, &date_str)?;
+                        self.db.upsert_lasty(char_id, &creature, &lasty_type, &date_str, kills_left)?;
                         file_result.events_found += 1;
                     }
                 }
