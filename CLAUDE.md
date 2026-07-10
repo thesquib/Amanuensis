@@ -58,6 +58,7 @@ These files can be used to update the bundled Amanuensis data:
 - **Rank messages**: https://raw.githubusercontent.com/maxtraxv3/Macros/refs/heads/main/clanlord%20apps/RankCounter/RankCounter27/rankmessages.txt
 - **Trainer list**: https://raw.githubusercontent.com/maxtraxv3/Macros/refs/heads/main/clanlord%20apps/RankCounter/RankCounter27/trainers.txt
 - **Special phrases**: https://raw.githubusercontent.com/maxtraxv3/Macros/refs/heads/main/clanlord%20apps/RankCounter/RankCounter27/specialphrases.txt
+- **Ranger study progress messages**: https://clump.clanlord.net/library/index.php?title=Rangers#Creature_Progress_Messages_Table — source of the milestone-wording → max-lasties-remaining mapping in `parser/patterns.rs` `study_milestone_kills_left` (8 bands, "almost nothing"→12 … "a vast amount"→1300). The wiki flags the table as approximate; if it's revised, update the mapping to the new band maxima.
 
 ## Log Format Details
 
