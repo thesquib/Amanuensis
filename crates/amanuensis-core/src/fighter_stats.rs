@@ -63,6 +63,7 @@ fn formula_name(db_name: &str) -> &str {
     match db_name {
         "Bangus Anmash" => "Bangus",
         "Farly Buff" => "Farly",
+        "Heen Slostid" => "Heen",
         _ => db_name,
     }
 }
@@ -357,6 +358,18 @@ mod tests {
         assert_eq!(stats.defense, RACE_DEFENSE + 20);
         assert_eq!(stats.health_regen, RACE_HEALTH_REGEN + 40);
         assert_eq!(stats.slaughter_points, RACE_SP + 10 * 22);
+    }
+
+    #[test]
+    fn test_heen_slostid_alias() {
+        // The DB stores the full trainer name "Heen Slostid" (from trainers.json);
+        // the formulas key on "Heen". Without the alias, shieldstone ranks were
+        // silently treated as 0 (player-reported alongside the Champion mis-tag).
+        let mut ranks = HashMap::new();
+        ranks.insert("Heen Slostid".to_string(), 100);
+        let multipliers = HashMap::new();
+        let stats = compute_fighter_stats(&ranks, &multipliers);
+        assert_eq!(stats.shieldstone_drain, 314); // same as "Heen" = 100
     }
 
     #[test]

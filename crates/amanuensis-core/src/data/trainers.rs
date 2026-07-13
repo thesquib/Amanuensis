@@ -195,6 +195,19 @@ mod tests {
     }
 
     #[test]
+    fn test_heen_slostid_has_no_profession() {
+        // Anyone can train shieldstone use with Heen Slostid (player report,
+        // 2026-07: was mis-tagged Champion, which made profession detection
+        // classify non-Champions who studied shieldstone as Champions).
+        let db = TrainerDb::bundled().unwrap();
+        assert_eq!(
+            db.get_trainer("Your study of the shieldstone is improving."),
+            Some("Heen Slostid")
+        );
+        assert_eq!(db.get_profession("Heen Slostid"), None);
+    }
+
+    #[test]
     fn test_seel_no_yen_prefix() {
         // "Things appear a bit more clearly, now." has no ¥ prefix in the plist
         let db = TrainerDb::bundled().unwrap();

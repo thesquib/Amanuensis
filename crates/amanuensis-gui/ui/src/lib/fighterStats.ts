@@ -82,10 +82,24 @@ function r(ranks: Map<string, number>, name: string): number {
   return ranks.get(name) ?? 0;
 }
 
+/** DB trainer names → formula names (mirrors formula_name in fighter_stats.rs) */
+const FORMULA_ALIASES: Record<string, string> = {
+  "Bangus Anmash": "Bangus",
+  "Farly Buff": "Farly",
+  "Heen Slostid": "Heen",
+};
+
 export function computeFighterStats(
-  ranks: Map<string, number>,
+  rawRanks: Map<string, number>,
   multipliers: Map<string, number>,
 ): FighterStats {
+  // Fold DB-name ranks into formula-name keys
+  const ranks = new Map<string, number>();
+  for (const [name, total] of rawRanks) {
+    const fname = FORMULA_ALIASES[name] ?? name;
+    ranks.set(fname, (ranks.get(fname) ?? 0) + total);
+  }
+
   // Trainer rank helper
   const atkus = r(ranks, "Atkus");
   const darkus = r(ranks, "Darkus");
@@ -186,13 +200,14 @@ export function computeFighterStats(
 
   // Trained ranks (sum of all ranks)
   let trainedRanks = 0;
-  for (const total of ranks.values()) {
+  for (const total of rawRanks.values()) {
     trainedRanks += total;
   }
 
-  // Effective ranks (ranks × multiplier)
+  // Effective ranks (ranks × multiplier) — multipliers are keyed by DB trainer
+  // names, so iterate the unfolded map (mirrors compute_fighter_stats in Rust)
   let effectiveRanks = 0;
-  for (const [name, total] of ranks) {
+  for (const [name, total] of rawRanks) {
     effectiveRanks += total * (multipliers.get(name) ?? 1.0);
   }
   effectiveRanks = Math.round(effectiveRanks * 10) / 10;

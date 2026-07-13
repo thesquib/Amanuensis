@@ -40,7 +40,7 @@ The original app is a native macOS Cocoa application (Objective-C, built with Xc
    to an `"Unknown"` character. `pending_files`/`would_scan` mirror this (attributable loose
    files count toward the Update Logs badge; undetermined ones do not).
 3. **Kill tracking**: Parses kill events, maps creatures to values using `creatures.csv`, calculates statistics (highest kill, nemesis, etc.)
-4. **Trainer tracking**: Detects trainer messages in logs, maps to trainer names via `trainers.plist`, tracks ranks (effective ranks, modified ranks, bulk ranks).
+4. **Trainer tracking**: Detects trainer messages in logs, maps to trainer names via `trainers.plist`, tracks ranks (effective ranks, modified ranks, bulk ranks). Trainer `profession` tags in `trainers.json` feed character profession detection (`finalize_characters`), so universal trainers anyone can train must carry NO tag (e.g. the Masters, and `Heen Slostid` — shieldstone — which was mis-tagged Champion until 2026-07). **Profession fixes from data changes do NOT self-heal on incremental scans**: `finalize_characters` keeps any stored specialization as authoritative (it can't distinguish an announcement-derived Champion from one written by old buggy detection), so already-misclassified characters need a full Rescan Logs (which resets professions) or a manual profession override. Fighter-stat formulas key on short trainer names; DB names are mapped via `formula_name` in `fighter_stats.rs` and `FORMULA_ALIASES` in `ui/src/lib/fighterStats.ts` (kept in sync: `Bangus Anmash`→`Bangus`, `Farly Buff`→`Farly`, `Heen Slostid`→`Heen`) — a missing alias silently zeroes that trainer's contribution.
 5. **Lasty tracking**: Tracks "lasty" events (last encounter data from reflect messages). Study milestone messages (`You have {a lot|much|…} (left )?to learn about the {movements|ways|essence} of the X.`) additionally set `lastys.kills_left` — the upper bound on lasties remaining per the clump.clanlord.net Ranger progress table (8 wording bands: "almost nothing"→12 … "a vast amount"→1300, mapped in `parser/patterns.rs` `study_milestone_kills_left`). The stored bound only tightens (MIN in `upsert_lasty`; MIN across merge sources) so out-of-order rescans can't widen it. Surfaced as "< 700 left"-style badges in Ranger Stats → Studies (falls back to raw message count when no milestone seen), a "Remaining" column in LastysView and CLI `lastys`. **Databases scanned before this column existed show no bound until a full Rescan Logs replays the milestone messages.** Related fix: `get_lastys_merged` used to GROUP BY creature only, which collapsed a creature's Movements/Befriend/Morph rows into one arbitrary-type row for characters with merge sources (e.g. Scribius imports) — in-progress Befriend/Morph vanished behind a finished Movements in the GUI. Now groups by (creature, lasty_type).
 6. **Pet detection**: Parses pet information from logs.
 7. **Coin/economy tracking**: Casino wins/losses, esteem, darkstone, chain breaks, bell usage.
@@ -88,7 +88,7 @@ Discovered through real-data comparison testing against Scribius with 1,160 log 
 
 ## Testing
 
-- 361 unit tests in `amanuensis-core`, plus 7 clap-parsing smoke tests in `amanuensis-cli`
+- 366 unit tests in `amanuensis-core`, plus 7 clap-parsing smoke tests in `amanuensis-cli`
 - 23 real data comparison tests (require local log files, run with `--ignored`):
   ```
   cargo test -p amanuensis-core --test real_data_comparison -- --ignored
