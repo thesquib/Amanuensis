@@ -32,16 +32,18 @@ graph, sitting alongside Balthus and Histia as though they were real trainers.
 
 The tempting fix — keep only speakers found in `trainers.json` — destroys real data.
 `trainers.json` is keyed on rank-*message* short names, not in-game display names. In the
-reference corpus (`~/Library/Application Support/com.dfsw.Amanuensis/amanuensis.db`), 56
-distinct speaker names have produced checkpoints and **16 of them are legitimate NPC trainers
-absent from `trainers.json`**:
+reference corpus (`~/Library/Application Support/com.dfsw.Amanuensis/amanuensis.db`), 55
+distinct speaker names have produced checkpoints — 3 players and 52 real trainers — and
+**14 of those 52 legitimate trainers are absent from `trainers.json`**:
 
 - Missing outright: `Higgrus`, `Chronos`, `Hardia`, `Splash O'Sul`, `Diggin`,
   `Anan Faure`, `AnDeux Faure`, `AnQuart Faure`, `AnSept Faure`, `AnTrix Faure`
 - Spelling drift: `Tra'Kning` vs `TraKning`, `Par Troon` vs `ParTroon`,
   `Metta Sylpha` vs `Sylpha`, `Respin Verminbane` vs `Respin Verminebane`
 
-An allowlist-only filter would silently delete roughly a third of the graph.
+An allowlist-only filter would silently delete over a quarter of the real trainers (14 of 52).
+
+These figures are reproducible with `python3 tools/check-player-detection.py`.
 
 ### Approach: behavioural detection with an allowlist guard
 
@@ -70,7 +72,7 @@ patterns yields:
 - **Flagged (3):** `Fenwick` (clanning ×66, share-list ×49, thinks ×16, ledger ×1),
   `Bramwell Gorse` (clanning ×16, offer, accept, ledger), `Tallow` (clanning ×3, offer, accept,
   thinks).
-- **Not flagged (52):** every legitimate NPC trainer, including all 16 of the awkward names
+- **Not flagged (52):** every legitimate NPC trainer, including all 14 of the awkward names
   listed above.
 
 Zero false positives, zero false negatives on the reference data.
