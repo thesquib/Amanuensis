@@ -96,6 +96,40 @@ Not doing it. Coverage would be uneven — `Fenwick` produced checkpoints but ne
 in the corpus, so Fenwick could never be translated — and the volume is 21 rows out of ~7,000.
 The user's decision is to hide these rows, with an option to reveal them.
 
+### When detection runs
+
+Incrementally, never as a repeated full sweep:
+
+1. **During every scan/update** — lines already being parsed are additionally tested against
+   the nine player patterns. New names are inserted into `known_players`; already-known names
+   are a no-op. Nine regex tests per line, on lines already in memory.
+2. **Once, at migration** — the `log_lines` backfill sweep described below.
+3. **Never at display time** — filtering is a `LEFT JOIN`.
+
+`known_players` only ever accumulates. Nothing is recomputed per view or per character.
+
+### Diagnostic for undetected players
+
+The residual risk is a player trainer who never clans, shares, thinks-to-you, or makes an
+offer anywhere in the logs. No behavioural signal fires, so they are silently treated as an
+NPC trainer. With a modest log collection this is plausible.
+
+Mitigation: when a checkpoint is recorded from a speaker that is **neither** in
+`known_players` **nor** on the NPC guard list, emit a `process_logs` entry at `info`:
+
+```
+Checkpoint from unrecognised trainer "Brindle" — if this is a player, it will appear in the graph
+```
+
+This makes suspicious names visible in the Process Logs panel instead of silently polluting
+the graph, and doubles as the feedback loop for growing the guard list. It must be
+rate-limited to one entry per distinct name per scan, since a single name can produce
+hundreds of checkpoints.
+
+Note this diagnostic fires for legitimate-but-unlisted NPC trainers too (`Higgrus`,
+`Chronos`, the Faures, …) until the guard list is extended. That is the intended behaviour:
+the entry says "unrecognised", not "player", and every such name is worth a look.
+
 ### Data model
 
 New global table. A player is a player regardless of which character met them, so this is
@@ -181,6 +215,8 @@ nine patterns testable in isolation.
   `{Fenwick, Bramwell Gorse, Tallow}`.
 - Backfill test: a DB with populated `log_lines` and empty `known_players` fills correctly
   and is idempotent on a second run.
+- Diagnostic test: an unrecognised speaker emits exactly one `process_logs` entry per scan
+  regardless of how many checkpoints it produces, and a guard-listed speaker emits none.
 
 ---
 
