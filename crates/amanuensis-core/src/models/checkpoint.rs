@@ -11,4 +11,7 @@ pub struct TrainerCheckpoint {
     /// None = maxed (no upper bound)
     pub rank_max: Option<i64>,
     pub timestamp: String,
+    /// True when the greeting came from a player-run ("ledger") trainer rather than an NPC.
+    /// Always false in results fetched with `include_players = false`, since those are excluded.
+    pub is_player: bool,
 }

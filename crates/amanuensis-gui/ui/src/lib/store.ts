@@ -124,6 +124,9 @@ interface AppStore {
   indexLogLines: boolean;
   setIndexLogLines: (index: boolean) => void;
 
+  showPlayerTrainers: boolean;
+  setShowPlayerTrainers: (show: boolean) => void;
+
   // Pending-logs badge count + last update-run result (for the confirmation dialog)
   pendingLogCount: number;
   setPendingLogCount: (n: number) => void;
@@ -249,6 +252,14 @@ export const useStore = create<AppStore>((set) => ({
   setIndexLogLines: (index) => {
     localStorage.setItem(STORAGE_KEYS.INDEX_LOGS, String(index));
     set({ indexLogLines: index });
+  },
+
+  // Player-run ("ledger") trainers greet exactly like NPC trainers, so they are hidden
+  // from checkpoint surfaces by default. Opt in to inspect them.
+  showPlayerTrainers: localStorage.getItem(STORAGE_KEYS.SHOW_PLAYER_TRAINERS) === "true",
+  setShowPlayerTrainers: (show) => {
+    localStorage.setItem(STORAGE_KEYS.SHOW_PLAYER_TRAINERS, String(show));
+    set({ showPlayerTrainers: show });
   },
 
   pendingLogCount: 0,

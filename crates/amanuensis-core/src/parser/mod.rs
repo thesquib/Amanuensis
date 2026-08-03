@@ -1,6 +1,7 @@
 pub mod events;
 pub mod line_classifier;
 pub mod patterns;
+pub mod player_signals;
 pub mod timestamp;
 
 use std::cell::RefCell;
@@ -20,6 +21,15 @@ use crate::parser::events::{KillVerb, LogEvent, LootType};
 use crate::parser::line_classifier::classify_line;
 use crate::parser::timestamp::parse_filename_date;
 use crate::parser::timestamp::parse_timestamp;
+
+/// The message portion of a log line, with any leading timestamp removed.
+/// Used when re-reading lines out of the stored `log_lines` index.
+pub fn strip_log_timestamp(line: &str) -> &str {
+    match parse_timestamp(line) {
+        Some((_dt, message)) => message,
+        None => line,
+    }
+}
 
 /// Override configuration for a character's trainers, loaded before scanning.
 struct OverrideConfig {
@@ -50,6 +60,13 @@ pub struct LogParser {
     /// A reflect dump lists each study type (Movements / Befriend / Morph) under its own header;
     /// only the newest list per type is applied (it is the most complete one).
     last_reflect: RefCell<HashMap<i64, ReflectByType>>,
+    /// `name\0signal` pairs already written to `known_players` during this scan.
+    /// Purely a write-dedup cache — a busy log can repeat the same name thousands of times.
+    known_players_seen: RefCell<HashSet<String>>,
+    /// Names that produced a checkpoint during this scan. Flushed in `finalize_characters`
+    /// into one `process_logs` entry per name that is neither a known player nor a
+    /// guarded NPC trainer, so undetectable player trainers become visible.
+    checkpoint_speakers: RefCell<HashSet<String>>,
 }
 
 impl LogParser {
@@ -63,7 +80,62 @@ impl LogParser {
             abandoned_studies: RefCell::new(HashMap::new()),
             override_configs: RefCell::new(HashMap::new()),
             last_reflect: RefCell::new(HashMap::new()),
+            known_players_seen: RefCell::new(HashSet::new()),
+            checkpoint_speakers: RefCell::new(HashSet::new()),
         })
+    }
+
+    /// Warn about checkpoint speakers that are neither known players nor guarded NPC
+    /// trainers. Runs once per scan, after all detection, so a name identified late in the
+    /// scan is not falsely reported. Clears the buffer so repeated scans stay quiet.
+    fn flush_unrecognised_checkpoint_speakers(&self) -> Result<()> {
+        let speakers: Vec<String> = self.checkpoint_speakers.borrow_mut().drain().collect();
+        let mut unrecognised: Vec<String> = Vec::new();
+
+        for name in speakers {
+            if crate::data::is_known_npc_trainer(&name) {
+                continue;
+            }
+            if self.db.is_known_player(&name)? {
+                continue;
+            }
+            unrecognised.push(name);
+        }
+
+        unrecognised.sort();
+        for name in unrecognised {
+            let _ = self.db.add_process_log(
+                "info",
+                &format!(
+                    "Checkpoint from unrecognised trainer \"{name}\" — if this is a player \
+                     trainer, it will appear in the checkpoint graph"
+                ),
+            );
+        }
+        Ok(())
+    }
+
+    /// Record every player identified by `message`, skipping guarded NPC trainer names and
+    /// `(name, signal)` pairs already written during this scan.
+    fn record_player_signals(&self, message: &str, date_str: &str) -> Result<()> {
+        let mut signals: Vec<(String, player_signals::PlayerSignal)> = Vec::new();
+        player_signals::detect_player_signals(message, &mut signals);
+        if signals.is_empty() {
+            return Ok(());
+        }
+
+        for (name, signal) in signals {
+            if crate::data::is_known_npc_trainer(&name) {
+                continue;
+            }
+            // Dedup on (name, signal) so a later, stronger signal still reaches the DB.
+            let key = format!("{}\u{0}{}", name.to_lowercase(), signal.as_str());
+            if !self.known_players_seen.borrow_mut().insert(key) {
+                continue;
+            }
+            self.db.upsert_known_player(&name, signal, date_str)?;
+        }
+        Ok(())
     }
 
     /// Load override config for a character from the database.
@@ -492,6 +564,11 @@ impl LogParser {
                 current_date.clone()
             };
 
+            // Behavioural player detection — orthogonal to `classify_line`, since a line
+            // can be both a classified event and a player signal. Runs for every line
+            // regardless of which character is active: a player is a player globally.
+            self.record_player_signals(message, &date_str)?;
+
             // Welcome lines switch the active character (and `Welcome to Clan Lord` will
             // also be counted as a login in Task 2). Fall through afterward so the existing
             // WelcomeLogin event still records start_date under the now-active character.
@@ -678,6 +755,7 @@ impl LogParser {
                 LogEvent::TrainerCheckpoint { trainer_name, character_name, rank_min, rank_max } => {
                     if character_name.eq_ignore_ascii_case(char_name) {
                         self.db.insert_trainer_checkpoint(char_id, &trainer_name, rank_min, rank_max, &date_str)?;
+                        self.checkpoint_speakers.borrow_mut().insert(trainer_name.clone());
                         file_result.events_found += 1;
                     }
                 }
@@ -712,6 +790,7 @@ impl LogParser {
                     if let Some((_char_name_for_trainer, bow_seen)) = pending_bow_checkpoints.remove(&trainer_name) {
                         if bow_seen {
                             self.db.insert_trainer_checkpoint(char_id, &trainer_name, rank_min, rank_max, &date_str)?;
+                            self.checkpoint_speakers.borrow_mut().insert(trainer_name.clone());
                             file_result.events_found += 1;
                         }
                     }
@@ -1697,6 +1776,10 @@ impl LogParser {
     /// If a character already has a profession set from a direct announcement (circle test
     /// or "become a" message), keep it. Otherwise, fall back to majority-vote from trainers.
     pub fn finalize_characters(&self) -> Result<()> {
+        // Deferred to here — the universal end-of-scan hook — so that a name identified as
+        // a player late in the scan is not falsely reported as unrecognised.
+        self.flush_unrecognised_checkpoint_speakers()?;
+
         let chars = self.db.list_characters()?;
         for c in &chars {
             let char_id = c.id.unwrap();
@@ -2095,6 +2178,78 @@ mod tests {
         let char_dir = tmp.path().join("TestChar");
         fs::create_dir(&char_dir).unwrap();
         (tmp, char_dir)
+    }
+
+    #[test]
+    fn scan_detects_player_trainers_and_spares_npcs() {
+        // Fenwick greets exactly like an NPC trainer, but also clans — which no NPC can do.
+        let (tmp, char_dir) = create_test_log_dir();
+        let body = "\
+11/22/17 10:00:00p Welcome to Clan Lord, Ruuk!
+11/22/17 10:49:07p Fenwick is now Clanning.
+11/22/17 11:07:16p Fenwick says, \"Hail, Ruuk. You are one of my better pupils.\"
+11/22/17 11:11:55p Duvin Beastlore says, \"Hail, Ruuk. You show great devotion to your studies.\"
+";
+        fs::write(char_dir.join("CL Log 2017-11-22 22.00.00.txt"), body).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        assert!(parser.db().is_known_player("Fenwick").unwrap());
+        assert!(!parser.db().is_known_player("Duvin Beastlore").unwrap());
+    }
+
+    #[test]
+    fn unrecognised_checkpoint_speaker_is_logged_once() {
+        // "Brindle" gives no player signal at all — exactly the blind spot this warns about.
+        // Three checkpoints must still produce only one log entry.
+        let (tmp, char_dir) = create_test_log_dir();
+        let body = "\
+11/22/17 10:00:00p Welcome to Clan Lord, Ruuk!
+11/22/17 10:01:00p Brindle says, \"Hail, Ruuk. You keep me on my toes.\"
+11/22/17 10:02:00p Brindle says, \"Hail, Ruuk. You keep me on my toes.\"
+11/22/17 10:03:00p Histia says, \"Hail, Ruuk. You keep me on my toes.\"
+11/22/17 10:04:00p Fenwick is now Clanning.
+11/22/17 10:05:00p Fenwick says, \"Hail, Ruuk. You keep me on my toes.\"
+";
+        fs::write(char_dir.join("CL Log 2017-11-22 22.00.00.txt"), body).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
+
+        let logs = parser.db().get_process_logs().unwrap();
+        let mork: Vec<_> = logs.iter().filter(|l| l.message.contains("\"Brindle\"")).collect();
+        assert_eq!(mork.len(), 1, "one entry per distinct name per scan");
+        assert!(mork[0].message.contains("unrecognised"));
+
+        // Guarded NPC trainers and already-detected players must stay silent.
+        assert!(!logs.iter().any(|l| l.message.contains("\"Histia\"")));
+        assert!(!logs.iter().any(|l| l.message.contains("\"Fenwick\"")));
+    }
+
+    #[test]
+    fn scan_records_share_list_members_as_players() {
+        let (tmp, char_dir) = create_test_log_dir();
+        let body = "\
+11/22/17 10:00:00p Welcome to Clan Lord, Ruuk!
+11/22/17 10:49:32p You are sharing experiences with Fenwick, Halloway and Brindle.
+";
+        fs::write(char_dir.join("CL Log 2017-11-22 22.00.00.txt"), body).unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        for name in ["Fenwick", "Halloway", "Brindle"] {
+            assert!(
+                parser.db().is_known_player(name).unwrap(),
+                "{name} should be a known player"
+            );
+        }
     }
 
     #[test]

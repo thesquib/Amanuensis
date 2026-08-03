@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "../../shared/DataTable";
 import { CreatureImage } from "../../shared/CreatureImage";
+import { useCreatureContextMenu } from "../../shared/useCreatureContextMenu";
 import type { MorphCandidate, FamilyProgress } from "../../../lib/rangerStats";
 
 function StagePill({ stage }: { stage: string }) {
@@ -32,12 +33,21 @@ const CATEGORIES: { id: TargetCategory; label: string; description: string }[] =
 const candidateHelper = createColumnHelper<MorphCandidate>();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildColumns(category: TargetCategory): ColumnDef<MorphCandidate, any>[] {
+function buildColumns(
+  category: TargetCategory,
+  onCreatureContextMenu: (e: React.MouseEvent, name: string) => void,
+): ColumnDef<MorphCandidate, any>[] {
   const cols: ColumnDef<MorphCandidate, any>[] = [
     candidateHelper.accessor("creature_name", {
       header: "Creature",
       cell: (info) => (
-        <div className="flex items-center gap-2">
+        <div
+          className="flex cursor-context-menu items-center gap-2"
+          onContextMenu={(e) => onCreatureContextMenu(e, info.getValue())}
+          // No `title` here: the native tooltip renders above the context menu and covers
+          // its first item. Discoverability comes from the hint under the category chips
+          // and the context-menu cursor.
+        >
           <CreatureImage creatureName={info.getValue()} className="h-6 w-6" />
           <span>{info.getValue()}</span>
         </div>
@@ -143,12 +153,18 @@ interface TopTargetsPanelProps {
 export function TopTargetsPanel({ morph_candidates, families, coinLevel }: TopTargetsPanelProps) {
   const [category, setCategory] = useState<TargetCategory>("all");
   const [maxValue, setMaxValue] = useState<number | null>(null);
+  const creatureMenu = useCreatureContextMenu();
 
   // Default to coin level; user can override
   const effectiveMax = maxValue ?? coinLevel;
 
+
+
   const activeCategory = CATEGORIES.find((c) => c.id === category)!;
-  const columns = useMemo(() => buildColumns(category), [category]);
+  const columns = useMemo(
+    () => buildColumns(category, creatureMenu.openFor),
+    [category, creatureMenu.openFor],
+  );
   const filtered = useMemo(
     () => effectiveMax > 0
       ? morph_candidates.filter((c) => c.value <= effectiveMax)
@@ -205,6 +221,7 @@ export function TopTargetsPanel({ morph_candidates, families, coinLevel }: TopTa
         <p className="mb-3 text-xs text-[var(--color-text-muted)]">
           {activeCategory.description}
           {effectiveMax > 0 && <span> — showing creatures with value ≤ {effectiveMax.toLocaleString()}</span>}
+          <span> — right-click a creature for bestiary links</span>
         </p>
 
         {sorted.length > 0 ? (
@@ -260,6 +277,8 @@ export function TopTargetsPanel({ morph_candidates, families, coinLevel }: TopTa
           </div>
         </div>
       )}
+
+      {creatureMenu.element}
     </div>
   );
 }

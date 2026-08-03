@@ -224,6 +224,9 @@ enum Commands {
         /// Filter to a specific trainer
         #[arg(long)]
         trainer: Option<String>,
+        /// Include checkpoints from player-run ("ledger") trainers, which are hidden by default
+        #[arg(long)]
+        include_players: bool,
     },
     /// Set rank override mode for a trainer
     SetRankMode {
@@ -451,8 +454,8 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Coins { name } => cmd_coins(&db_path, &name),
         Commands::FighterStats { name } => cmd_fighter_stats(&db_path, &name),
         Commands::Logs { level, limit } => cmd_logs(&db_path, level.as_deref(), limit),
-        Commands::Checkpoints { name, all, trainer } => {
-            cmd_checkpoints(&db_path, &name, all, trainer.as_deref())
+        Commands::Checkpoints { name, all, trainer, include_players } => {
+            cmd_checkpoints(&db_path, &name, all, trainer.as_deref(), include_players)
         }
         Commands::SetRankMode { name, trainer, mode, ranks, date } => {
             cmd_set_rank_mode(&db_path, &name, &trainer, &mode, ranks, date.as_deref())
@@ -1477,15 +1480,16 @@ fn cmd_checkpoints(
     name: &str,
     all: bool,
     trainer_filter: Option<&str>,
+    include_players: bool,
 ) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let char = resolve_character(&db, name)?;
     let char_id = char.id.unwrap();
 
     let mut checkpoints = if all {
-        db.get_all_trainer_checkpoints(char_id)?
+        db.get_all_trainer_checkpoints(char_id, include_players)?
     } else {
-        db.get_latest_trainer_checkpoints(char_id)?
+        db.get_latest_trainer_checkpoints(char_id, include_players)?
     };
 
     if let Some(filter) = trainer_filter {
@@ -1496,6 +1500,9 @@ fn cmd_checkpoints(
     if checkpoints.is_empty() {
         println!("No trainer checkpoints found for {}.", name);
         println!("Hint: Checkpoints are recorded when a trainer greets you with a rank-status message.");
+        if !include_players {
+            println!("Hint: player-run trainers are hidden; pass --include-players to show them.");
+        }
         return Ok(());
     }
 
@@ -1508,8 +1515,14 @@ fn cmd_checkpoints(
 
     for c in &checkpoints {
         let max_str = c.rank_max.map(|v| v.to_string()).unwrap_or_else(|| "maxed".to_string());
+        // Revealed player-run trainers must never be mistakable for NPC trainer data.
+        let display_name = if c.is_player {
+            format!("{} (player)", c.trainer_name)
+        } else {
+            c.trainer_name.clone()
+        };
         table.add_row(vec![
-            c.trainer_name.clone(),
+            display_name,
             c.rank_min.to_string(),
             max_str,
             c.timestamp.clone(),
@@ -2177,6 +2190,30 @@ mod tests {
     #[test]
     fn cli_definition_is_valid() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn checkpoints_accepts_include_players() {
+        let cli = Cli::try_parse_from([
+            "amanuensis", "checkpoints", "Ruuk", "--include-players",
+        ])
+        .unwrap();
+        match cli.command {
+            Commands::Checkpoints { name, include_players, .. } => {
+                assert_eq!(name, "Ruuk");
+                assert!(include_players);
+            }
+            _ => panic!("expected Checkpoints"),
+        }
+    }
+
+    #[test]
+    fn checkpoints_hides_players_by_default() {
+        let cli = Cli::try_parse_from(["amanuensis", "checkpoints", "Ruuk"]).unwrap();
+        match cli.command {
+            Commands::Checkpoints { include_players, .. } => assert!(!include_players),
+            _ => panic!("expected Checkpoints"),
+        }
     }
 
     #[test]

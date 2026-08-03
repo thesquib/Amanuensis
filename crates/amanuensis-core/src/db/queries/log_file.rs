@@ -77,6 +77,10 @@ impl Database {
     /// Deletes kills, lastys, pets, log_files, log_lines and resets all stat
     /// columns on characters/trainers to zero. Does NOT touch modified_ranks,
     /// rank_mode, or override_date.
+    ///
+    /// `trainer_checkpoints` is included because `log_files` is cleared here, so every
+    /// file re-scans and would otherwise insert a duplicate copy of every checkpoint.
+    /// `known_players` is log-derived too, and is repopulated by the following scan.
     pub fn reset_log_data(&self) -> Result<()> {
         self.conn.execute_batch(
             "DELETE FROM kills;
@@ -85,6 +89,9 @@ impl Database {
              DELETE FROM pets;
              DELETE FROM log_files;
              DELETE FROM log_lines;
+             DELETE FROM known_players;
+             DELETE FROM db_meta WHERE key = 'known_players_backfilled';
+             DELETE FROM trainer_checkpoints;
              UPDATE characters SET
                logins=0, departs=0, deaths=0, esteem=0, coins_picked_up=0,
                casino_won=0, casino_lost=0, chest_coins=0, bounty_coins=0,

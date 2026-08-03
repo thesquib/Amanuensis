@@ -142,7 +142,7 @@ function computeEffective(row: TrainerRow): number {
 }
 
 export function RankModifiersView() {
-  const { trainers, setTrainers, setCharacters, selectedCharacterId, rankModifiersViewState, setRankModifiersViewState } = useStore();
+  const { trainers, setTrainers, setCharacters, selectedCharacterId, rankModifiersViewState, setRankModifiersViewState, showPlayerTrainers } = useStore();
   const { searchQuery, collapsedGroups: collapsedArr } = rankModifiersViewState;
   const collapsedGroups = useMemo(() => new Set(collapsedArr), [collapsedArr]);
   const setSearchQuery = useCallback((v: string) => setRankModifiersViewState({ searchQuery: v }), [setRankModifiersViewState]);
@@ -163,7 +163,7 @@ export function RankModifiersView() {
       setCheckpointMap(new Map());
       return;
     }
-    getTrainerCheckpoints(selectedCharacterId)
+    getTrainerCheckpoints(selectedCharacterId, showPlayerTrainers)
       .then((checkpoints) => {
         const map = new Map<string, TrainerCheckpoint>();
         for (const cp of checkpoints) {
@@ -172,7 +172,7 @@ export function RankModifiersView() {
         setCheckpointMap(map);
       })
       .catch(() => {});
-  }, [selectedCharacterId, trainers]);
+  }, [selectedCharacterId, trainers, showPlayerTrainers]);
 
   const toggleGroup = useCallback((profession: string) => {
     const next = new Set(collapsedGroups);

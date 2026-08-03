@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTable } from "../../shared/DataTable";
 import { CreatureImage } from "../../shared/CreatureImage";
+import { useCreatureContextMenu } from "../../shared/useCreatureContextMenu";
 import { useStore } from "../../../lib/store";
 import type { StudyRecord, StudyState } from "../../../lib/rangerStats";
 
@@ -40,11 +41,17 @@ function StatusBadge({ state }: { state: StudyState }) {
 
 const columnHelper = createColumnHelper<StudyRecord>();
 
-const columns = [
+function buildColumns(
+  onCreatureContextMenu: (e: React.MouseEvent, name: string) => void,
+) {
+  return [
   columnHelper.accessor("creature_name", {
     header: "Creature",
     cell: (info) => (
-      <div className="flex items-center gap-2">
+      <div
+        className="flex cursor-context-menu items-center gap-2"
+        onContextMenu={(e) => onCreatureContextMenu(e, info.getValue())}
+      >
         <CreatureImage creatureName={info.getValue()} className="h-6 w-6" />
         <span>{info.getValue()}</span>
       </div>
@@ -86,7 +93,8 @@ const columns = [
     header: "Duvin Cost",
     cell: (info) => info.getValue() > 0 ? info.getValue() : "—",
   }),
-];
+  ];
+}
 
 interface StudiesPanelProps {
   studies: StudyRecord[];
@@ -95,6 +103,8 @@ interface StudiesPanelProps {
 export function StudiesPanel({ studies }: StudiesPanelProps) {
   const { rangerStatsViewState, setRangerStatsViewState } = useStore();
   const searchQuery = rangerStatsViewState.searchQuery;
+  const creatureMenu = useCreatureContextMenu();
+  const columns = useMemo(() => buildColumns(creatureMenu.openFor), [creatureMenu.openFor]);
 
   const filtered = useMemo(() => {
     if (!searchQuery) return studies;
@@ -121,6 +131,7 @@ export function StudiesPanel({ studies }: StudiesPanelProps) {
         </span>
       </div>
       <DataTable data={filtered} columns={columns} />
+      {creatureMenu.element}
     </div>
   );
 }

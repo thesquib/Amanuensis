@@ -13,6 +13,7 @@ mod lasty;
 mod pet;
 mod log_file;
 mod merge;
+mod player;
 mod process_log;
 
 pub use frequency::CreatureFrequency;
@@ -117,7 +118,13 @@ impl Database {
         let conn = Connection::open(path)?;
         crate::db::schema::create_tables(&conn)?;
         crate::db::schema::migrate_tables(&conn)?;
-        Ok(Self { conn })
+        let db = Self { conn };
+        // Recover players from the stored log index for databases created before
+        // behavioural player detection existed. Guarded by a db_meta marker, so this is a
+        // no-op after the first open. Errors are swallowed deliberately: a failed backfill
+        // must never stop the database opening, and the next scan repopulates the table.
+        let _ = db.backfill_known_players();
+        Ok(db)
     }
 
     /// Open an in-memory database (for testing).

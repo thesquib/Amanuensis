@@ -471,7 +471,7 @@ function StatsTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
-function CheckpointTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number | null; name: string; color: string; payload: TrainerPoint }>; label?: string }) {
+function CheckpointTooltip({ active, payload, label, playerNames }: { active?: boolean; payload?: Array<{ value: number | null; name: string; color: string; payload: TrainerPoint }>; label?: string; playerNames?: Set<string> }) {
   if (!active || !payload?.length || !label) return null;
   const entries = payload.filter((p) => p.value != null && p.value > 0);
   if (entries.length === 0) return null;
@@ -486,7 +486,13 @@ function CheckpointTooltip({ active, payload, label }: { active?: boolean; paylo
         const isEvent = e.payload[`${e.name}_evt`] === 1;
         return (
           <div key={e.name} style={{ color: e.color }}>
-            {e.name}: <span className="font-semibold">≥{e.value}</span>
+            {e.name}
+            {playerNames?.has(e.name) && (
+              <span className="ml-1 rounded-full bg-[var(--color-border)] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-text-muted)]">
+                player
+              </span>
+            )}
+            : <span className="font-semibold">≥{e.value}</span>
             {isEvent && <span className="ml-1 text-xs opacity-70">● observed</span>}
           </div>
         );
@@ -519,8 +525,20 @@ function ChartSection({ title, children }: { title: string; children: React.Reac
 // Main view
 // ---------------------------------------------------------------------------
 
+// NOTE: every <Line> here sets isAnimationActive={false}.
+//
+// recharts v3's JavascriptAnimate registers an effect whose *cleanup* calls
+// onAnimationEnd(), which lands on a setIsAnimating() setState. When a store refresh
+// (Update Logs, which replaces kills/trainers/lastys) unmounts several of this view's
+// five charts at once, those cleanup updates chain and React aborts the commit with
+// "Maximum update depth exceeded", tripping the ViewErrorBoundary.
+//
+// With isAnimationActive={false} the animation effect returns a noop cleanup instead, so
+// the setState cannot fire during unmount. The cost is the line-draw animation on this
+// view only. Do not remove without re-testing Update Logs while the Graph view is open.
+
 export function CVGraphView() {
-  const { kills, trainers, lastys, characters, selectedCharacterId } = useStore();
+  const { kills, trainers, lastys, characters, selectedCharacterId, showPlayerTrainers, setShowPlayerTrainers } = useStore();
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
   const [allCheckpoints, setAllCheckpoints] = useState<TrainerCheckpoint[]>([]);
 
@@ -533,8 +551,19 @@ export function CVGraphView() {
       setAllCheckpoints([]);
       return;
     }
-    getAllTrainerCheckpoints(selectedCharacterId).then(setAllCheckpoints).catch(() => {});
-  }, [selectedCharacterId]);
+    getAllTrainerCheckpoints(selectedCharacterId, showPlayerTrainers)
+      .then(setAllCheckpoints)
+      .catch(() => {});
+  }, [selectedCharacterId, showPlayerTrainers]);
+
+  // Names revealed as player-run trainers, used to badge them in the legend and tooltip.
+  // Keyed on trainer_name so it can be looked up from the Recharts series name — the
+  // series `name` prop must stay the raw name, since the tooltip and dot components
+  // index `payload[`${name}_evt`]` with it.
+  const playerNames = useMemo(
+    () => new Set(allCheckpoints.filter((cp) => cp.is_player).map((cp) => cp.trainer_name)),
+    [allCheckpoints],
+  );
 
   const profession = characters.find((c) => c.id === selectedCharacterId)?.profession ?? "";
   const isRanger = profession === "Ranger";
@@ -549,18 +578,35 @@ export function CVGraphView() {
     [trainers],
   );
 
-  // Top checkpoint trainers (by max observed rank_min, capped at 10)
+  // Top checkpoint trainers (by max observed rank_min, capped at 10), plus every player
+  // trainer when they are being shown.
+  //
+  // Player trainers are low-rank by nature — you take a handful of ranks from a ledger
+  // holder — so they never survive the top-10 cut on an established character (e.g. Ruuk's
+  // cutoff is 300 while Fenwick tops out at 50). Ranking them alongside real trainers would
+  // make "Show player trainers" silently do nothing. They are therefore appended outside
+  // the cap, so ticking the box always puts them on the graph.
   const checkpointTopNames = useMemo(() => {
     const byTrainer = new Map<string, number>();
     for (const cp of allCheckpoints) {
       const cur = byTrainer.get(cp.trainer_name) ?? 0;
       if (cp.rank_min > cur) byTrainer.set(cp.trainer_name, cp.rank_min);
     }
-    return [...byTrainer.entries()]
-      .sort((a, b) => b[1] - a[1])
+
+    const ranked = [...byTrainer.entries()].sort((a, b) => b[1] - a[1]);
+    const npcTop = ranked
+      .filter(([name]) => !playerNames.has(name))
       .slice(0, 10)
       .map(([name]) => name);
-  }, [allCheckpoints]);
+
+    // allCheckpoints only contains players when the toggle is on, so this is empty
+    // otherwise and the result is exactly the previous top-10-trainers list.
+    const players = ranked
+      .filter(([name]) => playerNames.has(name))
+      .map(([name]) => name);
+
+    return [...npcTop, ...players];
+  }, [allCheckpoints, playerNames]);
 
   const cvData = useMemo(() => buildCVTimeline(kills, trainers), [kills, trainers]);
   const trainerData = useMemo(() => buildTrainerTimeline(trainers, topTrainerNames), [trainers, topTrainerNames]);
@@ -646,9 +692,9 @@ export function CVGraphView() {
             <YAxis ticks={cvYTicks} tick={<CustomYTick step={100} />} stroke="var(--color-border)" width={42} />
             <Tooltip content={<CVTooltip />} />
             <Legend wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 12 }} />
-            <Line type="stepAfter" dataKey="killCv" name="Kill CV" stroke="var(--color-accent)"
+            <Line isAnimationActive={false} type="stepAfter" dataKey="killCv" name="Kill CV" stroke="var(--color-accent)"
               dot={false} activeDot={{ r: 5 }} connectNulls />
-            <Line type="stepAfter" dataKey="rankCv" name="Rank CV" stroke="#a78bfa"
+            <Line isAnimationActive={false} type="stepAfter" dataKey="rankCv" name="Rank CV" stroke="#a78bfa"
               strokeDasharray="5 5" dot={false} activeDot={{ r: 5 }} connectNulls />
           </LineChart>
         </ResponsiveContainer>
@@ -666,7 +712,7 @@ export function CVGraphView() {
               <Tooltip content={<TrainerTooltip />} />
               <Legend wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 11 }} />
               {topTrainerNames.map((name, i) => (
-                <Line key={name} type="stepAfter" dataKey={name} name={name}
+                <Line isAnimationActive={false} key={name} type="stepAfter" dataKey={name} name={name}
                   stroke={TRAINER_COLORS[i % TRAINER_COLORS.length]}
                   dot={{ r: 2, strokeWidth: 0, fill: TRAINER_COLORS[i % TRAINER_COLORS.length] }}
                   activeDot={{ r: 4 }} />
@@ -685,22 +731,42 @@ export function CVGraphView() {
               <XAxis dataKey="date" ticks={checkpointXTicks} tickFormatter={formatDateTick}
                 tick={{ fill: "var(--color-text-muted)", fontSize: 11 }} stroke="var(--color-border)" />
               <YAxis ticks={checkpointYTicks} tick={<CustomYTick step={100} />} stroke="var(--color-border)" width={42} />
-              <Tooltip content={<CheckpointTooltip />} />
-              <Legend wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 11 }} />
+              <Tooltip content={<CheckpointTooltip playerNames={playerNames} />} />
+              <Legend
+                wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 11 }}
+                formatter={(value: string) =>
+                  playerNames.has(value) ? `${value} (player)` : value
+                }
+              />
               {checkpointTopNames.map((name, i) => {
                 const color = TRAINER_COLORS[i % TRAINER_COLORS.length];
+                // Players are appended past the 10 real trainers, so their colour index
+                // wraps and collides with a trainer's. Dash them so the two are still
+                // distinguishable on the chart, not just in the legend.
+                const isPlayer = playerNames.has(name);
                 return (
-                  <Line key={name} type="stepAfter" dataKey={name} name={name}
+                  <Line isAnimationActive={false} key={name} type="stepAfter" dataKey={name} name={name}
                     stroke={color} strokeWidth={1.5}
+                    strokeDasharray={isPlayer ? "4 3" : undefined}
                     dot={<CheckpointDot fill={color} />}
                     activeDot={{ r: 5 }} connectNulls />
                 );
               })}
             </LineChart>
           </ResponsiveContainer>
-          <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-            Observed rank minimums from trainer greeting messages. Each dot is an actual checkpoint recorded from logs.
-          </p>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Observed rank minimums from trainer greeting messages. Each dot is an actual checkpoint recorded from logs.
+            </p>
+            <label className="flex shrink-0 items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+              <input
+                type="checkbox"
+                checked={showPlayerTrainers}
+                onChange={(e) => setShowPlayerTrainers(e.target.checked)}
+              />
+              Show player trainers
+            </label>
+          </div>
         </ChartSection>
       )}
 
@@ -716,9 +782,9 @@ export function CVGraphView() {
                 tick={{ fill: "var(--color-text-muted)", fontSize: 11 }} />
               <Tooltip content={<StudiesTooltip />} />
               <Legend wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 12 }} />
-              <Line type="stepAfter" dataKey="movements" name="Movements" stroke="#34d399" dot={{ r: 3, strokeWidth: 0, fill: "#34d399" }} activeDot={{ r: 5 }} connectNulls />
-              <Line type="stepAfter" dataKey="befriends" name="Befriends" stroke="#60a5fa" dot={{ r: 3, strokeWidth: 0, fill: "#60a5fa" }} activeDot={{ r: 5 }} connectNulls />
-              <Line type="stepAfter" dataKey="morphs" name="Morphs" stroke="#f472b6" dot={{ r: 3, strokeWidth: 0, fill: "#f472b6" }} activeDot={{ r: 5 }} connectNulls />
+              <Line isAnimationActive={false} type="stepAfter" dataKey="movements" name="Movements" stroke="#34d399" dot={{ r: 3, strokeWidth: 0, fill: "#34d399" }} activeDot={{ r: 5 }} connectNulls />
+              <Line isAnimationActive={false} type="stepAfter" dataKey="befriends" name="Befriends" stroke="#60a5fa" dot={{ r: 3, strokeWidth: 0, fill: "#60a5fa" }} activeDot={{ r: 5 }} connectNulls />
+              <Line isAnimationActive={false} type="stepAfter" dataKey="morphs" name="Morphs" stroke="#f472b6" dot={{ r: 3, strokeWidth: 0, fill: "#f472b6" }} activeDot={{ r: 5 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </ChartSection>
@@ -737,9 +803,9 @@ export function CVGraphView() {
                 tick={{ fill: "var(--color-text-muted)", fontSize: 11 }} />
               <Tooltip content={<StatsTooltip />} />
               <Legend wrapperStyle={{ color: "var(--color-text-muted)", fontSize: 12 }} />
-              <Line type="stepAfter" dataKey="trainedRanks" name="Trained Ranks" stroke="#fbbf24" dot={{ r: 2, strokeWidth: 0, fill: "#fbbf24" }} activeDot={{ r: 4 }} connectNulls />
-              <Line type="stepAfter" dataKey="effectiveRanks" name="Effective Ranks" stroke="#34d399" dot={{ r: 2, strokeWidth: 0, fill: "#34d399" }} activeDot={{ r: 4 }} connectNulls />
-              <Line type="stepAfter" dataKey="slaughterRanks" name="Est. Slaughter Ranks" stroke="#a78bfa"
+              <Line isAnimationActive={false} type="stepAfter" dataKey="trainedRanks" name="Trained Ranks" stroke="#fbbf24" dot={{ r: 2, strokeWidth: 0, fill: "#fbbf24" }} activeDot={{ r: 4 }} connectNulls />
+              <Line isAnimationActive={false} type="stepAfter" dataKey="effectiveRanks" name="Effective Ranks" stroke="#34d399" dot={{ r: 2, strokeWidth: 0, fill: "#34d399" }} activeDot={{ r: 4 }} connectNulls />
+              <Line isAnimationActive={false} type="stepAfter" dataKey="slaughterRanks" name="Est. Slaughter Ranks" stroke="#a78bfa"
                 strokeDasharray="5 5" dot={{ r: 2, strokeWidth: 0, fill: "#a78bfa" }} activeDot={{ r: 4 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>

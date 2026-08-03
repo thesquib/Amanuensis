@@ -8,12 +8,20 @@ interface StatCardProps {
   large?: boolean;
   compact?: boolean;
   className?: string;
+  /**
+   * Right-click handler for the whole card. Used by creature stat cards to offer the
+   * shared bestiary/copy menu; omitted for cards that are not about a creature.
+   */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export function StatCard({ label, value, sub, image, large, compact, className }: StatCardProps) {
+export function StatCard({ label, value, sub, image, large, compact, className, onContextMenu }: StatCardProps) {
   if (compact) {
     return (
-      <div className={`rounded-lg bg-[var(--color-card)] px-3 py-2 flex items-center justify-between gap-2 ${className ?? ""}`}>
+      <div
+        className={`rounded-lg bg-[var(--color-card)] px-3 py-2 flex items-center justify-between gap-2 ${onContextMenu ? "cursor-context-menu" : ""} ${className ?? ""}`}
+        onContextMenu={onContextMenu}
+      >
         <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">
           {label}
         </div>
@@ -31,7 +39,10 @@ export function StatCard({ label, value, sub, image, large, compact, className }
   }
 
   return (
-    <div className={`rounded-lg bg-[var(--color-card)] p-4 ${className ?? ""}`}>
+    <div
+      className={`rounded-lg bg-[var(--color-card)] p-4 ${onContextMenu ? "cursor-context-menu" : ""} ${className ?? ""}`}
+      onContextMenu={onContextMenu}
+    >
       <div className="min-h-8 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
         {label}
       </div>

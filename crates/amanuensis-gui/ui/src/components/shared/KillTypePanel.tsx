@@ -1,5 +1,6 @@
 import type { Kill } from "../../types";
 import { CreatureImage } from "./CreatureImage";
+import { useCreatureContextMenu } from "./useCreatureContextMenu";
 import { timeAgo } from "../../lib/timeAgo";
 
 interface KillTypePanelProps {
@@ -10,6 +11,8 @@ interface KillTypePanelProps {
 }
 
 export function KillTypePanel({ label, highest, lowestRecent, dateField }: KillTypePanelProps) {
+  const creatureMenu = useCreatureContextMenu();
+
   return (
     <div className="rounded-lg bg-[var(--color-card)] p-4">
       <div className="mb-3 text-xs uppercase tracking-wide text-[var(--color-text-muted)]">
@@ -18,7 +21,10 @@ export function KillTypePanel({ label, highest, lowestRecent, dateField }: KillT
       <div>
         <div className="mb-1 text-xs text-[var(--color-text-muted)]">Highest ever</div>
         {highest ? (
-          <div className="flex items-center gap-2">
+          <div
+            className="flex cursor-context-menu items-center gap-2"
+            onContextMenu={(e) => creatureMenu.openFor(e, highest.creature_name)}
+          >
             <CreatureImage
               creatureName={highest.creature_name}
               className="h-10 w-auto flex-shrink-0"
@@ -42,7 +48,10 @@ export function KillTypePanel({ label, highest, lowestRecent, dateField }: KillT
       <div className="mt-3 border-t border-[var(--color-border)] pt-3">
         <div className="mb-1 text-xs text-[var(--color-text-muted)]">Lowest (last 20)</div>
         {lowestRecent ? (
-          <div className="flex items-center gap-2">
+          <div
+            className="flex cursor-context-menu items-center gap-2"
+            onContextMenu={(e) => creatureMenu.openFor(e, lowestRecent.creature_name)}
+          >
             <CreatureImage
               creatureName={lowestRecent.creature_name}
               className="h-8 w-auto flex-shrink-0"
@@ -65,6 +74,7 @@ export function KillTypePanel({ label, highest, lowestRecent, dateField }: KillT
           <div className="text-sm text-[var(--color-text-muted)]">None</div>
         )}
       </div>
+      {creatureMenu.element}
     </div>
   );
 }

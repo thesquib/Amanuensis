@@ -46,3 +46,22 @@ export function isStuffable(name: string): boolean {
   const family = getCreatureFamily(name);
   return family.length > 0 && !NON_STUFFABLE_FAMILIES.has(family);
 }
+
+/**
+ * URL of the upstream bestiary page listing a family's creatures, or null when no such
+ * page exists.
+ *
+ * The bestiary has no per-creature pages and no per-creature anchors, and its search is
+ * AJAX-only with no linkable results URL — so the family page is the only available
+ * target. Verified live for 63 of our 66 families, including `AstralElemental.php`, which
+ * is missing from the site's own index. Extinct creatures have no family page at all
+ * (both "Extinct" and "EXTINCT" 404), hence the null.
+ */
+export function familyPageUrl(family: string | null | undefined): string | null {
+  if (!family) return null;
+  const trimmed = family.trim();
+  if (!trimmed || trimmed.toUpperCase() === "EXTINCT") return null;
+  const slug = trimmed.replace(/\s+/g, "");
+  if (!slug) return null;
+  return `https://bestiary.clanlord.net/beast/${slug}.php`;
+}

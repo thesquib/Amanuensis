@@ -1,14 +1,24 @@
 import { CreatureImage } from "../../shared/CreatureImage";
+import { useCreatureContextMenu } from "../../shared/useCreatureContextMenu";
 import type { FamilyProgress } from "../../../lib/rangerStats";
 
 interface FamiliesPanelProps {
   families: FamilyProgress[];
 }
 
-function FamilyCard({ fp }: { fp: FamilyProgress }) {
+function FamilyCard({
+  fp,
+  onCreatureContextMenu,
+}: {
+  fp: FamilyProgress;
+  onCreatureContextMenu: (e: React.MouseEvent, name: string) => void;
+}) {
   return (
+    // The card's representative creature stands in for the family here: it gives the same
+    // two options as everywhere else, and its family page is this family's page.
     <div
-      className={`rounded-lg p-4 ${fp.has_progress ? "bg-[var(--color-card)]" : "bg-[var(--color-card)] opacity-50"}`}
+      className={`cursor-context-menu rounded-lg p-4 ${fp.has_progress ? "bg-[var(--color-card)]" : "bg-[var(--color-card)] opacity-50"}`}
+      onContextMenu={(e) => onCreatureContextMenu(e, fp.representative_creature)}
     >
       <div className="mb-2 flex items-center gap-2">
         <CreatureImage creatureName={fp.representative_creature} className="h-8 w-8" />
@@ -57,6 +67,9 @@ function FamilyCard({ fp }: { fp: FamilyProgress }) {
 }
 
 export function FamiliesPanel({ families }: FamiliesPanelProps) {
+  // Must run before the early return below — hooks cannot be called conditionally.
+  const creatureMenu = useCreatureContextMenu();
+
   if (families.length === 0) {
     return (
       <div className="py-12 text-center text-[var(--color-text-muted)]">
@@ -72,7 +85,7 @@ export function FamiliesPanel({ families }: FamiliesPanelProps) {
     <div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {studied.map((fp) => (
-          <FamilyCard key={fp.family} fp={fp} />
+          <FamilyCard key={fp.family} fp={fp} onCreatureContextMenu={creatureMenu.openFor} />
         ))}
       </div>
 
@@ -87,11 +100,12 @@ export function FamiliesPanel({ families }: FamiliesPanelProps) {
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {unstudied.map((fp) => (
-              <FamilyCard key={fp.family} fp={fp} />
+              <FamilyCard key={fp.family} fp={fp} onCreatureContextMenu={creatureMenu.openFor} />
             ))}
           </div>
         </>
       )}
+      {creatureMenu.element}
     </div>
   );
 }

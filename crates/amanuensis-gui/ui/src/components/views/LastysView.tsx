@@ -1,14 +1,26 @@
+import { useMemo } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
+import { useCreatureContextMenu } from "../shared/useCreatureContextMenu";
 import type { Lasty } from "../../types";
 
 const columnHelper = createColumnHelper<Lasty>();
 
-const columns = [
+function buildColumns(
+  onCreatureContextMenu: (e: React.MouseEvent, name: string) => void,
+) {
+  return [
   columnHelper.accessor("creature_name", {
     header: "Creature",
-    cell: (info) => info.getValue(),
+    cell: (info) => (
+      <span
+        className="cursor-context-menu"
+        onContextMenu={(e) => onCreatureContextMenu(e, info.getValue())}
+      >
+        {info.getValue()}
+      </span>
+    ),
   }),
   columnHelper.accessor("lasty_type", {
     header: "Type",
@@ -50,10 +62,13 @@ const columns = [
     header: "Abandoned",
     cell: (info) => info.getValue() ?? "",
   }),
-];
+  ];
+}
 
 export function LastysView() {
   const { lastys } = useStore();
+  const creatureMenu = useCreatureContextMenu();
+  const columns = useMemo(() => buildColumns(creatureMenu.openFor), [creatureMenu.openFor]);
 
   return (
     <div>
@@ -61,6 +76,7 @@ export function LastysView() {
         {lastys.length} lasty record{lastys.length !== 1 ? "s" : ""}
       </div>
       <DataTable data={lastys} columns={columns} />
+      {creatureMenu.element}
     </div>
   );
 }

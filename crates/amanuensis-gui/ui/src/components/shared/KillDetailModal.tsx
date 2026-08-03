@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Kill } from "../../types";
+import { useCreatureContextMenu } from "./useCreatureContextMenu";
 import { useStore } from "../../lib/store";
 import { getCreatureImageUrl } from "../../lib/bestiary";
 
@@ -10,6 +11,7 @@ interface KillDetailModalProps {
 
 export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
   const entry = useStore((s) => s.bestiaryByName[kill.creature_name]);
+  const creatureMenu = useCreatureContextMenu();
   const imgUrl = getCreatureImageUrl(kill.creature_name);
   const [imgFailed, setImgFailed] = useState(false);
 
@@ -57,7 +59,12 @@ export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
             />
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold">{kill.creature_name}</h2>
+            <h2
+              className="cursor-context-menu text-lg font-bold"
+              onContextMenu={(e) => creatureMenu.openFor(e, kill.creature_name)}
+            >
+              {kill.creature_name}
+            </h2>
             {entry && (
               <p className="text-xs text-[var(--color-text-muted)]">
                 {entry.family_canonical ?? entry.family ?? "Unknown family"} ·{" "}
@@ -116,6 +123,7 @@ export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
           </button>
         </footer>
       </div>
+      {creatureMenu.element}
     </div>
   );
 }

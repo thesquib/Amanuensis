@@ -4,6 +4,7 @@ import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
 import { StatCard } from "../shared/StatCard";
 import { CreatureImage } from "../shared/CreatureImage";
+import { useCreatureContextMenu } from "../shared/useCreatureContextMenu";
 import { KillDetailModal } from "../shared/KillDetailModal";
 import { KillsFilterBar, type KillsFilterState } from "../shared/KillsFilterBar";
 import { formatDate, formatTwoHourWindow } from "../../lib/dateUtils";
@@ -38,12 +39,16 @@ export function KillsView() {
       .catch((err) => console.error("Failed to load kill frequency:", err));
   }, [selectedCharacterId, killFrequencyCharId, setKillFrequency]);
 
+  const creatureMenu = useCreatureContextMenu();
   const columns = useMemo(
     () => [
       columnHelper.accessor("creature_name", {
         header: "Creature",
         cell: (info) => (
-          <div className="flex items-center gap-2">
+          <div
+            className="flex cursor-context-menu items-center gap-2"
+            onContextMenu={(e) => creatureMenu.openFor(e, info.getValue())}
+          >
             <CreatureImage creatureName={info.getValue()} className="h-6 w-6" />
             <span>{info.getValue()}</span>
           </div>
@@ -178,7 +183,7 @@ export function KillsView() {
         },
       ),
     ],
-    [killFrequency],
+    [killFrequency, creatureMenu.openFor],
   );
 
   const sorting = viewState?.sorting ?? [{ id: "date_last", desc: true }];
@@ -318,6 +323,7 @@ export function KillsView() {
       {selectedKill && (
         <KillDetailModal kill={selectedKill} onClose={() => setSelectedKill(null)} />
       )}
+      {creatureMenu.element}
     </div>
   );
 }

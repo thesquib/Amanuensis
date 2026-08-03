@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useStore } from "../../lib/store";
 import { StatCard } from "../shared/StatCard";
+import { useCreatureContextMenu } from "../shared/useCreatureContextMenu";
 import { KillTypePanel } from "../shared/KillTypePanel";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import { CreatureImage } from "../shared/CreatureImage";
@@ -37,6 +38,7 @@ export function SummaryView() {
     setLastys,
     setCoinLevelForChar,
   } = useStore();
+  const creatureMenu = useCreatureContextMenu();
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
   const [mergeSources, setMergeSources] = useState<Character[]>([]);
   const [mergedChar, setMergedChar] = useState<Character | null>(null);
@@ -260,7 +262,10 @@ export function SummaryView() {
               // Interim level   → best available verb-kill creature (≥1 kill).
               const clCreature = coinLevelEstimated ? highestKilled : coinLevelKill;
               return clCreature ? (
-                <div className="mt-2 flex items-center gap-1.5">
+                <div
+                  className="mt-2 flex cursor-context-menu items-center gap-1.5"
+                  onContextMenu={(e) => creatureMenu.openFor(e, clCreature.creature_name)}
+                >
                   <CreatureImage creatureName={clCreature.creature_name} className="h-6 w-auto" />
                   <span className="text-xs text-[var(--color-text-muted)] truncate">{clCreature.creature_name}</span>
                 </div>
@@ -308,6 +313,7 @@ export function SummaryView() {
           </div>
         </div>
         <StatCard
+          onContextMenu={(e) => mostRecentSoloKill && creatureMenu.openFor(e, mostRecentSoloKill.creature_name)}
           label="Solo Kills"
           value={totalKills.toLocaleString()}
           sub={[
@@ -324,6 +330,7 @@ export function SummaryView() {
 
         {/* ── Compact half-height panels ───────────────────────────── */}
         <StatCard
+          onContextMenu={(e) => mostRecentAssistedKill && creatureMenu.openFor(e, mostRecentAssistedKill.creature_name)}
           label="Assisted Kills"
           value={totalAssisted.toLocaleString()}
           sub={[
@@ -337,6 +344,7 @@ export function SummaryView() {
           }
         />
         <StatCard
+          onContextMenu={(e) => highestKill && creatureMenu.openFor(e, highestKill.creature_name)}
           label="Highest Value Kill (any)"
           value={highestKill?.creature_name ?? "None"}
           sub={highestKill ? [
@@ -350,6 +358,7 @@ export function SummaryView() {
           }
         />
         <StatCard
+          onContextMenu={(e) => mostKilled && creatureMenu.openFor(e, mostKilled.creature_name)}
           label="Most Killed"
           value={mostKilled?.creature_name ?? "None"}
           sub={
@@ -367,6 +376,7 @@ export function SummaryView() {
           }
         />
         <StatCard
+          onContextMenu={(e) => highestSoloKill && creatureMenu.openFor(e, highestSoloKill.creature_name)}
           label="Highest Solo Kill (any)"
           value={highestSoloKill?.creature_name ?? "None"}
           sub={
@@ -384,6 +394,7 @@ export function SummaryView() {
           }
         />
         <StatCard
+          onContextMenu={(e) => mostSoloKilled && creatureMenu.openFor(e, mostSoloKilled.creature_name)}
           label="Most Solo Killed"
           value={mostSoloKilled?.creature_name ?? "None"}
           sub={
@@ -404,6 +415,7 @@ export function SummaryView() {
 
         {highestLootKill && highestLootKill.best_loot_value > 0 && (
           <StatCard
+            onContextMenu={(e) => creatureMenu.openFor(e, highestLootKill.creature_name)}
             label="Best Loot Recovery"
             value={highestLootKill.creature_name}
             sub={`${highestLootKill.best_loot_value}c — ${highestLootKill.best_loot_item}`}
@@ -413,6 +425,7 @@ export function SummaryView() {
 
         {/* ── Regular stat panels ──────────────────────────────────── */}
         <StatCard
+          onContextMenu={(e) => nemesis && creatureMenu.openFor(e, nemesis.creature_name)}
           label="Nemesis"
           value={nemesis?.creature_name ?? "None"}
           sub={nemesis ? `Killed you ${nemesis.killed_by_count} times` : undefined}
@@ -489,6 +502,7 @@ export function SummaryView() {
       <div className="mt-4">
         <BestiaryBreakdown kills={kills} />
       </div>
+      {creatureMenu.element}
     </div>
   );
 }

@@ -33,6 +33,19 @@
 
 Background: `crates/amanuensis-core/data/trainers.json` is keyed by rank message; each value has a `"trainer"` field holding a *short* name (e.g. `"Sylpha"`). Real logs use in-game *display* names (e.g. `"Metta Sylpha"`), so the guard list must add the observed variants. This module parses the bundled JSON itself rather than depending on `TrainerDb`, so it can be called from the DB layer too.
 
+> **Amendment (2026-08-03, applied during execution).** The guard was narrowed after
+> review. The NPC namespace is closed and small while the player namespace is open and
+> grows forever, so every guarded name is a permanent detection hole that gets more likely
+> to be hit over time. A `NON_PERSON_TRAINER_LABELS` exclusion list was therefore added,
+> removing 17 craftable objects and skill labels (`Bloodblade`, `Gossamer`,
+> `Champion Blade`, their `Decay` variants, the six paints, `Catsbane Necklace`,
+> `Thieves' Cant`, `Tykan Potion`, `Energy Potion`) from the derived set — none of them can
+> ever say `Hail, X`, so guarding them protected nothing, while several are ordinary words
+> a player could plausibly take as a name. Two tests pin it. Re-verified: the flagged
+> checkpoint speakers are still exactly `{Fenwick, Bramwell Gorse, Tallow}`.
+> Still guarded, same category, not in the approved exclusion set: `Dwarven`, `Halfling`,
+> `Sylvan`, `Pathfinding`, `Phantasm`.
+
 - [ ] **Step 1: Write the failing test**
 
 Create `crates/amanuensis-core/src/data/npc_trainers.rs` containing only the test module for now:

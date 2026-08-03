@@ -164,6 +164,22 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
         );
         CREATE INDEX IF NOT EXISTS idx_trainer_checkpoints_lookup
             ON trainer_checkpoints (character_id, trainer_name, timestamp DESC, id DESC);
+
+        -- Player characters identified behaviourally (clanning, experience sharing,
+        -- training ledgers, teacher offers). Global, not per-character: a player is a
+        -- player regardless of which of your characters met them. `name` is stored
+        -- lowercased so the primary key doubles as a case-insensitive index.
+        CREATE TABLE IF NOT EXISTS known_players (
+            name       TEXT PRIMARY KEY,
+            evidence   TEXT NOT NULL,
+            first_seen TEXT NOT NULL
+        );
+
+        -- Small key/value facts about this database (migration and backfill markers).
+        CREATE TABLE IF NOT EXISTS db_meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         ",
     )?;
     Ok(())
@@ -317,7 +333,17 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         -- explicitly set name_filtered=1.
         DELETE FROM trainer_checkpoints WHERE name_filtered = 0;
         CREATE INDEX IF NOT EXISTS idx_trainer_checkpoints_lookup
-            ON trainer_checkpoints (character_id, trainer_name, timestamp DESC, id DESC);",
+            ON trainer_checkpoints (character_id, trainer_name, timestamp DESC, id DESC);
+        -- Behavioural player detection (see create_tables for column notes).
+        CREATE TABLE IF NOT EXISTS known_players (
+            name       TEXT PRIMARY KEY,
+            evidence   TEXT NOT NULL,
+            first_seen TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS db_meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );",
     )?;
 
     Ok(())

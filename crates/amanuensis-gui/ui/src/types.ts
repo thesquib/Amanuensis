@@ -198,6 +198,8 @@ export interface TrainerCheckpoint {
   rank_min: number;
   rank_max: number | null;
   timestamp: string;
+  /** True when the greeting came from a player-run ("ledger") trainer, not an NPC. */
+  is_player: boolean;
 }
 
 export type ViewType =

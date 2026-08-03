@@ -225,12 +225,18 @@ export async function getProcessLogs(): Promise<ProcessLog[]> {
   return invoke("get_process_logs");
 }
 
-export async function getTrainerCheckpoints(charId: number): Promise<TrainerCheckpoint[]> {
-  return invoke("get_trainer_checkpoints", { charId });
+export async function getTrainerCheckpoints(
+  charId: number,
+  includePlayers: boolean,
+): Promise<TrainerCheckpoint[]> {
+  return invoke("get_trainer_checkpoints", { charId, includePlayers });
 }
 
-export async function getAllTrainerCheckpoints(charId: number): Promise<TrainerCheckpoint[]> {
-  return invoke("get_all_trainer_checkpoints", { charId });
+export async function getAllTrainerCheckpoints(
+  charId: number,
+  includePlayers: boolean,
+): Promise<TrainerCheckpoint[]> {
+  return invoke("get_all_trainer_checkpoints", { charId, includePlayers });
 }
 
 export async function getBestiary(): Promise<BestiaryPayload> {
