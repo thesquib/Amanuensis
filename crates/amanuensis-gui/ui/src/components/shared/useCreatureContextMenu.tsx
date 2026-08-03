@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { open } from "@tauri-apps/plugin-shell";
 import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+import { useOpenExternal } from "./useOpenExternal";
 import { familyPageUrl, getCreatureFamily } from "../../lib/bestiary";
 
 /**
@@ -20,6 +20,7 @@ import { familyPageUrl, getCreatureFamily } from "../../lib/bestiary";
  */
 export function useCreatureContextMenu() {
   const [menu, setMenu] = useState<{ x: number; y: number; name: string } | null>(null);
+  const { open: openLink, element: linkFailure } = useOpenExternal();
 
   const openFor = useCallback((e: React.MouseEvent, name: string) => {
     if (!name) return;
@@ -40,9 +41,7 @@ export function useCreatureContextMenu() {
       url
         ? {
             label: `Open in Bestiary — ${family}`,
-            onSelect: () => {
-              open(url).catch(() => {});
-            },
+            onSelect: () => openLink(url),
           }
         : {
             // Extinct creatures have no family page, and an unrecognised name has no family.
@@ -57,11 +56,15 @@ export function useCreatureContextMenu() {
         },
       },
     ];
-  }, [menu]);
+  }, [menu, openLink]);
 
-  const element = menu ? (
-    <ContextMenu x={menu.x} y={menu.y} items={items} onClose={close} />
-  ) : null;
+  // The failure notice outlives the menu — selecting the item closes it.
+  const element = (
+    <>
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={items} onClose={close} />}
+      {linkFailure}
+    </>
+  );
 
   return { openFor, element };
 }

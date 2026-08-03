@@ -217,6 +217,16 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
   return invoke("check_for_update");
 }
 
+/**
+ * Open an http(s) link in the user's browser.
+ *
+ * Not `@tauri-apps/plugin-shell`'s `open`: on Linux that spawns the system opener with the
+ * AppImage's own library paths, which kills it silently. See `commands/external.rs`.
+ */
+export async function openExternal(url: string): Promise<void> {
+  return invoke("open_external", { url });
+}
+
 export async function revealDatabase(path: string): Promise<void> {
   return invoke("reveal_database", { path });
 }

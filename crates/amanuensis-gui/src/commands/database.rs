@@ -51,10 +51,7 @@ pub fn delete_all_data(state: State<'_, AppState>) -> Result<(), String> {
 pub fn reveal_database(path: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .args(["-R", &path])
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        super::external::spawn_clean("open", &["-R", &path]).map_err(|e| e.to_string())?;
     }
     #[cfg(target_os = "windows")]
     {
@@ -70,10 +67,9 @@ pub fn reveal_database(path: String) -> Result<(), String> {
             .unwrap_or(std::path::Path::new("/"))
             .to_string_lossy()
             .into_owned();
-        std::process::Command::new("xdg-open")
-            .arg(&parent)
-            .spawn()
-            .map_err(|e| e.to_string())?;
+        // Via `spawn_clean`: a bare `xdg-open` inherits the AppImage's library paths and
+        // dies on the host's file manager. See `commands::external`.
+        super::external::spawn_clean("xdg-open", &[&parent]).map_err(|e| e.to_string())?;
     }
     Ok(())
 }

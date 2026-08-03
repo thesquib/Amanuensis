@@ -13,6 +13,7 @@ serde_json = "1"
 reqwest = { version = "0.12", features = ["rustls-tls", "json"], default-features = false }
 base64 = "0.22"
 urlencoding = "2"
+open = "5"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

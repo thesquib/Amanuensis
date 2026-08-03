@@ -80,6 +80,7 @@ version = "0.9.0"
 dependencies = [
  "amanuensis-core",
  "base64 0.22.1",
+ "open",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
