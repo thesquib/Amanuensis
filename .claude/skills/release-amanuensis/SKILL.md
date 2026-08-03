@@ -63,7 +63,15 @@ Pushing the `vX` tag is what starts `release.yml`. It builds a matrix: **macOS A
 gh run watch "$(gh run list --workflow=release.yml -L1 --json databaseId -q '.[0].databaseId')" --exit-status
 ```
 
-**Known flake:** the **macOS Intel** leg has intermittently failed on `actions/checkout` with `Could not resolve host: github.com` — a runner DNS blip, not a code problem. If only that leg fails, re-run it (`gh run rerun <run-id> --failed`) rather than assuming the release is broken. The other legs and the release itself still publish.
+**Known flakes — both on the macOS Intel leg, both fixed by a re-run.** If *only* that leg fails, re-run it (`gh run rerun <run-id> --failed`) rather than assuming the release is broken. The other legs and the release itself still publish. Check which failure you have, because they look nothing alike:
+
+1. **`actions/checkout` — `Could not resolve host: github.com`.** A runner DNS blip. Fails within seconds, before any Rust work.
+2. **`bundle_dmg.sh` — `failed to bundle project: error running bundle_dmg.sh`** (seen on v0.9.0). `hdiutil` contention on the runner while packaging the DMG. This one fails *late*: the Rust build and frontend build have already succeeded, and the step that fails is `Build and release` — so at a glance it reads like a real build break. It is not. Confirm by checking the log ends in `bundle_dmg.sh` rather than a compiler error:
+   ```bash
+   gh run view <run-id> --log-failed | grep -iE "error|failed" | tail -5
+   ```
+
+Anything that fails with an actual `rustc`/`tsc` error is a real breakage — fix it, don't re-run.
 
 ## Step 6 — Promote the prerelease to a full release (do NOT skip)
 
