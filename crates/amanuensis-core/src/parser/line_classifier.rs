@@ -136,6 +136,14 @@ pub fn classify_line(message: &str, trainer_db: &TrainerDb) -> LogEvent {
         };
     }
 
+    // Study abandon arrives as plain text in real logs (the ¥/• forms are handled
+    // in classify_system_message too).
+    if let Some(caps) = patterns::STUDY_ABANDON.captures(message) {
+        return LogEvent::StudyAbandon {
+            creature: caps[1].to_string(),
+        };
+    }
+
     // Kill patterns
     if let Some(caps) = patterns::SOLO_KILL.captures(message) {
         let verb = match &caps[1] {
@@ -982,6 +990,18 @@ mod tests {
         assert!(matches!(
             event,
             LogEvent::StudyAbandon { ref creature } if creature == "Orga Anger"
+        ));
+    }
+
+    #[test]
+    fn test_study_abandon_unprefixed() {
+        // The game sends the abandon line as plain text: every one of 27 in real
+        // Ruuk logs (2017-2026) is unprefixed, so the ¥-only match never fired.
+        let db = test_db();
+        let event = classify_line("You abandon your study of the Blue Arachnoid.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::StudyAbandon { ref creature } if creature == "Blue Arachnoid"
         ));
     }
 

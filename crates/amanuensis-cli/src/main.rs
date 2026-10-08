@@ -1133,6 +1133,8 @@ fn cmd_lastys(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
             } else {
                 "Completed".to_string()
             }
+        } else if let Some(ref date) = l.abandoned_date {
+            format!("Abandoned ({})", date)
         } else {
             "Active".to_string()
         };

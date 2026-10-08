@@ -2893,6 +2893,26 @@ mod tests {
     }
 
     #[test]
+    fn unprefixed_abandon_marks_study_abandoned() {
+        let (tmp, char_dir) = create_test_log_dir();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"11/1/18 7:44:55p ");
+        bytes.push(0xA5);
+        bytes.extend_from_slice(b"You begin studying the movements of the Blue Arachnoid.\n");
+        bytes.extend_from_slice(b"11/1/18 7:52:51p You abandon your study of the Blue Arachnoid.\n");
+        bytes.extend_from_slice(b"11/1/18 7:53:00p You slaughtered a Blue Arachnoid.\n");
+        fs::write(char_dir.join("CL Log 2018-11-01 19.30.25.txt"), &bytes).unwrap();
+
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let char_id = parser.db().get_or_create_character("TestChar").unwrap();
+        let lasty = &parser.db().get_lastys(char_id).unwrap()[0];
+        assert!(lasty.abandoned_date.is_some(), "abandon line must be recognised");
+        assert!(!lasty.finished);
+        assert_eq!(lasty.kills_since_message, 0, "kills after abandoning don't count");
+    }
+
+    #[test]
     fn test_lasty_and_pet_tracking() {
         let (tmp, char_dir) = create_test_log_dir();
 

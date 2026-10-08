@@ -689,6 +689,20 @@ mod tests {
     }
 
     #[test]
+    fn abandon_lasty_leaves_finished_studies_alone() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        db.finish_lasty(id, "Rat", "Movements", "2026-01-01").unwrap();
+        db.upsert_lasty(id, "Rat", "Befriend", "2026-01-02", None).unwrap();
+        db.abandon_lasty(id, "Rat", "2026-01-03").unwrap();
+        let lastys = db.get_lastys(id).unwrap();
+        let movements = lastys.iter().find(|l| l.lasty_type == "Movements").unwrap();
+        let befriend = lastys.iter().find(|l| l.lasty_type == "Befriend").unwrap();
+        assert!(movements.abandoned_date.is_none(), "a completed study is not abandoned");
+        assert_eq!(befriend.abandoned_date.as_deref(), Some("2026-01-03"));
+    }
+
+    #[test]
     fn merged_lasty_kills_since_message_comes_from_latest_message() {
         let db = Database::open_in_memory().unwrap();
         let a = db.get_or_create_character("CharA").unwrap();

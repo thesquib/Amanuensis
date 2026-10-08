@@ -93,7 +93,8 @@ impl Database {
         Ok(())
     }
 
-    /// Record that a lasty study was abandoned. Sets abandoned_date on the matching record.
+    /// Record that a lasty study was abandoned. Sets abandoned_date on the creature's
+    /// unfinished studies; a completed study of another type stays completed.
     pub fn abandon_lasty(
         &self,
         char_id: i64,
@@ -102,7 +103,7 @@ impl Database {
     ) -> Result<()> {
         self.conn.execute(
             "UPDATE lastys SET abandoned_date = ?3
-             WHERE character_id = ?1 AND creature_name = ?2",
+             WHERE character_id = ?1 AND creature_name = ?2 AND finished = 0",
             params![char_id, creature_name, date],
         )?;
         Ok(())
