@@ -13,6 +13,7 @@ import type {
   ProcessLog,
   BestiaryPayload,
   CreatureFrequency,
+  DepartSummary,
 } from "../types";
 
 export async function openDatabase(path: string): Promise<void> {
@@ -43,6 +44,10 @@ export async function getTrainers(
 
 export async function getPets(charId: number): Promise<Pet[]> {
   return invoke("get_pets", { charId });
+}
+
+export async function getDepartSummary(charId: number): Promise<DepartSummary | null> {
+  return invoke("get_depart_summary", { charId });
 }
 
 export async function getLastys(charId: number): Promise<Lasty[]> {

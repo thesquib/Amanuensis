@@ -230,6 +230,15 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+        -- One row per spirit-departed-N-times line. The game's
+        -- counter can drop, so totals are derived in date order (queries/depart.rs).
+        CREATE TABLE IF NOT EXISTS depart_observations (
+            character_id INTEGER NOT NULL,
+            observed_at  TEXT NOT NULL,
+            count        INTEGER NOT NULL,
+            FOREIGN KEY (character_id) REFERENCES characters(id),
+            UNIQUE(character_id, observed_at, count)
+        );
         ",
     )?;
     Ok(())
@@ -446,6 +455,15 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         CREATE TABLE IF NOT EXISTS db_meta (
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
+        );
+        -- One row per spirit-departed-N-times line. The game's
+        -- counter can drop, so totals are derived in date order (queries/depart.rs).
+        CREATE TABLE IF NOT EXISTS depart_observations (
+            character_id INTEGER NOT NULL,
+            observed_at  TEXT NOT NULL,
+            count        INTEGER NOT NULL,
+            FOREIGN KEY (character_id) REFERENCES characters(id),
+            UNIQUE(character_id, observed_at, count)
         );",
     )?;
 

@@ -88,6 +88,7 @@ impl Database {
              DELETE FROM kill_hourly;
              DELETE FROM lastys;
              DELETE FROM pets WHERE hidden = 0 AND merged_into IS NULL;
+             DELETE FROM depart_observations;
              DELETE FROM log_files;
              DELETE FROM log_lines;
              DELETE FROM known_players;
@@ -123,6 +124,7 @@ impl Database {
              DELETE FROM kill_hourly;
              DELETE FROM lastys;
              DELETE FROM pets;
+             DELETE FROM depart_observations;
              DELETE FROM log_files;
              DELETE FROM log_lines;
              DELETE FROM process_logs;

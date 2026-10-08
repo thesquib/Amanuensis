@@ -18,12 +18,13 @@ import {
   getTrainers,
   getPets,
   getLastys,
+  getDepartSummary,
   setProfessionOverride,
 } from "../../lib/commands";
 import { computeKillStats } from "../../lib/killStats";
 import { computeFighterStats } from "../../lib/fighterStats";
 import { timeAgo } from "../../lib/timeAgo";
-import type { Character, TrainerInfo } from "../../types";
+import type { Character, DepartSummary, TrainerInfo } from "../../types";
 
 export function SummaryView() {
   const {
@@ -42,6 +43,7 @@ export function SummaryView() {
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
   const [mergeSources, setMergeSources] = useState<Character[]>([]);
   const [mergedChar, setMergedChar] = useState<Character | null>(null);
+  const [departSummary, setDepartSummary] = useState<DepartSummary | null>(null);
 
   useEffect(() => {
     getTrainerDbInfo()
@@ -62,6 +64,17 @@ export function SummaryView() {
       setMergedChar(null);
     }
   }, [selectedCharacterId]);
+
+  // Refetched when `characters` changes too, which every scan does.
+  useEffect(() => {
+    if (selectedCharacterId === null) {
+      setDepartSummary(null);
+      return;
+    }
+    getDepartSummary(selectedCharacterId)
+      .then(setDepartSummary)
+      .catch(() => setDepartSummary(null));
+  }, [selectedCharacterId, characters]);
 
   const handleUnmerge = useCallback(
     async (sourceId: number) => {
@@ -172,10 +185,16 @@ export function SummaryView() {
 
   const effectiveRounded = Math.round(effectiveRanks * 10) / 10;
 
+  // Lifetime departs survive the game's counter dropping; the rate uses only departs
+  // seen in the logs, the same span the deaths were counted over. Characters with no
+  // scanned depart line (e.g. Scribius imports) fall back to the stored total.
+  const lifetimeDeparts = departSummary?.lifetime ?? char.departs;
+  const rateDeparts = departSummary?.in_logs ?? char.departs;
+
   // Computed percentages
   const chanceOfDepart =
-    char.deaths + char.departs > 0
-      ? ((char.departs / (char.deaths + char.departs)) * 100).toFixed(1)
+    char.deaths + rateDeparts > 0
+      ? ((rateDeparts / (char.deaths + rateDeparts)) * 100).toFixed(1)
       : null;
 
   const chanceOfChainBreak =
@@ -289,7 +308,21 @@ export function SummaryView() {
           </div>
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Departs</div>
-            <div className="text-sm font-semibold">{char.departs.toLocaleString()}</div>
+            <div
+              className="text-sm font-semibold"
+              title={
+                departSummary && departSummary.current !== lifetimeDeparts
+                  ? `${lifetimeDeparts} lifetime. The game's own counter now reads ${departSummary.current}; it can go down over time.`
+                  : undefined
+              }
+            >
+              {lifetimeDeparts.toLocaleString()}
+              {departSummary && departSummary.current !== lifetimeDeparts && (
+                <span className="ml-1 font-normal text-[var(--color-text-muted)]">
+                  ({departSummary.current.toLocaleString()} now)
+                </span>
+              )}
+            </div>
           </div>
           {char.logins > 0 && (
             <>
@@ -469,7 +502,7 @@ export function SummaryView() {
           <StatCard
             label="Chance of Depart"
             value={`${chanceOfDepart}%`}
-            sub={`${char.departs} / ${char.deaths + char.departs}`}
+            sub={`${rateDeparts} / ${char.deaths + rateDeparts}${departSummary ? " in logs" : ""}`}
           />
         )}
         {chanceOfChainBreak && (

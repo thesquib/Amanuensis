@@ -104,6 +104,16 @@ export interface Pet {
   creature_name: string;
 }
 
+/** Mirrors Rust `DepartSummary` struct */
+export interface DepartSummary {
+  /** First depart count seen plus every later depart (the game's counter can drop) */
+  lifetime: number;
+  /** The game's own counter at the latest depart line */
+  current: number;
+  /** Departs whose line appears in the logs (same span as counted deaths) */
+  in_logs: number;
+}
+
 /** Mirrors Rust `Lasty` struct */
 export interface Lasty {
   id: number | null;

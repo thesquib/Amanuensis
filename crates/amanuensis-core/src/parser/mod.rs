@@ -785,13 +785,14 @@ impl LogParser {
                         file_result.events_found += 1;
                     }
                 }
+                // The game's counter can drop, so observations are kept and the lifetime
+                // total is derived in date order by refresh_departs (finalize_characters).
                 LogEvent::FirstDepart => {
-                    self.db.increment_character_field(char_id, "departs", 1)?;
+                    self.db.record_depart(char_id, &date_str, 1)?;
                     file_result.events_found += 1;
                 }
                 LogEvent::Depart { count } => {
-                    // Set departs to the absolute count (it's cumulative)
-                    self.db.set_departs(char_id, count)?;
+                    self.db.record_depart(char_id, &date_str, count)?;
                     file_result.events_found += 1;
                 }
 
@@ -1849,6 +1850,7 @@ impl LogParser {
         // Deferred to here — the universal end-of-scan hook — so that a name identified as
         // a player late in the scan is not falsely reported as unrecognised.
         self.flush_unrecognised_checkpoint_speakers()?;
+        self.db.refresh_departs()?;
 
         let chars = self.db.list_characters()?;
         for c in &chars {
@@ -2845,10 +2847,40 @@ mod tests {
         let db = Database::open_in_memory().unwrap();
         let parser = LogParser::new(db).unwrap();
         parser.scan_folder(tmp.path(), false).unwrap();
+        parser.finalize_characters().unwrap();
 
         let char = parser.db().get_character("TestChar").unwrap().unwrap();
         assert_eq!(char.deaths, 1);
         assert_eq!(char.departs, 5);
+    }
+
+    #[test]
+    fn departs_do_not_depend_on_scan_order() {
+        // Ruuk's counter read 59 in 2023 and 40 in 2026. The old overwrite kept whichever
+        // file was scanned last; now both orders give lifetime 60 (59, then one more).
+        for newest_first in [true, false] {
+            let roots: Vec<tempfile::TempDir> = (0..2).map(|_| tempfile::tempdir().unwrap()).collect();
+            let files = [
+                ("CL Log 2023-02-19 07.21.04.txt", "Your spirit has departed your body 59 times.\n"),
+                ("CL Log 2026-07-13 09.59.09.txt", "7/13/26 10:03:50 Your spirit has departed your body 40 times.\n"),
+            ];
+            for (root, (name, body)) in roots.iter().zip(files) {
+                let dir = root.path().join("Ruuk");
+                fs::create_dir(&dir).unwrap();
+                fs::write(dir.join(name), body).unwrap();
+            }
+            let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+            let order: Vec<&tempfile::TempDir> =
+                if newest_first { roots.iter().rev().collect() } else { roots.iter().collect() };
+            for root in order {
+                parser.scan_folder(root.path(), false).unwrap();
+            }
+            parser.finalize_characters().unwrap();
+            let ruuk = parser.db().get_character("Ruuk").unwrap().unwrap();
+            assert_eq!(ruuk.departs, 60, "newest_first={newest_first}");
+            let s = parser.db().depart_summary_merged(ruuk.id.unwrap()).unwrap().unwrap();
+            assert_eq!(s.current, 40, "newest_first={newest_first}");
+        }
     }
 
     #[test]

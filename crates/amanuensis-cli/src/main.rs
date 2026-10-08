@@ -698,6 +698,11 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
         .max_by_key(|k| k.total_all());
 
     let merge_sources = db.get_merge_sources(char_id)?;
+    // Lifetime departs survive the game's counter dropping; the depart rate uses only
+    // departs seen in the logs. None (e.g. a Scribius import) keeps the stored total.
+    let depart_summary = db.depart_summary_merged(char_id)?;
+    let lifetime_departs = depart_summary.as_ref().map_or(char.departs, |s| s.lifetime);
+    let rate_departs = depart_summary.as_ref().map_or(char.departs, |s| s.in_logs);
 
     println!("=== {} ===", char.name);
     if !merge_sources.is_empty() {
@@ -715,7 +720,12 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     }
     println!("Logins:         {}", char.logins);
     println!("Deaths:         {}", char.deaths);
-    println!("Departs:        {}", char.departs);
+    match &depart_summary {
+        Some(s) if s.current != s.lifetime => {
+            println!("Departs:        {} lifetime ({} now)", s.lifetime, s.current)
+        }
+        _ => println!("Departs:        {}", lifetime_departs),
+    }
     if char.good_karma > 0 || char.bad_karma > 0 || char.gave_good_karma > 0 || char.gave_bad_karma > 0 {
         println!("Good Karma:     {} received, {} given", char.good_karma, char.gave_good_karma);
         println!("Bad Karma:      {} received, {} given", char.bad_karma, char.gave_bad_karma);
@@ -754,9 +764,9 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     println!();
 
     // Survival stats
-    let total_exits = char.deaths + char.departs;
+    let total_exits = char.deaths + rate_departs;
     if total_exits > 0 {
-        let depart_rate = char.departs as f64 / total_exits as f64 * 100.0;
+        let depart_rate = rate_departs as f64 / total_exits as f64 * 100.0;
         println!("--- Survival ---");
         println!("Depart Rate:    {:.1}%", depart_rate);
         let total_chains = char.chains_used + char.chains_broken;

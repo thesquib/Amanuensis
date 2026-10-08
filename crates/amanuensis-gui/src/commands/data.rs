@@ -1,6 +1,6 @@
 use tauri::State;
 
-use amanuensis_core::db::queries::CreatureFrequency;
+use amanuensis_core::db::queries::{CreatureFrequency, DepartSummary};
 use amanuensis_core::export::ExportFormat;
 use amanuensis_core::models::{Kill, Lasty, Pet, ProcessLog, Trainer};
 use amanuensis_core::{LogSearchResult, ScanScope, TrainerDb};
@@ -25,6 +25,13 @@ pub fn get_trainers(char_id: i64, scope: Option<ScanScope>, state: State<'_, App
 #[tauri::command]
 pub fn get_pets(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Pet>, String> {
     state.with_db(|db| db.get_pets_merged(char_id).map_err(|e| e.to_string()))
+}
+
+/// Depart totals derived from every depart line (includes merged sources); None when
+/// no depart line was scanned, in which case the character's stored `departs` stands.
+#[tauri::command]
+pub fn get_depart_summary(char_id: i64, state: State<'_, AppState>) -> Result<Option<DepartSummary>, String> {
+    state.with_db(|db| db.depart_summary_merged(char_id).map_err(|e| e.to_string()))
 }
 
 /// Get lastys for a character (includes merged sources).

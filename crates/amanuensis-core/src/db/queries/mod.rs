@@ -6,6 +6,7 @@ use crate::models::*;
 
 mod character;
 mod checkpoint;
+mod depart;
 mod frequency;
 mod kill;
 pub mod trainer;
@@ -17,6 +18,7 @@ mod player;
 mod process_log;
 mod scan_scope;
 
+pub use depart::DepartSummary;
 pub use frequency::CreatureFrequency;
 pub use scan_scope::ScanScope;
 pub use kill::{KillsFilter, filter_kills};

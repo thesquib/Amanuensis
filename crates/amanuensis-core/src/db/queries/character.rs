@@ -110,15 +110,6 @@ impl Database {
         Ok(())
     }
 
-    /// Set the departs counter to an absolute value (it's cumulative in logs).
-    pub fn set_departs(&self, char_id: i64, count: i64) -> Result<()> {
-        self.conn.execute(
-            "UPDATE characters SET departs = ?1 WHERE id = ?2",
-            params![count, char_id],
-        )?;
-        Ok(())
-    }
-
     /// Update a character's profession.
     pub fn update_character_profession(&self, char_id: i64, profession: &str) -> Result<()> {
         self.conn.execute(
