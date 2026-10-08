@@ -689,6 +689,29 @@ mod tests {
     }
 
     #[test]
+    fn merged_lasty_kills_since_message_comes_from_latest_message() {
+        let db = Database::open_in_memory().unwrap();
+        let a = db.get_or_create_character("CharA").unwrap();
+        let b = db.get_or_create_character("CharB").unwrap();
+        db.upsert_lasty(a, "Vermine", "Movements", "2026-04-01", None).unwrap();
+        db.reset_lasty_kills(a, "Vermine", "Movements").unwrap();
+        for _ in 0..5 {
+            db.count_lasty_kill(a, "Vermine").unwrap();
+        }
+        db.upsert_lasty(b, "Vermine", "Movements", "2026-04-05", None).unwrap();
+        db.reset_lasty_kills(b, "Vermine", "Movements").unwrap();
+        for _ in 0..2 {
+            db.count_lasty_kill(b, "Vermine").unwrap();
+        }
+        assert_eq!(db.get_lastys(a).unwrap()[0].kills_since_message, 5);
+
+        db.merge_characters(&[b], a).unwrap();
+        let merged = db.get_lastys_merged(a).unwrap();
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].kills_since_message, 2, "B has the later study message");
+    }
+
+    #[test]
     fn test_merged_lastys_preserve_per_type_rows() {
         // A creature can have independent lastys per type (Movements/Befriend/Morph).
         // Merged queries must keep one row per (creature, type): collapsing across

@@ -9,6 +9,8 @@ export interface StudyState {
   message_count: number;
   /** Upper bound on lasties remaining ("a lot to learn" → 700); null until a milestone message is seen */
   kills_left: number | null;
+  /** Kills of this creature since the latest study message */
+  kills_since_message: number;
   date: string | null;
 }
 
@@ -79,7 +81,7 @@ const COST_BEFRIEND = 10;
 const COST_MORPH = 5;
 
 function emptyStudyState(): StudyState {
-  return { status: "none", message_count: 0, kills_left: null, date: null };
+  return { status: "none", message_count: 0, kills_left: null, kills_since_message: 0, date: null };
 }
 
 function lastyToStudyState(lasty: Lasty): StudyState {
@@ -95,6 +97,7 @@ function lastyToStudyState(lasty: Lasty): StudyState {
     status,
     message_count: lasty.message_count,
     kills_left: lasty.kills_left,
+    kills_since_message: lasty.kills_since_message,
     date: lasty.completed_date ?? lasty.abandoned_date ?? lasty.last_seen_date,
   };
 }

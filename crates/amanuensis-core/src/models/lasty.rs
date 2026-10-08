@@ -43,6 +43,9 @@ pub struct Lasty {
     /// Upper bound on lasties remaining, from the latest study milestone wording
     /// ("a lot to learn" → <700). None until a milestone message has been seen.
     pub kills_left: Option<i64>,
+    /// Kills of this creature (solo or assisted) since the latest study message.
+    /// Frozen once the study finishes or is abandoned.
+    pub kills_since_message: i64,
     pub first_seen_date: Option<String>,
     pub last_seen_date: Option<String>,
     pub completed_date: Option<String>,
@@ -59,6 +62,7 @@ impl Lasty {
             finished: false,
             message_count: 0,
             kills_left: None,
+            kills_since_message: 0,
             first_seen_date: None,
             last_seen_date: None,
             completed_date: None,

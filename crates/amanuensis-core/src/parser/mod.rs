@@ -756,6 +756,7 @@ impl LogParser {
                         .upsert_kill_scan(char_id, &creature, field, value, &date_str)?;
                     self.db
                         .upsert_kill_hourly(char_id, &creature, field, &hour_bucket(&date_str))?;
+                    self.db.count_lasty_kill(char_id, &creature)?;
                     file_result.events_found += 1;
                 }
                 LogEvent::AssistedKill { creature, verb } => {
@@ -768,6 +769,7 @@ impl LogParser {
                         .upsert_kill_scan(char_id, &creature, field, value, &date_str)?;
                     self.db
                         .upsert_kill_hourly(char_id, &creature, field, &hour_bucket(&date_str))?;
+                    self.db.count_lasty_kill(char_id, &creature)?;
                     file_result.events_found += 1;
                 }
 
@@ -1020,6 +1022,7 @@ impl LogParser {
                         .remove(&creature);
                     self.db.clear_lasty_abandon(char_id, &creature)?;
                     self.db.upsert_lasty(char_id, &creature, &lasty_type, &date_str, None)?;
+                    self.db.reset_lasty_kills(char_id, &creature, &lasty_type)?;
                     file_result.events_found += 1;
                 }
                 LogEvent::LastyProgress {
@@ -1036,6 +1039,7 @@ impl LogParser {
                         .unwrap_or(false);
                     if !is_abandoned {
                         self.db.upsert_lasty(char_id, &creature, &lasty_type, &date_str, kills_left)?;
+                        self.db.reset_lasty_kills(char_id, &creature, &lasty_type)?;
                         file_result.events_found += 1;
                     }
                 }
@@ -2845,6 +2849,47 @@ mod tests {
         let char = parser.db().get_character("TestChar").unwrap().unwrap();
         assert_eq!(char.deaths, 1);
         assert_eq!(char.departs, 5);
+    }
+
+    #[test]
+    fn lasty_counts_kills_since_last_study_message() {
+        let (tmp, char_dir) = create_test_log_dir();
+        let lines: &[(&str, bool)] = &[
+            ("You begin studying the movements of the Vermine.", true),
+            ("You slaughtered a Vermine.", false),
+            ("You helped kill a Vermine.", false),
+            ("You slaughtered a Rat.", false), // other creature: not counted
+            // A study message resets the counter.
+            ("You have much left to learn about the movements of the Vermine.", true),
+            ("You killed a Vermine.", false),
+            ("You helped vanquish a Vermine.", false),
+            ("You dispatched a Vermine.", false),
+            ("You begin studying the ways of the Rat.", true),
+            ("You slaughtered a Rat.", false),
+            ("You learn to befriend the Rat.", true), // finished: later kills don't count
+            ("You slaughtered a Rat.", false),
+        ];
+        let mut bytes = Vec::new();
+        for (i, (text, yen)) in lines.iter().enumerate() {
+            bytes.extend_from_slice(format!("1/1/24 1:{:02}:00p ", i).as_bytes());
+            if *yen {
+                bytes.push(0xA5);
+            }
+            bytes.extend_from_slice(text.as_bytes());
+            bytes.push(b'\n');
+        }
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), &bytes).unwrap();
+
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let char_id = parser.db().get_or_create_character("TestChar").unwrap();
+        let lastys = parser.db().get_lastys(char_id).unwrap();
+
+        let vermine = lastys.iter().find(|l| l.creature_name == "Vermine").unwrap();
+        assert_eq!(vermine.kills_since_message, 3);
+        let rat = lastys.iter().find(|l| l.creature_name == "Rat").unwrap();
+        assert!(rat.finished);
+        assert_eq!(rat.kills_since_message, 1, "frozen at completion");
     }
 
     #[test]

@@ -122,11 +122,34 @@ impl Database {
         Ok(())
     }
 
+    /// Zero the kills-since-message counter: called on each real study message
+    /// (begin / progress), not on /reflect list lines.
+    pub fn reset_lasty_kills(&self, char_id: i64, creature_name: &str, lasty_type: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE lastys SET kills_since_message = 0
+             WHERE character_id = ?1 AND creature_name = ?2 AND lasty_type = ?3",
+            params![char_id, creature_name, lasty_type],
+        )?;
+        Ok(())
+    }
+
+    /// Count a kill of `creature_name` toward every study of it still in progress.
+    pub fn count_lasty_kill(&self, char_id: i64, creature_name: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE lastys SET kills_since_message = kills_since_message + 1
+             WHERE character_id = ?1 AND creature_name = ?2
+               AND finished = 0 AND abandoned_date IS NULL",
+            params![char_id, creature_name],
+        )?;
+        Ok(())
+    }
+
     /// Get lastys for a character.
     pub fn get_lastys(&self, char_id: i64) -> Result<Vec<Lasty>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, character_id, creature_name, lasty_type, finished, message_count,
-                    kills_left, first_seen_date, last_seen_date, completed_date, abandoned_date
+                    kills_left, first_seen_date, last_seen_date, completed_date, abandoned_date,
+                    kills_since_message
              FROM lastys WHERE character_id = ?1 ORDER BY creature_name",
         )?;
 
@@ -143,6 +166,7 @@ impl Database {
                 last_seen_date: row.get(8)?,
                 completed_date: row.get(9)?,
                 abandoned_date: row.get(10)?,
+                kills_since_message: row.get(11)?,
             })
         })?;
 

@@ -321,7 +321,8 @@ impl Database {
 
     /// Get lastys aggregated across a character and all its merge sources.
     /// One row per (creature, lasty_type): message counts sum, finished/dates take
-    /// the furthest progress across sources.
+    /// the furthest progress across sources. Kills-since-message comes from the source
+    /// with the latest study message, since an older source's count is stale.
     pub fn get_lastys_merged(&self, char_id: i64) -> Result<Vec<Lasty>> {
         let all_ids = self.char_ids_for_merged(char_id)?;
         if all_ids.len() == 1 {
@@ -332,8 +333,11 @@ impl Database {
             "SELECT MIN(id), {}, creature_name, lasty_type,
                     MAX(finished), SUM(message_count), MIN(kills_left),
                     MIN(first_seen_date), MAX(last_seen_date),
-                    MAX(completed_date), MAX(abandoned_date)
-             FROM lastys WHERE character_id IN ({})
+                    MAX(completed_date), MAX(abandoned_date), MAX(latest_kills)
+             FROM (SELECT *, FIRST_VALUE(kills_since_message) OVER (
+                       PARTITION BY creature_name, lasty_type
+                       ORDER BY last_seen_date DESC) AS latest_kills
+                   FROM lastys WHERE character_id IN ({}))
              GROUP BY creature_name, lasty_type
              ORDER BY creature_name",
             char_id, placeholders
@@ -352,6 +356,7 @@ impl Database {
                 last_seen_date: row.get(8)?,
                 completed_date: row.get(9)?,
                 abandoned_date: row.get(10)?,
+                kills_since_message: row.get(11)?,
             })
         })?;
         Ok(lastys.filter_map(|r| r.ok()).collect())

@@ -6,6 +6,10 @@ import { useCreatureContextMenu } from "../../shared/useCreatureContextMenu";
 import { useStore } from "../../../lib/store";
 import type { StudyRecord, StudyState } from "../../../lib/rangerStats";
 
+function killsSince(n: number): string {
+  return `${n} kill${n !== 1 ? "s" : ""} since the last message`;
+}
+
 function StatusBadge({ state }: { state: StudyState }) {
   switch (state.status) {
     case "completed":
@@ -19,13 +23,17 @@ function StatusBadge({ state }: { state: StudyState }) {
         <span
           className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-medium text-yellow-400"
           title={
-            state.kills_left != null
+            (state.kills_left != null
               ? `Latest progress message puts fewer than ${state.kills_left} lasties remaining (${state.message_count} message${state.message_count !== 1 ? "s" : ""} seen)`
-              : `${state.message_count} progress message${state.message_count !== 1 ? "s" : ""} seen; no milestone wording recorded yet`
+              : `${state.message_count} progress message${state.message_count !== 1 ? "s" : ""} seen; no milestone wording recorded yet`) +
+            `. ${killsSince(state.kills_since_message)} (solo or assisted).`
           }
         >
           <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
           {state.kills_left != null ? `< ${state.kills_left} left` : state.message_count}
+          {state.kills_since_message > 0 && (
+            <span className="text-yellow-400/70">· {state.kills_since_message} since</span>
+          )}
         </span>
       );
     case "abandoned":

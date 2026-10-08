@@ -162,6 +162,7 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             finished INTEGER NOT NULL DEFAULT 0,
             message_count INTEGER NOT NULL DEFAULT 0,
             kills_left INTEGER,
+            kills_since_message INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (character_id) REFERENCES characters(id),
             UNIQUE(character_id, creature_name, lasty_type)
         );
@@ -295,6 +296,8 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         // rescan's INSERT OR IGNORE re-detection leaves the override in place.
         "ALTER TABLE pets ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE pets ADD COLUMN merged_into TEXT",
+        // Kills of the studied creature since the latest study message (Scribius parity).
+        "ALTER TABLE lastys ADD COLUMN kills_since_message INTEGER NOT NULL DEFAULT 0",
     ];
 
     for sql in &migrations {

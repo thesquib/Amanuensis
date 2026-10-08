@@ -38,6 +38,13 @@ function buildColumns(
       return v != null ? `< ${v}` : "";
     },
   }),
+  columnHelper.accessor("kills_since_message", {
+    header: "Kills Since Msg",
+    cell: (info) => {
+      const l = info.row.original;
+      return l.finished || l.abandoned_date ? "" : info.getValue();
+    },
+  }),
   columnHelper.accessor("finished", {
     header: "Completed",
     cell: (info) => {

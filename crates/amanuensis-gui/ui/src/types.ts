@@ -114,6 +114,8 @@ export interface Lasty {
   message_count: number;
   /** Upper bound on lasties remaining, from milestone wording ("a lot to learn" → 700); null until a milestone is seen */
   kills_left: number | null;
+  /** Kills of this creature (solo or assisted) since the latest study message */
+  kills_since_message: number;
   first_seen_date: string | null;
   last_seen_date: string | null;
   completed_date: string | null;
