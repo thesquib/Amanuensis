@@ -11,6 +11,7 @@ import { formatDate, formatTwoHourWindow } from "../../lib/dateUtils";
 import { computeKillStats } from "../../lib/killStats";
 import { ScopeToggle, LAST_SCAN_EMPTY } from "../shared/ScopeToggle";
 import { getKillFrequency, exportKills, getKills } from "../../lib/commands";
+import { bestiaryLookupName } from "../../lib/bestiary";
 import { save, message } from "@tauri-apps/plugin-dialog";
 import type { Kill } from "../../types";
 
@@ -28,26 +29,31 @@ export function KillsView() {
   const selectedCharacterId = useStore((s) => s.selectedCharacterId);
   const dataScope = useStore((s) => s.dataScope);
   const scanVersion = useStore((s) => s.scanVersion);
+  const groupBosses = useStore((s) => s.groupBosses);
+  const setGroupBosses = useStore((s) => s.setGroupBosses);
   const [scopedKills, setScopedKills] = useState<Kill[]>([]);
   const [scopedLoading, setScopedLoading] = useState(false);
   const scoped = dataScope === "last_scan";
+  // The store's kills are ungrouped and all-data; anything else is fetched here.
+  const fetched = scoped || groupBosses;
   useEffect(() => {
-    if (!scoped || selectedCharacterId == null) return;
+    if (!fetched || selectedCharacterId == null) return;
     let cancelled = false;
     setScopedLoading(true);
-    getKills(selectedCharacterId, "last_scan")
+    getKills(selectedCharacterId, scoped ? "last_scan" : "all", groupBosses)
       .then((rows) => {
         if (!cancelled) setScopedKills(rows);
       })
-      .catch((err) => console.error("Failed to load last-scan kills:", err))
+      .catch((err) => console.error("Failed to load kills:", err))
       .finally(() => {
         if (!cancelled) setScopedLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [scoped, selectedCharacterId, scanVersion]);
-  const kills = scoped ? scopedKills : allKills;
+    // allKills: refetch whenever the store's kills reload (rescan, merge changes).
+  }, [fetched, scoped, groupBosses, selectedCharacterId, scanVersion, allKills]);
+  const kills = fetched ? scopedKills : allKills;
   const byName = useStore((s) => s.bestiaryByName);
   const characters = useStore((s) => s.characters);
   const killFrequency = useStore((s) => s.killFrequency);
@@ -256,7 +262,7 @@ export function KillsView() {
       return kills;
     }
     return kills.filter((k) => {
-      const e = byName[k.creature_name];
+      const e = byName[bestiaryLookupName(k.creature_name)];
       if (filter.families.size > 0) {
         if (!e?.family_canonical || !filter.families.has(e.family_canonical)) return false;
       }
@@ -273,10 +279,23 @@ export function KillsView() {
   return (
     <div className="flex h-full flex-col">
       <div className="mb-2 flex items-center justify-between">
-        <ScopeToggle />
-        {scoped && (
+        <div className="flex items-center gap-4">
+          <ScopeToggle />
+          <label
+            className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]"
+            title="Show named ravens, Fane bosses and Fane shadow exiles as one row each"
+          >
+            <input
+              type="checkbox"
+              checked={groupBosses}
+              onChange={(e) => setGroupBosses(e.target.checked)}
+            />
+            Group bosses
+          </label>
+        </div>
+        {(scoped || groupBosses) && (
           <span className="text-xs text-[var(--color-text-muted)]">
-            Export always covers all data
+            Export always covers all data, ungrouped
           </span>
         )}
       </div>

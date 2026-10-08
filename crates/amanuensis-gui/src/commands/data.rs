@@ -3,16 +3,31 @@ use tauri::State;
 use amanuensis_core::db::queries::{CreatureFrequency, DepartSummary};
 use amanuensis_core::export::ExportFormat;
 use amanuensis_core::models::{Kill, Lasty, Pet, ProcessLog, Trainer};
-use amanuensis_core::{LogSearchResult, ScanScope, TrainerDb};
+use amanuensis_core::data::CreatureDb;
+use amanuensis_core::{group_kills, LogSearchResult, ScanScope, TrainerDb};
 
 use crate::state::AppState;
 
 use super::TrainerInfo;
 
-/// Get kills for a character (includes merged sources).
+/// Get kills for a character (includes merged sources). With `group`, named ravens, Fane
+/// bosses and Fane shadow exiles are folded into one row each.
 #[tauri::command]
-pub fn get_kills(char_id: i64, scope: Option<ScanScope>, state: State<'_, AppState>) -> Result<Vec<Kill>, String> {
-    state.with_db(|db| db.get_kills_merged_scoped(char_id, scope.unwrap_or(ScanScope::All)).map_err(|e| e.to_string()))
+pub fn get_kills(
+    char_id: i64,
+    scope: Option<ScanScope>,
+    group: Option<bool>,
+    state: State<'_, AppState>,
+) -> Result<Vec<Kill>, String> {
+    let kills = state.with_db(|db| {
+        db.get_kills_merged_scoped(char_id, scope.unwrap_or(ScanScope::All))
+            .map_err(|e| e.to_string())
+    })?;
+    if !group.unwrap_or(false) {
+        return Ok(kills);
+    }
+    let creatures = CreatureDb::bundled().map_err(|e| e.to_string())?;
+    Ok(group_kills(&kills, &creatures))
 }
 
 /// Get trainers for a character (includes merged sources).

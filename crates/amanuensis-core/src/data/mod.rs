@@ -8,7 +8,7 @@ pub mod trainers;
 
 pub use bestiary::{BestiaryEntry, BestiaryAlias, InlineEntry, EntrySource, BestiaryFile};
 pub use bestiary_import::parse_bestiary_xml;
-pub use creatures::CreatureDb;
+pub use creatures::{CreatureDb, CreatureGroup};
 pub use npc_trainers::is_known_npc_trainer;
 pub use rarity::{canonical_rarity, Rarity};
 pub use trainer_checkpoints::lookup_checkpoint_message;

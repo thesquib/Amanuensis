@@ -97,6 +97,8 @@ pub enum EntrySource {
     Bestiary,
     Alias,
     InlineAlias,
+    /// A uniquely-named member of a `CreatureGroup` (e.g. a named raven).
+    Group,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -7,17 +7,27 @@ use super::{CHARACTER_COLUMNS, map_character_row, Database};
 impl Database {
     /// Get or create a character by name. Returns the character ID.
     pub fn get_or_create_character(&self, name: &str) -> Result<i64> {
-        // Try to find existing
-        let existing: Option<i64> = self
+        // Try to find existing. Clan Lord names are unique ignoring case, and a log
+        // folder is often the lowercased name ("tane" for Tane). A capitalised row wins
+        // over an all-lowercase one left behind by older scans.
+        let existing: Option<(i64, String)> = self
             .conn
             .query_row(
-                "SELECT id FROM characters WHERE name = ?1",
+                "SELECT id, name FROM characters WHERE name = ?1 COLLATE NOCASE
+                 ORDER BY name = lower(name), name = ?1 DESC, id LIMIT 1",
                 params![name],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .ok();
 
-        if let Some(id) = existing {
+        if let Some((id, stored)) = existing {
+            // Prefer the game's capitalisation over a lowercased folder name.
+            if stored != name && stored == stored.to_lowercase() {
+                self.conn.execute(
+                    "UPDATE characters SET name = ?1 WHERE id = ?2",
+                    params![name, id],
+                )?;
+            }
             return Ok(id);
         }
 

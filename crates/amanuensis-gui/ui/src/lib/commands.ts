@@ -31,8 +31,9 @@ export async function getCharacter(name: string): Promise<Character | null> {
 export async function getKills(
   charId: number,
   scope?: "all" | "last_scan",
+  group?: boolean,
 ): Promise<Kill[]> {
-  return invoke("get_kills", { charId, scope });
+  return invoke("get_kills", { charId, scope, group });
 }
 
 export async function getTrainers(

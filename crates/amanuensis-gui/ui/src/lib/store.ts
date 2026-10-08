@@ -132,6 +132,10 @@ interface AppStore {
   showPlayerTrainers: boolean;
   setShowPlayerTrainers: (show: boolean) => void;
 
+  // Kills view: fold named ravens / Fane bosses / Fane shadow exiles into one row each
+  groupBosses: boolean;
+  setGroupBosses: (group: boolean) => void;
+
   // Pending-logs badge count + last update-run result (for the confirmation dialog)
   pendingLogCount: number;
   setPendingLogCount: (n: number) => void;
@@ -282,6 +286,12 @@ export const useStore = create<AppStore>((set) => ({
   setShowPlayerTrainers: (show) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_PLAYER_TRAINERS, String(show));
     set({ showPlayerTrainers: show });
+  },
+
+  groupBosses: localStorage.getItem(STORAGE_KEYS.GROUP_BOSSES) === "true",
+  setGroupBosses: (group) => {
+    localStorage.setItem(STORAGE_KEYS.GROUP_BOSSES, String(group));
+    set({ groupBosses: group });
   },
 
   pendingLogCount: 0,

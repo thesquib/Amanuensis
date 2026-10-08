@@ -8,12 +8,14 @@ pub static WELCOME_BACK: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^Welcome back, (.+)!$").expect("regex compile error"));
 
 // === Kill patterns ===
-// Solo: "You slaughtered a/an/the {creature}."
+// Solo: "You slaughtered a/an/the {creature}." Uniquely named creatures (named ravens,
+// Fane bosses) have no article: "You slaughtered Lo-Chou the Odious."
 pub static SOLO_KILL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You (killed|slaughtered|vanquished|dispatched) ((?:an?|the) .+)\.$").expect("regex compile error"));
-// Assisted: "You helped kill/slaughter/vanquish/dispatch a/an/the {creature}."
+    Lazy::new(|| Regex::new(r"^You (killed|slaughtered|vanquished|dispatched) ((?:an?|the) .+|[A-Z].*)\.$").expect("regex compile error"));
+// Assisted: "You helped kill/slaughter/vanquish/dispatch a/an/the {creature}." (or a
+// capitalised unique name, as above).
 pub static ASSISTED_KILL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^You helped (kill|slaughter|vanquish|dispatch) ((?:an?|the) .+)\.$").expect("regex compile error"));
+    Lazy::new(|| Regex::new(r"^You helped (kill|slaughter|vanquish|dispatch) ((?:an?|the) .+|[A-Z].*)\.$").expect("regex compile error"));
 
 // === Death/fall patterns ===
 // "X has fallen to [a/an] Y." — cause may or may not have an article

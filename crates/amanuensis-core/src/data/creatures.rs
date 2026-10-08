@@ -14,6 +14,49 @@ pub struct CreatureDb {
     family_canonical: HashMap<String, String>,
 }
 
+const RAVEN_TITLES: &[&str] = &[
+    "Conspirator", "Gatekeeper", "Mediator", "Messenger", "Omen", "Phantom", "Prophet",
+];
+const FANE_BOSS_TITLES: &[&str] = &[
+    "Grievous", "Heinous", "Cruel", "Oppressive", "Dubious", "Grim", "Wicked", "Spiteful",
+    "Repulsive", "Bleak", "Odious",
+];
+
+/// Creatures that are each uniquely named in the logs but are one kind of creature.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CreatureGroup {
+    NamedRaven,
+    FaneBoss,
+    FaneShadowExile,
+}
+
+impl CreatureGroup {
+    /// Label shown when kills are grouped (Scribius's wording).
+    pub fn label(self) -> &'static str {
+        match self {
+            CreatureGroup::NamedRaven => "Named Raven",
+            CreatureGroup::FaneBoss => "Fane Boss",
+            CreatureGroup::FaneShadowExile => "Fane Shadow Exile",
+        }
+    }
+
+    /// The bestiary entry every member resolves to.
+    pub fn bestiary_name(self) -> &'static str {
+        match self {
+            CreatureGroup::NamedRaven => "Raven",
+            CreatureGroup::FaneBoss => "Gho Shadow",
+            CreatureGroup::FaneShadowExile => "Shadow Exile",
+        }
+    }
+
+    /// The group whose label is `label`, so a grouped row can be resolved back.
+    pub fn from_label(label: &str) -> Option<Self> {
+        [Self::NamedRaven, Self::FaneBoss, Self::FaneShadowExile]
+            .into_iter()
+            .find(|g| g.label() == label)
+    }
+}
+
 #[derive(Debug, Clone)]
 enum ResolvedAlias {
     Pointer(String),
@@ -108,8 +151,34 @@ impl CreatureDb {
             return Some(hit);
         }
         // "the X" fallback: strip and retry.
-        if let Some(bare) = log_name.strip_prefix("the ") {
-            return self.lookup(bare);
+        if let Some(hit) = log_name.strip_prefix("the ").and_then(|bare| self.lookup(bare)) {
+            return Some(hit);
+        }
+        // A captured creature is the creature itself.
+        if let Some(bare) = log_name.strip_prefix("Captured ") {
+            return self.get_entry_with_source(bare);
+        }
+        let group = CreatureGroup::from_label(log_name).or_else(|| self.creature_group(log_name))?;
+        self.by_name
+            .get(group.bestiary_name())
+            .map(|e| (e, EntrySource::Group))
+    }
+
+    /// The group a uniquely-named creature belongs to, if any. Each raven and Fane boss
+    /// has its own name ("Branwei the Gatekeeper", "Lo-Chou the Odious"), and a Fane
+    /// shadow exile is named after the exile it came from, so none of them are bestiary
+    /// entries. The title lists are the ones Scribius 2.0.5 uses.
+    pub fn creature_group(&self, log_name: &str) -> Option<CreatureGroup> {
+        if let Some((_, title)) = log_name.rsplit_once(" the ") {
+            if RAVEN_TITLES.contains(&title) {
+                return Some(CreatureGroup::NamedRaven);
+            }
+            if FANE_BOSS_TITLES.contains(&title) {
+                return Some(CreatureGroup::FaneBoss);
+            }
+        }
+        if log_name.starts_with("Shadow ") && self.lookup(log_name).is_none() {
+            return Some(CreatureGroup::FaneShadowExile);
         }
         None
     }
@@ -232,6 +301,65 @@ mod tests {
         };
         let bestiary_json = serde_json::to_vec(&file).unwrap();
         CreatureDb::from_json_bytes(&bestiary_json, b"[]").unwrap()
+    }
+
+    fn group_db() -> CreatureDb {
+        make_db(
+            &[
+                ("Raven", 1150),
+                ("Gho Shadow", 1670),
+                ("Shadow Exile", 0),
+                ("Shadow Hunter", 1290),
+                ("Death Vermine", 85),
+            ],
+            "[]",
+        )
+    }
+
+    #[test]
+    fn named_ravens_group_and_resolve_to_raven() {
+        let db = group_db();
+        for name in ["Branwei the Gatekeeper", "Yixrisi the Mediator", "Shahana the Omen"] {
+            assert_eq!(db.creature_group(name), Some(CreatureGroup::NamedRaven), "{name}");
+            let (entry, source) = db.get_entry_with_source(name).unwrap();
+            assert_eq!(entry.name, "Raven");
+            assert_eq!(source, EntrySource::Group);
+        }
+    }
+
+    #[test]
+    fn fane_bosses_group_and_resolve_to_gho_shadow() {
+        let db = group_db();
+        for name in ["Ho-Dao the Bleak", "Lo-Chou the Odious", "Xi the Grievous"] {
+            assert_eq!(db.creature_group(name), Some(CreatureGroup::FaneBoss), "{name}");
+            assert_eq!(db.get_value(name), Some(1670), "{name}");
+        }
+    }
+
+    #[test]
+    fn unknown_shadow_names_are_fane_shadow_exiles() {
+        let db = group_db();
+        assert_eq!(db.creature_group("Shadow Ruuk"), Some(CreatureGroup::FaneShadowExile));
+        assert_eq!(db.get_entry("Shadow Ruuk").unwrap().name, "Shadow Exile");
+        // A real bestiary creature named "Shadow ..." is never folded in.
+        assert_eq!(db.creature_group("Shadow Hunter"), None);
+        assert_eq!(db.get_value("Shadow Hunter"), Some(1290));
+    }
+
+    #[test]
+    fn ordinary_names_have_no_group() {
+        let db = group_db();
+        assert_eq!(db.creature_group("Death Vermine"), None);
+        assert_eq!(db.creature_group("the Ramandu"), None);
+        // An epithet must be the whole tail, not a substring of another word.
+        assert_eq!(db.creature_group("Omenous Thing"), None);
+    }
+
+    #[test]
+    fn captured_creatures_resolve_to_the_creature() {
+        let db = group_db();
+        assert_eq!(db.get_value("Captured Death Vermine"), Some(85));
+        assert_eq!(db.creature_group("Captured Death Vermine"), None);
     }
 
     #[test]
@@ -385,5 +513,15 @@ mod tests {
         // Creatures absent from the upstream bestiary, valued from Scribius.
         assert_eq!(db.get_value("Boggle"), Some(580));
         assert_eq!(db.get_value("Seagull"), Some(1));
+        // Renamed creature.
+        assert_eq!(db.get_value("Cash Golem"), db.get_value("Coin Golem"));
+        // Group targets must exist in the bundled bestiary.
+        for group in [
+            CreatureGroup::NamedRaven,
+            CreatureGroup::FaneBoss,
+            CreatureGroup::FaneShadowExile,
+        ] {
+            assert!(db.by_name.contains_key(group.bestiary_name()), "{:?}", group);
+        }
     }
 }

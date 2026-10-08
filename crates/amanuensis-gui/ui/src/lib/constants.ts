@@ -12,6 +12,7 @@ export const STORAGE_KEYS = {
   LOG_SOURCES: "amanuensis_log_sources",
   SHOW_PLAYER_TRAINERS: "amanuensis_show_player_trainers",
   DATA_SCOPE: "amanuensis_data_scope",
+  GROUP_BOSSES: "amanuensis_group_bosses",
 } as const;
 
 // ---------------------------------------------------------------------------

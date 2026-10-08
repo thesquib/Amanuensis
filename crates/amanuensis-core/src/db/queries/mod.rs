@@ -21,7 +21,7 @@ mod scan_scope;
 pub use depart::DepartSummary;
 pub use frequency::CreatureFrequency;
 pub use scan_scope::ScanScope;
-pub use kill::{KillsFilter, filter_kills};
+pub use kill::{KillsFilter, filter_kills, group_kills};
 
 // ---------------------------------------------------------------------------
 // Shared character projection
@@ -196,6 +196,30 @@ mod tests {
 
         let id3 = db.get_or_create_character("pip").unwrap();
         assert_ne!(id1, id3, "Different names should return different IDs");
+    }
+
+    #[test]
+    fn test_get_or_create_character_ignores_case() {
+        // A log folder is named "tane"; the game greets "Tane". One character.
+        let db = Database::open_in_memory().unwrap();
+        let id1 = db.get_or_create_character("tane").unwrap();
+        let id2 = db.get_or_create_character("Tane").unwrap();
+        assert_eq!(id1, id2);
+        // The capitalised spelling replaces an all-lowercase one, never the reverse.
+        assert!(db.get_character("Tane").unwrap().is_some());
+        db.get_or_create_character("tane").unwrap();
+        assert_eq!(db.get_character("Tane").unwrap().unwrap().id, Some(id1));
+        assert!(db.get_character("tane").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_get_or_create_character_prefers_capitalised_duplicate() {
+        // Databases scanned before case-insensitive lookup can hold both rows.
+        let db = Database::open_in_memory().unwrap();
+        db.conn.execute("INSERT INTO characters (name) VALUES ('tane')", []).unwrap();
+        db.conn.execute("INSERT INTO characters (name) VALUES ('Tane')", []).unwrap();
+        let tane = db.get_character("Tane").unwrap().unwrap().id.unwrap();
+        assert_eq!(db.get_or_create_character("tane").unwrap(), tane);
     }
 
     #[test]

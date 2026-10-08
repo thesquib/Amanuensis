@@ -8,9 +8,24 @@ export function getBestiaryMap(): Record<string, BestiaryEntry> {
   return useStore.getState().bestiaryByName;
 }
 
-/** Look up a creature by exact name from the loaded bestiary. */
+/**
+ * Bestiary entry behind each grouped-kills label. Mirrors `CreatureGroup::bestiary_name`
+ * in crates/amanuensis-core/src/data/creatures.rs; keep the two in sync.
+ */
+const GROUP_LABEL_BESTIARY_NAME: Record<string, string> = {
+  "Named Raven": "Raven",
+  "Fane Boss": "Gho Shadow",
+  "Fane Shadow Exile": "Shadow Exile",
+};
+
+/** The bestiary name to look `name` up by: itself, or the creature a group label stands for. */
+export function bestiaryLookupName(name: string): string {
+  return GROUP_LABEL_BESTIARY_NAME[name] ?? name;
+}
+
+/** Look up a creature by exact name (or group label) from the loaded bestiary. */
 export function getBestiaryEntry(name: string): BestiaryEntry | undefined {
-  return useStore.getState().bestiaryByName[name];
+  return useStore.getState().bestiaryByName[bestiaryLookupName(name)];
 }
 
 /** Resolve a sprite URL relative to the public/bestiary folder. */

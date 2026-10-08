@@ -103,6 +103,9 @@ enum Commands {
         /// Only show kills from the most recent scan (best-day/best-2h figures are not available for it)
         #[arg(long)]
         last_scan: bool,
+        /// Fold named ravens, Fane bosses and Fane shadow exiles into one row each
+        #[arg(long)]
+        group_bosses: bool,
     },
     /// Show trainer rank progression
     Trainers {
@@ -452,8 +455,8 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Frequency { name, bin, solo, by_verb, format, limit } => {
             cmd_frequency(&db_path, &name, &bin, solo, by_verb, &format, limit)
         }
-        Commands::Kills { name, sort, limit, family, rarity, seasonal, format, last_scan } => {
-            cmd_kills(&db_path, &name, &sort, limit, family, rarity, seasonal, &format, last_scan)
+        Commands::Kills { name, sort, limit, family, rarity, seasonal, format, last_scan, group_bosses } => {
+            cmd_kills(&db_path, &name, &sort, limit, family, rarity, seasonal, &format, last_scan, group_bosses)
         }
         Commands::Trainers { name, last_scan } => cmd_trainers(&db_path, &name, last_scan),
         Commands::Pets { name } => cmd_pets(&db_path, &name),
@@ -852,15 +855,20 @@ fn cmd_kills(
     seasonal: bool,
     format: &str,
     last_scan: bool,
+    group_bosses: bool,
 ) -> amanuensis_core::Result<()> {
     use amanuensis_core::data::CreatureDb;
-    use amanuensis_core::db::queries::{filter_kills, KillsFilter};
+    use amanuensis_core::db::queries::{filter_kills, group_kills, KillsFilter};
 
     let db = Database::open(db_path)?;
     let char = resolve_character(&db, name)?;
 
     let char_id = char.id.unwrap();
     let mut kills = db.get_kills_merged_scoped(char_id, scan_scope(last_scan))?;
+
+    if group_bosses {
+        kills = group_kills(&kills, &CreatureDb::bundled()?);
+    }
 
     if family.is_some() || rarity.is_some() || seasonal {
         let creature_db = CreatureDb::bundled()?;
@@ -2214,6 +2222,7 @@ fn cmd_bestiary(name: &str) -> amanuensis_core::Result<()> {
                 EntrySource::Bestiary => "bestiary",
                 EntrySource::Alias => "alias → bestiary",
                 EntrySource::InlineAlias => "inline alias",
+                EntrySource::Group => "named member of a group",
             };
             println!("Name:           {}", entry.name);
             println!("Source:         {} (bestiary v{})", src, db.bestiary_version());
@@ -2290,6 +2299,15 @@ mod tests {
                 assert!(include_players);
             }
             _ => panic!("expected Checkpoints"),
+        }
+    }
+
+    #[test]
+    fn kills_group_bosses_flag() {
+        let cli = Cli::try_parse_from(["amanuensis", "kills", "Fen", "--group-bosses"]).unwrap();
+        match cli.command {
+            Commands::Kills { group_bosses, .. } => assert!(group_bosses),
+            _ => panic!("expected Kills"),
         }
     }
 

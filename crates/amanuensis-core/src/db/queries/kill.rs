@@ -1,6 +1,8 @@
 use rusqlite::params;
 
-use crate::data::{canonical_rarity, CreatureDb};
+use std::collections::HashMap;
+
+use crate::data::{canonical_rarity, CreatureDb, CreatureGroup};
 use crate::error::Result;
 use crate::models::Kill;
 use super::scan_scope::ScanScope;
@@ -45,6 +47,81 @@ pub fn filter_kills(kills: &[Kill], db: &CreatureDb, filter: &KillsFilter) -> Ve
         })
         .cloned()
         .collect()
+}
+
+/// Fold uniquely-named creatures (named ravens, Fane bosses, Fane shadow exiles) into one
+/// row per `CreatureGroup`, named by the group's label. Other rows pass through unchanged,
+/// in their original order, with each group row at the position of its first member.
+pub fn group_kills(kills: &[Kill], db: &CreatureDb) -> Vec<Kill> {
+    let mut out: Vec<Kill> = Vec::with_capacity(kills.len());
+    let mut group_index: HashMap<CreatureGroup, usize> = HashMap::new();
+    for kill in kills {
+        let Some(group) = db.creature_group(&kill.creature_name) else {
+            out.push(kill.clone());
+            continue;
+        };
+        match group_index.get(&group) {
+            Some(&i) => add_kill(&mut out[i], kill),
+            None => {
+                let mut row = kill.clone();
+                row.id = None;
+                row.creature_name = group.label().to_string();
+                row.creature_value = db.get_value(group.bestiary_name()).unwrap_or(0);
+                group_index.insert(group, out.len());
+                out.push(row);
+            }
+        }
+    }
+    out
+}
+
+fn add_kill(into: &mut Kill, k: &Kill) {
+    into.killed_count += k.killed_count;
+    into.slaughtered_count += k.slaughtered_count;
+    into.vanquished_count += k.vanquished_count;
+    into.dispatched_count += k.dispatched_count;
+    into.assisted_kill_count += k.assisted_kill_count;
+    into.assisted_slaughter_count += k.assisted_slaughter_count;
+    into.assisted_vanquish_count += k.assisted_vanquish_count;
+    into.assisted_dispatch_count += k.assisted_dispatch_count;
+    into.killed_by_count += k.killed_by_count;
+    for (a, b) in [
+        (&mut into.date_first, &k.date_first),
+        (&mut into.date_first_killed, &k.date_first_killed),
+        (&mut into.date_first_slaughtered, &k.date_first_slaughtered),
+        (&mut into.date_first_vanquished, &k.date_first_vanquished),
+        (&mut into.date_first_dispatched, &k.date_first_dispatched),
+    ] {
+        *a = min_date(a.take(), b.clone());
+    }
+    for (a, b) in [
+        (&mut into.date_last, &k.date_last),
+        (&mut into.date_last_killed, &k.date_last_killed),
+        (&mut into.date_last_slaughtered, &k.date_last_slaughtered),
+        (&mut into.date_last_vanquished, &k.date_last_vanquished),
+        (&mut into.date_last_dispatched, &k.date_last_dispatched),
+    ] {
+        *a = max_date(a.take(), b.clone());
+    }
+    if k.best_loot_value > into.best_loot_value {
+        into.best_loot_value = k.best_loot_value;
+        into.best_loot_item = k.best_loot_item.clone();
+    }
+}
+
+// Dates are ISO "YYYY-MM-DD HH:MM:SS", so string order is time order.
+fn min_date(a: Option<String>, b: Option<String>) -> Option<String> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    }
+}
+
+fn max_date(a: Option<String>, b: Option<String>) -> Option<String> {
+    match (a, b) {
+        (Some(a), Some(b)) => Some(a.max(b)),
+        (a, b) => a.or(b),
+    }
 }
 
 impl Database {
@@ -404,6 +481,33 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn group_kills_folds_named_creatures_into_one_row() {
+        let db = CreatureDb::bundled().unwrap();
+        let mut a = Kill::new(1, "Branwei the Gatekeeper".into(), 0);
+        a.assisted_vanquish_count = 7;
+        a.date_first = Some("2021-09-19 05:00:00".into());
+        a.date_last = Some("2021-09-20 05:00:00".into());
+        let mut b = Kill::new(1, "Yixrisi the Mediator".into(), 0);
+        b.assisted_vanquish_count = 4;
+        b.killed_by_count = 2;
+        b.date_first = Some("2021-09-18 05:00:00".into());
+        b.date_last = Some("2021-09-19 06:00:00".into());
+        let mut rat = Kill::new(1, "Rat".into(), 2);
+        rat.killed_count = 3;
+
+        let grouped = group_kills(&[a, rat, b], &db);
+        assert_eq!(grouped.len(), 2);
+        let raven = grouped.iter().find(|k| k.creature_name == "Named Raven").unwrap();
+        assert_eq!(raven.assisted_vanquish_count, 11);
+        assert_eq!(raven.killed_by_count, 2);
+        assert_eq!(raven.date_first.as_deref(), Some("2021-09-18 05:00:00"));
+        assert_eq!(raven.date_last.as_deref(), Some("2021-09-20 05:00:00"));
+        assert_eq!(raven.creature_value, db.get_value("Raven").unwrap());
+        let rat = grouped.iter().find(|k| k.creature_name == "Rat").unwrap();
+        assert_eq!(rat.killed_count, 3);
+    }
 
     #[test]
     fn test_kills_filter_helper() {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Kill } from "../../types";
 import { useCreatureContextMenu } from "./useCreatureContextMenu";
 import { useStore } from "../../lib/store";
-import { getCreatureImageUrl } from "../../lib/bestiary";
+import { bestiaryLookupName, getCreatureImageUrl } from "../../lib/bestiary";
 
 interface KillDetailModalProps {
   kill: Kill;
@@ -10,7 +10,7 @@ interface KillDetailModalProps {
 }
 
 export function KillDetailModal({ kill, onClose }: KillDetailModalProps) {
-  const entry = useStore((s) => s.bestiaryByName[kill.creature_name]);
+  const entry = useStore((s) => s.bestiaryByName[bestiaryLookupName(kill.creature_name)]);
   const creatureMenu = useCreatureContextMenu();
   const imgUrl = getCreatureImageUrl(kill.creature_name);
   const [imgFailed, setImgFailed] = useState(false);

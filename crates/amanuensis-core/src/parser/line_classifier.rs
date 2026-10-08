@@ -538,6 +538,37 @@ mod tests {
     }
 
     #[test]
+    fn test_kill_of_uniquely_named_creature() {
+        // Named ravens and Fane bosses carry no article.
+        let db = test_db();
+        let event = classify_line("You helped vanquish Branwei the Gatekeeper.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::AssistedKill {
+                ref creature,
+                verb: KillVerb::Vanquished
+            } if creature == "Branwei the Gatekeeper"
+        ));
+        let event = classify_line("You slaughtered Lo-Chou the Odious.", &db);
+        assert!(matches!(
+            event,
+            LogEvent::SoloKill {
+                ref creature,
+                verb: KillVerb::Slaughtered
+            } if creature == "Lo-Chou the Odious"
+        ));
+    }
+
+    #[test]
+    fn test_lowercase_object_is_not_a_kill() {
+        let db = test_db();
+        assert!(!matches!(
+            classify_line("You killed time.", &db),
+            LogEvent::SoloKill { .. }
+        ));
+    }
+
+    #[test]
     fn test_login() {
         let db = test_db();
         let event = classify_line("Welcome to Clan Lord, Fen!", &db);
