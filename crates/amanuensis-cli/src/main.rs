@@ -100,7 +100,7 @@ enum Commands {
         /// Output format: table, csv
         #[arg(long, default_value = "table")]
         format: String,
-        /// Only show kills from the most recent scan
+        /// Only show kills from the most recent scan (best-day/best-2h figures are not available for it)
         #[arg(long)]
         last_scan: bool,
     },
@@ -864,7 +864,9 @@ fn cmd_kills(
 
     if format == "csv" {
         use amanuensis_core::export::{format_kills_export, ExportFormat};
-        let freq = db.kill_frequency_merged_with(char_id, true)?;
+        // Frequency is full-history only; with --last-scan leave those cells blank
+        // rather than show figures that contradict the scoped totals.
+        let freq = if last_scan { Vec::new() } else { db.kill_frequency_merged_with(char_id, true)? };
         print!("{}", format_kills_export(&kills, &freq, ExportFormat::Csv));
         return Ok(());
     }

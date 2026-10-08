@@ -219,6 +219,16 @@ mod tests {
     }
 
     #[test]
+    fn csv_with_empty_frequency_leaves_frequency_cells_blank() {
+        let out = format_kills_export(&[lg_vermine()], &[], ExportFormat::Csv);
+        let lines: Vec<&str> = out.lines().collect();
+        assert_eq!(
+            lines[1],
+            r#""Large Vermine",0,7,0,3,1,70,2024-01-01,2024-01-05,,,,"#
+        );
+    }
+
+    #[test]
     fn export_kills_merged_sorts_by_total_and_joins_frequency() {
         use crate::db::queries::Database;
 
