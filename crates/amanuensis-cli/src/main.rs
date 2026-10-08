@@ -100,11 +100,17 @@ enum Commands {
         /// Output format: table, csv
         #[arg(long, default_value = "table")]
         format: String,
+        /// Only show kills from the most recent scan
+        #[arg(long)]
+        last_scan: bool,
     },
     /// Show trainer rank progression
     Trainers {
         /// Character name
         name: String,
+        /// Only show ranks from the most recent scan
+        #[arg(long)]
+        last_scan: bool,
     },
     /// Show pet information
     Pets {
@@ -429,10 +435,10 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Frequency { name, bin, solo, by_verb, format, limit } => {
             cmd_frequency(&db_path, &name, &bin, solo, by_verb, &format, limit)
         }
-        Commands::Kills { name, sort, limit, family, rarity, seasonal, format } => {
-            cmd_kills(&db_path, &name, &sort, limit, family, rarity, seasonal, &format)
+        Commands::Kills { name, sort, limit, family, rarity, seasonal, format, last_scan } => {
+            cmd_kills(&db_path, &name, &sort, limit, family, rarity, seasonal, &format, last_scan)
         }
-        Commands::Trainers { name } => cmd_trainers(&db_path, &name),
+        Commands::Trainers { name, last_scan } => cmd_trainers(&db_path, &name, last_scan),
         Commands::Pets { name } => cmd_pets(&db_path, &name),
         Commands::Lastys { name } => cmd_lastys(&db_path, &name),
         Commands::Merge { target, sources } => cmd_merge(&db_path, &target, &sources),
@@ -814,6 +820,7 @@ fn cmd_kills(
     rarity: Option<String>,
     seasonal: bool,
     format: &str,
+    last_scan: bool,
 ) -> amanuensis_core::Result<()> {
     use amanuensis_core::data::CreatureDb;
     use amanuensis_core::db::queries::{filter_kills, KillsFilter};
@@ -822,7 +829,7 @@ fn cmd_kills(
     let char = resolve_character(&db, name)?;
 
     let char_id = char.id.unwrap();
-    let mut kills = db.get_kills_merged(char_id)?;
+    let mut kills = db.get_kills_merged_scoped(char_id, scan_scope(last_scan))?;
 
     if family.is_some() || rarity.is_some() || seasonal {
         let creature_db = CreatureDb::bundled()?;
@@ -884,6 +891,9 @@ fn cmd_kills(
         ]);
     }
 
+    if last_scan {
+        println!("(last scan only)");
+    }
     println!("Kills for {}:", name);
     println!("{table}");
     Ok(())
@@ -986,12 +996,16 @@ fn cmd_frequency(
     Ok(())
 }
 
-fn cmd_trainers(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
+fn scan_scope(last_scan: bool) -> amanuensis_core::ScanScope {
+    if last_scan { amanuensis_core::ScanScope::LastScan } else { amanuensis_core::ScanScope::All }
+}
+
+fn cmd_trainers(db_path: &str, name: &str, last_scan: bool) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let char = resolve_character(&db, name)?;
 
     let char_id = char.id.unwrap();
-    let trainers = db.get_trainers_merged(char_id)?;
+    let trainers = db.get_trainers_merged_scoped(char_id, scan_scope(last_scan))?;
 
     if trainers.is_empty() {
         println!("No trainer ranks found for {}.", name);
@@ -1062,6 +1076,9 @@ fn cmd_trainers(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
 
     total_effective = (total_effective * 10.0).round() / 10.0;
     let total_ranks: i64 = trainers.iter().map(|t| t.ranks).sum();
+    if last_scan {
+        println!("(last scan only)");
+    }
     println!("Trainers for {} ({} total ranks, {} effective):", name, total_ranks, total_effective);
     println!("{table}");
     Ok(())
@@ -2211,6 +2228,30 @@ mod tests {
                 assert!(include_players);
             }
             _ => panic!("expected Checkpoints"),
+        }
+    }
+
+    #[test]
+    fn kills_and_trainers_last_scan_flag() {
+        let cli = Cli::try_parse_from(["amanuensis", "kills", "Fen", "--last-scan"]).unwrap();
+        match cli.command {
+            Commands::Kills { last_scan, .. } => assert!(last_scan),
+            _ => panic!("expected Kills"),
+        }
+        let cli = Cli::try_parse_from(["amanuensis", "trainers", "Fen", "--last-scan"]).unwrap();
+        match cli.command {
+            Commands::Trainers { last_scan, .. } => assert!(last_scan),
+            _ => panic!("expected Trainers"),
+        }
+        let cli = Cli::try_parse_from(["amanuensis", "kills", "Fen"]).unwrap();
+        match cli.command {
+            Commands::Kills { last_scan, .. } => assert!(!last_scan),
+            _ => panic!("expected Kills"),
+        }
+        let cli = Cli::try_parse_from(["amanuensis", "trainers", "Fen"]).unwrap();
+        match cli.command {
+            Commands::Trainers { last_scan, .. } => assert!(!last_scan),
+            _ => panic!("expected Trainers"),
         }
     }
 

@@ -3,7 +3,7 @@ use tauri::State;
 use amanuensis_core::db::queries::CreatureFrequency;
 use amanuensis_core::export::ExportFormat;
 use amanuensis_core::models::{Kill, Lasty, Pet, ProcessLog, Trainer};
-use amanuensis_core::{LogSearchResult, TrainerDb};
+use amanuensis_core::{LogSearchResult, ScanScope, TrainerDb};
 
 use crate::state::AppState;
 
@@ -11,14 +11,14 @@ use super::TrainerInfo;
 
 /// Get kills for a character (includes merged sources).
 #[tauri::command]
-pub fn get_kills(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Kill>, String> {
-    state.with_db(|db| db.get_kills_merged(char_id).map_err(|e| e.to_string()))
+pub fn get_kills(char_id: i64, scope: Option<ScanScope>, state: State<'_, AppState>) -> Result<Vec<Kill>, String> {
+    state.with_db(|db| db.get_kills_merged_scoped(char_id, scope.unwrap_or(ScanScope::All)).map_err(|e| e.to_string()))
 }
 
 /// Get trainers for a character (includes merged sources).
 #[tauri::command]
-pub fn get_trainers(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Trainer>, String> {
-    state.with_db(|db| db.get_trainers_merged(char_id).map_err(|e| e.to_string()))
+pub fn get_trainers(char_id: i64, scope: Option<ScanScope>, state: State<'_, AppState>) -> Result<Vec<Trainer>, String> {
+    state.with_db(|db| db.get_trainers_merged_scoped(char_id, scope.unwrap_or(ScanScope::All)).map_err(|e| e.to_string()))
 }
 
 /// Get pets for a character (includes merged sources).

@@ -27,12 +27,18 @@ export async function getCharacter(name: string): Promise<Character | null> {
   return invoke("get_character", { name });
 }
 
-export async function getKills(charId: number): Promise<Kill[]> {
-  return invoke("get_kills", { charId });
+export async function getKills(
+  charId: number,
+  scope?: "all" | "last_scan",
+): Promise<Kill[]> {
+  return invoke("get_kills", { charId, scope });
 }
 
-export async function getTrainers(charId: number): Promise<Trainer[]> {
-  return invoke("get_trainers", { charId });
+export async function getTrainers(
+  charId: number,
+  scope?: "all" | "last_scan",
+): Promise<Trainer[]> {
+  return invoke("get_trainers", { charId, scope });
 }
 
 export async function getPets(charId: number): Promise<Pet[]> {
