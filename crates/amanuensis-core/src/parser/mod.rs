@@ -4456,6 +4456,25 @@ mod tests {
     }
 
     #[test]
+    fn last_scan_mirrors_assisted_and_killed_by() {
+        use crate::db::ScanScope;
+        let (tmp, char_dir) = create_test_log_dir();
+        let log = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You helped vanquish a Large Vermine.
+1/1/24 1:02:00p TestChar has fallen to a Large Vermine.
+";
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), log).unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let id = parser.db().get_character("Testchar").unwrap().unwrap().id.unwrap();
+        let last = parser.db().get_kills_merged_scoped(id, ScanScope::LastScan).unwrap();
+        let v = last.iter().find(|k| k.creature_name == "Large Vermine").unwrap();
+        assert_eq!(v.assisted_vanquish_count, 1);
+        assert_eq!(v.killed_by_count, 1);
+    }
+
+    #[test]
     fn direct_scan_folder_twice_replaces_last_scan() {
         use crate::db::ScanScope;
         let (tmp, char_dir) = create_test_log_dir();

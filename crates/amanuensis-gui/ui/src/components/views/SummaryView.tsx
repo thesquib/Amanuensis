@@ -89,6 +89,7 @@ export function SummaryView() {
           const stats = computeKillStats(k);
           setCoinLevelForChar(selectedCharacterId, stats.coinLevelKill?.creature_value ?? 0);
         }
+        useStore.getState().bumpScanVersion();
       } catch (e) {
         console.error("Unmerge failed:", e);
       }

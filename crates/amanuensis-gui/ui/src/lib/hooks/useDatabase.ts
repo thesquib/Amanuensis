@@ -84,6 +84,7 @@ export function useDatabase() {
           await handleSelectCharacter(toSelect.id);
         }
       }
+      useStore.getState().bumpScanVersion();
     },
     [setDbPath, setCharacters, setScannedLogCount, setLogLineCount, setProcessLogs, handleSelectCharacter],
   );
@@ -140,6 +141,7 @@ export function useDatabase() {
       if (chars.length > 0 && chars[0].id !== null) {
         await handleSelectCharacter(chars[0].id);
       }
+      useStore.getState().bumpScanVersion();
     } catch (e) {
       console.error("Reset failed:", e);
     }

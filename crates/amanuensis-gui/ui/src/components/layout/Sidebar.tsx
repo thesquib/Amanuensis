@@ -185,6 +185,7 @@ export function Sidebar() {
             if (chars.length > 0 && chars[0].id !== null) {
               await handleSelectCharacter(chars[0].id);
             }
+            useStore.getState().bumpScanVersion();
           }}
         />
       )}

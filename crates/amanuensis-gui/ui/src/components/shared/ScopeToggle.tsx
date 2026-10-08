@@ -28,4 +28,4 @@ export function ScopeToggle() {
   );
 }
 
-export const LAST_SCAN_EMPTY = "Nothing found by the last scan yet. Run Update Logs.";
+export const LAST_SCAN_EMPTY = "The last scan found nothing for this character. Run Update Logs to scan new activity.";
