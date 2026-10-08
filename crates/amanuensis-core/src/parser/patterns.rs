@@ -7,6 +7,16 @@ pub static WELCOME_LOGIN: Lazy<Regex> =
 pub static WELCOME_BACK: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^Welcome back, (.+)!$").expect("regex compile error"));
 
+// === Movie playback ===
+// Watching a recorded movie replays its session into the log, stamped with the time it was
+// watched: "* Starting movie '2021.03.01_06.58.50.clMov'..." (newer clients) or
+// `* Starting movie "x.clMov" *` (older), ended by "*** End of movie file. ***" or
+// `* End of movie "x.clMov" *`.
+pub static MOVIE_START: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\* Starting movie ").expect("regex compile error"));
+pub static MOVIE_END: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^(?:\* End of movie |\*\*\* End of movie file\. \*\*\*$)").expect("regex compile error"));
+
 // === Kill patterns ===
 // Solo: "You slaughtered a/an/the {creature}." Uniquely named creatures (named ravens,
 // Fane bosses) have no article: "You slaughtered Lo-Chou the Odious."

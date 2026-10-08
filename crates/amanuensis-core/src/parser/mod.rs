@@ -305,8 +305,9 @@ impl LogParser {
                 .unwrap_or_else(|| dir_name.clone());
 
             log::info!("Processing character: {}", char_name);
-            let char_id = self.db.get_or_create_character(&char_name)?;
-            self.load_override_config(char_id)?;
+            // Created on the first file with a game session, so a folder holding only failed
+            // connections or movie playbacks (e.g. "ruu", a mistyped login) is no character.
+            let mut folder_char: Option<i64> = None;
 
             let mut char_files_scanned: usize = 0;
             let mut char_files_skipped: usize = 0;
@@ -360,6 +361,22 @@ impl LogParser {
                         }
                     };
 
+                if is_full_scan && !has_game_session(&bytes, &self.trainer_db) {
+                    self.log_sessionless_skip(&path_str);
+                    result.skipped += 1;
+                    char_files_skipped += 1;
+                    continue;
+                }
+                let char_id = match folder_char {
+                    Some(id) => id,
+                    None => {
+                        let id = self.db.get_or_create_character(&char_name)?;
+                        self.load_override_config(id)?;
+                        folder_char = Some(id);
+                        id
+                    }
+                };
+
                 let initial = if offset > 0 {
                     self.active_char_at_offset(&bytes, offset)?
                         .or_else(|| Some((char_id, char_name.clone())))
@@ -398,6 +415,10 @@ impl LogParser {
                     }
                 }
             }
+            // A folder whose files were all scanned before still names its character.
+            let Some(char_id) = folder_char.or(self.db.character_id_ignoring_case(&char_name)?) else {
+                continue; // no file in this folder held a game session
+            };
             // Apply only the most recent reflect output for this character
             self.flush_reflect_lastys(char_id)?;
             let _ = self.db.add_process_log(
@@ -416,6 +437,14 @@ impl LogParser {
         }
 
         Ok(())
+    }
+
+    fn log_sessionless_skip(&self, path_str: &str) {
+        let fname = Path::new(path_str).file_name().and_then(|n| n.to_str()).unwrap_or(path_str);
+        let _ = self.db.add_process_log(
+            "info",
+            &format!("Skipped log with no game session (failed connection or movie playback): {fname}"),
+        );
     }
 
     /// Scan a single loose log file (one sitting directly in a log root, with no character
@@ -587,6 +616,7 @@ impl LogParser {
         // line. Starts as the caller-provided fallback (folder name) or None for loose files.
         let mut active: Option<(i64, String)> = initial_char.clone();
         let mut saw_welcome_login = false;
+        let mut movie = MovieFilter::default();
 
         for line in content.lines() {
             file_result.lines_parsed += 1;
@@ -595,6 +625,9 @@ impl LogParser {
                 Some((dt, msg)) => (Some(dt), msg),
                 None => (None, line),
             };
+            if movie.is_replay(message) {
+                continue;
+            }
 
             let event = classify_line(message, &self.trainer_db);
 
@@ -1408,8 +1441,9 @@ impl LogParser {
 
         for (_char_dir, char_name, log_files) in &all_work {
             log::info!("Processing character: {}", char_name);
-            let char_id = self.db.get_or_create_character(char_name)?;
-            self.load_override_config(char_id)?;
+            // Created on the first file with a game session, so a folder holding only failed
+            // connections or movie playbacks (e.g. "ruu", a mistyped login) is no character.
+            let mut folder_char: Option<i64> = None;
 
             let mut char_files_scanned: usize = 0;
             let mut char_files_skipped: usize = 0;
@@ -1469,6 +1503,22 @@ impl LogParser {
                         }
                     };
 
+                if is_full_scan && !has_game_session(&bytes, &self.trainer_db) {
+                    self.log_sessionless_skip(&path_str);
+                    result.skipped += 1;
+                    char_files_skipped += 1;
+                    continue;
+                }
+                let char_id = match folder_char {
+                    Some(id) => id,
+                    None => {
+                        let id = self.db.get_or_create_character(&char_name)?;
+                        self.load_override_config(id)?;
+                        folder_char = Some(id);
+                        id
+                    }
+                };
+
                 let initial = if offset > 0 {
                     self.active_char_at_offset(&bytes, offset)?
                         .or_else(|| Some((char_id, char_name.clone())))
@@ -1507,6 +1557,10 @@ impl LogParser {
                     }
                 }
             }
+            // A folder whose files were all scanned before still names its character.
+            let Some(char_id) = folder_char.or(self.db.character_id_ignoring_case(&char_name)?) else {
+                continue; // no file in this folder held a game session
+            };
             // Apply only the most recent reflect output for this character
             self.flush_reflect_lastys(char_id)?;
             let _ = self.db.add_process_log(
@@ -1630,6 +1684,12 @@ impl LogParser {
                         (bytes, offset, full_hash, is_full_scan)
                     }
                 };
+
+            if is_full_scan && !has_game_session(&bytes, &self.trainer_db) {
+                self.log_sessionless_skip(&path_str);
+                result.skipped += 1;
+                continue;
+            }
 
             // Determine character from content; fall back to the parent directory name (an
             // explicit pick is usually inside a character folder). If neither yields a name,
@@ -1820,8 +1880,12 @@ impl LogParser {
         if offset == 0 { return Ok(None); }
         let prefix = decode_log_bytes(&bytes[..offset.min(bytes.len())]);
         let mut name: Option<String> = None;
+        let mut movie = MovieFilter::default();
         for line in prefix.lines() {
             let message = match parse_timestamp(line) { Some((_dt, msg)) => msg, None => line };
+            if movie.is_replay(message) {
+                continue;
+            }
             if let Some(caps) = patterns::WELCOME_LOGIN.captures(message) {
                 name = Some(titlecase_name(&caps[1]));
             } else if let Some(caps) = patterns::WELCOME_BACK.captures(message) {
@@ -1926,11 +1990,15 @@ fn titlecase_name(name: &str) -> String {
 /// Scan log file bytes to find the character name from a welcome message.
 fn extract_character_name(bytes: &[u8]) -> Option<String> {
     let content = decode_log_bytes(bytes);
+    let mut movie = MovieFilter::default();
     for line in content.lines() {
         let message = match parse_timestamp(line) {
             Some((_dt, msg)) => msg,
             None => line,
         };
+        if movie.is_replay(message) {
+            continue;
+        }
         if let Some(caps) = patterns::WELCOME_LOGIN.captures(message) {
             return Some(titlecase_name(&caps[1]));
         }
@@ -1939,6 +2007,42 @@ fn extract_character_name(bytes: &[u8]) -> Option<String> {
         }
     }
     None
+}
+
+/// Tracks whether a line falls inside a movie playback, which replays a recorded session
+/// into the log stamped with the time it was watched. Replayed lines are not play.
+#[derive(Default)]
+struct MovieFilter {
+    in_movie: bool,
+}
+
+impl MovieFilter {
+    /// Feed each line's message in order; true when it belongs to a playback.
+    fn is_replay(&mut self, message: &str) -> bool {
+        if patterns::MOVIE_START.is_match(message) {
+            self.in_movie = true;
+        } else if self.in_movie && patterns::MOVIE_END.is_match(message) {
+            self.in_movie = false;
+            return true;
+        }
+        self.in_movie
+    }
+}
+
+/// Whether a whole log file records any play: a welcome or any classified event outside a
+/// movie playback. A failed connection ("*** We are no longer connected ... ***") or a log
+/// holding only a playback has none, and is skipped rather than credited to its folder.
+fn has_game_session(bytes: &[u8], trainer_db: &TrainerDb) -> bool {
+    let content = decode_log_bytes(bytes);
+    let mut movie = MovieFilter::default();
+    content.lines().any(|line| {
+        let message = parse_timestamp(line).map(|(_, m)| m).unwrap_or(line);
+        !movie.is_replay(message)
+            && !matches!(
+                classify_line(message, trainer_db),
+                LogEvent::Ignored | LogEvent::Disconnect
+            )
+    })
 }
 
 /// Compute a hex-encoded hash of file bytes for content-based dedup.
@@ -2066,10 +2170,11 @@ pub fn pending_files(
     sources: &[(PathBuf, bool)],
 ) -> Result<Vec<PathBuf>> {
     let mut pending = Vec::new();
+    let trainer_db = TrainerDb::bundled()?;
     for (root, recursive) in sources {
         for (file, loose) in source_log_files(root, *recursive) {
             let path_str = file.to_string_lossy();
-            if would_scan(db, &file, &path_str, loose)? {
+            if would_scan(db, &trainer_db, &file, &path_str, loose)? {
                 pending.push(file);
             }
         }
@@ -2088,7 +2193,13 @@ pub fn pending_files(
 /// Reads the candidate file's bytes only for the cases the scanner itself must read.
 /// `loose` = the file sits directly in the log root (not in a character subfolder); such files
 /// are skipped by the scanner when no character can be determined from their content.
-fn would_scan(db: &crate::db::Database, log_path: &Path, path_str: &str, loose: bool) -> Result<bool> {
+fn would_scan(
+    db: &crate::db::Database,
+    trainer_db: &TrainerDb,
+    log_path: &Path,
+    path_str: &str,
+    loose: bool,
+) -> Result<bool> {
     let prior = db.get_log_scan_state(path_str)?;
 
     if let Some((prev_len, _)) = &prior {
@@ -2117,7 +2228,8 @@ fn would_scan(db: &crate::db::Database, log_path: &Path, path_str: &str, loose: 
             // Loose files are scanned only if a character can be determined from content
             // (subfolder files always have the folder fallback, so they're always scannable).
             if loose && extract_character_name(&bytes).is_none() { return Ok(false); }
-            Ok(true)
+            // A file without a game session is skipped by the scanner.
+            Ok(has_game_session(&bytes, trainer_db))
         }
         Some((prev_len, prev_hash)) => {
             let prev_len = prev_len as usize;
@@ -4335,6 +4447,66 @@ mod tests {
 
         assert!(pend.iter().any(|p| *p == good), "attributable loose file is pending");
         assert!(!pend.iter().any(|p| *p == bad), "undetermined loose file is NOT pending");
+    }
+
+    #[test]
+    fn movie_playback_is_not_play() {
+        // Watching a recorded movie replays its session into today's log, stamped with the
+        // time it was watched. Only the lines after the movie ends are real play.
+        let (tmp, char_dir) = create_test_log_dir();
+        fs::write(
+            char_dir.join("CL Log 2026-07-13 15.58.11.txt"),
+            "\
+7/13/26 15:58:11 * Starting movie '2021.03.01_06.58.50.clMov'...
+7/13/26 15:58:11 * Recorded 1 Mar 2021 at 19:58:50 NZDT
+7/13/26 15:58:12 Welcome to Clan Lord, Ruuk!
+7/13/26 15:58:13 You slaughtered a Rat.
+7/13/26 15:58:14 *** End of movie file. ***
+7/13/26 16:00:00 Welcome to Clan Lord, Ruuk!
+7/13/26 16:00:01 You slaughtered a Vermine.
+7/13/26 16:00:02 * Starting movie \"2014.09.05_16.59.46.clMov\" *
+7/13/26 16:00:03 You slaughtered a Rat.
+7/13/26 16:00:04 * End of movie \"2014.09.05_16.59.46.clMov\" *
+",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let ch = parser.db().get_character("Ruuk").unwrap().unwrap();
+        assert_eq!(ch.logins, 1, "the replayed welcome is not a login");
+        let kills = parser.db().get_kills(ch.id.unwrap()).unwrap();
+        let names: Vec<&str> = kills.iter().map(|k| k.creature_name.as_str()).collect();
+        assert_eq!(names, vec!["Vermine"], "replayed kills are not counted");
+    }
+
+    #[test]
+    fn log_without_a_session_creates_no_character() {
+        // A failed connection or a log holding only a movie playback is not a session, so
+        // the folder name ("ruu", a mistyped login) must not become a character.
+        let tmp = tempfile::tempdir().unwrap();
+        let ruu = tmp.path().join("ruu");
+        fs::create_dir(&ruu).unwrap();
+        fs::write(
+            ruu.join("CL Log 2018-01-02 06.55.49.txt"),
+            "\n1/2/18 6:55:56a *** We are no longer connected to the Clan Lord game server. ***\n",
+        )
+        .unwrap();
+        fs::write(
+            ruu.join("CL Log 2018-01-03 06.55.49.txt"),
+            "1/3/18 6:55:56a * Starting movie 'x.clMov'...\n1/3/18 6:55:57a You slaughtered a Rat.\n",
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        assert!(pending_files(&db, &vec![(tmp.path().to_path_buf(), false)]).unwrap().is_empty());
+        let parser = LogParser::new(db).unwrap();
+        let result = parser.scan_folder(tmp.path(), false).unwrap();
+        assert_eq!(result.files_scanned, 0);
+        assert_eq!(result.skipped, 2);
+        assert!(parser.db().list_characters().unwrap().is_empty());
     }
 
     #[test]

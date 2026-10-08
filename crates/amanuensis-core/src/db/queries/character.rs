@@ -39,6 +39,20 @@ impl Database {
         Ok(self.conn.last_insert_rowid())
     }
 
+    /// The id of the character named `name`, ignoring case (capitalised spelling first).
+    pub fn character_id_ignoring_case(&self, name: &str) -> Result<Option<i64>> {
+        match self.conn.query_row(
+            "SELECT id FROM characters WHERE name = ?1 COLLATE NOCASE
+             ORDER BY name = lower(name), id LIMIT 1",
+            params![name],
+            |row| row.get(0),
+        ) {
+            Ok(id) => Ok(Some(id)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     /// Get a character by name.
     pub fn get_character(&self, name: &str) -> Result<Option<Character>> {
         let sql = format!("SELECT {CHARACTER_COLUMNS} FROM characters WHERE name = ?1");
