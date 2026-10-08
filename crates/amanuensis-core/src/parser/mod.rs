@@ -4,7 +4,7 @@ pub mod patterns;
 pub mod player_signals;
 pub mod timestamp;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -67,9 +67,49 @@ pub struct LogParser {
     /// into one `process_logs` entry per name that is neither a known player nor a
     /// guarded NPC trainer, so undetectable player trainers become visible.
     checkpoint_speakers: RefCell<HashSet<String>>,
+    /// Scan token of the current user-visible scan operation, allocated lazily on its first
+    /// kill/rank write (so a scan that finds nothing leaves the previous last-scan data).
+    scan_token: Cell<Option<i64>>,
+    /// Nesting depth of public scan entry points. Only the outermost call (depth 0 → 1)
+    /// starts a new scan operation; nested public calls (e.g. `scan_sources` →
+    /// `scan_recursive_with_progress` → `scan_folder_with_progress`) share its token.
+    scan_depth: Cell<u32>,
+}
+
+/// RAII marker for one public scan entry point; see `LogParser::begin_scan_op`.
+struct ScanOpGuard<'a> {
+    depth: &'a Cell<u32>,
+}
+
+impl Drop for ScanOpGuard<'_> {
+    fn drop(&mut self) {
+        self.depth.set(self.depth.get().saturating_sub(1));
+    }
 }
 
 impl LogParser {
+    /// Enter a public scan entry point. The outermost entry starts a new scan operation
+    /// (clearing the token so the first write allocates a fresh one); nested entries reuse it.
+    fn begin_scan_op(&self) -> ScanOpGuard<'_> {
+        if self.scan_depth.get() == 0 {
+            self.scan_token.set(None);
+        }
+        self.scan_depth.set(self.scan_depth.get() + 1);
+        ScanOpGuard { depth: &self.scan_depth }
+    }
+
+    /// Call before every write to the `scan_*` shadow tables. On the operation's first write
+    /// allocates its token and clears the previous scan's shadow data; later writes in the
+    /// same operation are free (`mark_scan_write` would be a no-op for the same token).
+    fn note_scan_write(&self) -> Result<()> {
+        if self.scan_token.get().is_none() {
+            let token = self.db.begin_scan_token()?;
+            self.db.mark_scan_write(token)?;
+            self.scan_token.set(Some(token));
+        }
+        Ok(())
+    }
+
     pub fn new(db: Database) -> Result<Self> {
         let creature_db = CreatureDb::bundled()?;
         let trainer_db = TrainerDb::bundled()?;
@@ -82,6 +122,8 @@ impl LogParser {
             last_reflect: RefCell::new(HashMap::new()),
             known_players_seen: RefCell::new(HashSet::new()),
             checkpoint_speakers: RefCell::new(HashSet::new()),
+            scan_token: Cell::new(None),
+            scan_depth: Cell::new(0),
         })
     }
 
@@ -197,6 +239,7 @@ impl LogParser {
 
     /// Scan a log folder. Expects character-named subdirectories containing CL Log files.
     pub fn scan_folder(&self, folder: &Path, force: bool) -> Result<ScanResult> {
+        let _scan_op = self.begin_scan_op();
         let mut result = ScanResult::default();
 
         if !folder.is_dir() {
@@ -708,6 +751,9 @@ impl LogParser {
                     let value = self.creature_db.get_value(&creature).unwrap_or(0);
                     self.db
                         .upsert_kill(char_id, &creature, field, value, &date_str)?;
+                    self.note_scan_write()?;
+                    self.db
+                        .upsert_kill_scan(char_id, &creature, field, value, &date_str)?;
                     self.db
                         .upsert_kill_hourly(char_id, &creature, field, &hour_bucket(&date_str))?;
                     file_result.events_found += 1;
@@ -717,6 +763,9 @@ impl LogParser {
                     let value = self.creature_db.get_value(&creature).unwrap_or(0);
                     self.db
                         .upsert_kill(char_id, &creature, field, value, &date_str)?;
+                    self.note_scan_write()?;
+                    self.db
+                        .upsert_kill_scan(char_id, &creature, field, value, &date_str)?;
                     self.db
                         .upsert_kill_hourly(char_id, &creature, field, &hour_bucket(&date_str))?;
                     file_result.events_found += 1;
@@ -727,6 +776,9 @@ impl LogParser {
                         let value = self.creature_db.get_value(&cause).unwrap_or(0);
                         self.db
                             .upsert_kill(char_id, &cause, "killed_by_count", value, &date_str)?;
+                        self.note_scan_write()?;
+                        self.db
+                            .upsert_kill_scan(char_id, &cause, "killed_by_count", value, &date_str)?;
                         self.db.increment_character_field(char_id, "deaths", 1)?;
                         file_result.events_found += 1;
                     }
@@ -746,6 +798,9 @@ impl LogParser {
                         let multiplier = self.trainer_db.get_multiplier(&trainer_name);
                         self.db
                             .upsert_trainer_rank(char_id, &trainer_name, &date_str, multiplier)?;
+                        self.note_scan_write()?;
+                        self.db
+                            .upsert_trainer_rank_scan(char_id, &trainer_name, &date_str, multiplier)?;
                         file_result.events_found += 1;
                     } else {
                         *file_result.override_skips.entry(trainer_name).or_insert(0) += 1;
@@ -1015,10 +1070,16 @@ impl LogParser {
                                 // "much more" = exactly 10 confirmed bonus ranks
                                 self.db
                                     .upsert_apply_learning(char_id, &trainer_name, &date_str, 10, multiplier)?;
+                                self.note_scan_write()?;
+                                self.db
+                                    .upsert_apply_learning_scan(char_id, &trainer_name, &date_str, 10, multiplier)?;
                             } else {
                                 // "more" = 1-9 unknown bonus ranks, just count occurrences
                                 self.db
                                     .upsert_apply_learning_unknown(char_id, &trainer_name, &date_str, multiplier)?;
+                                self.note_scan_write()?;
+                                self.db
+                                    .upsert_apply_learning_unknown_scan(char_id, &trainer_name, &date_str, multiplier)?;
                             }
                             file_result.events_found += 1;
                         } else {
@@ -1255,6 +1316,7 @@ impl LogParser {
     where
         F: Fn(usize, usize, &str),
     {
+        let _scan_op = self.begin_scan_op();
         let mut result = ScanResult::default();
 
         if !folder.is_dir() {
@@ -1477,6 +1539,7 @@ impl LogParser {
     where
         F: Fn(usize, usize, &str),
     {
+        let _scan_op = self.begin_scan_op();
         let mut result = ScanResult::default();
 
         let _ = self.db.clear_process_logs();
@@ -1639,6 +1702,7 @@ impl LogParser {
     where
         F: Fn(usize, usize, &str),
     {
+        let _scan_op = self.begin_scan_op();
         let folders = discover_log_folders(root);
         if folders.is_empty() {
             // Fall back to treating root as a direct log root
@@ -1688,6 +1752,7 @@ impl LogParser {
     where
         F: Fn(usize, usize, &str),
     {
+        let _scan_op = self.begin_scan_op();
         // An empty source list is a no-op: do not reset (which would wipe the DB).
         if sources.is_empty() {
             return Ok(ScanResult::default());
@@ -1708,6 +1773,7 @@ impl LogParser {
     where
         F: Fn(usize, usize, &str),
     {
+        let _scan_op = self.begin_scan_op();
         if sources.is_empty() {
             return Ok(ScanResult::default());
         }
@@ -4251,6 +4317,164 @@ mod tests {
             parser.db().get_kills(char_id).unwrap().iter().map(|k| k.slaughtered_count).sum::<i64>(),
             2
         );
+    }
+
+    fn kill_sum(parser: &LogParser, char_id: i64, scope: crate::db::ScanScope) -> i64 {
+        parser
+            .db()
+            .get_kills_merged_scoped(char_id, scope)
+            .unwrap()
+            .iter()
+            .map(|k| k.killed_count)
+            .sum()
+    }
+
+    const RAT_LOG: &str = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p You killed a Rat.
+1/1/24 1:02:00p You killed a Rat.
+";
+
+    #[test]
+    fn last_scan_contains_only_appended_tail() {
+        use crate::db::ScanScope;
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        fs::write(&log_path, RAT_LOG).unwrap();
+
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let sources = vec![(tmp.path().to_path_buf(), true)];
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        let id = parser.db().get_character("Testchar").unwrap().unwrap().id.unwrap();
+        assert_eq!(kill_sum(&parser, id, ScanScope::LastScan), 2);
+
+        fs::write(&log_path, format!("{RAT_LOG}1/1/24 2:01:00p You killed a Rat.\n")).unwrap();
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        assert_eq!(kill_sum(&parser, id, ScanScope::LastScan), 1, "only the appended tail");
+        assert_eq!(kill_sum(&parser, id, ScanScope::All), 3);
+
+        // noop_update_keeps_previous_last_scan: nothing new → previous last scan survives.
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        assert_eq!(kill_sum(&parser, id, ScanScope::LastScan), 1);
+        assert_eq!(kill_sum(&parser, id, ScanScope::All), 3);
+    }
+
+    #[test]
+    fn noop_update_keeps_previous_last_scan() {
+        use crate::db::ScanScope;
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        fs::write(&log_path, RAT_LOG).unwrap();
+
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let sources = vec![(tmp.path().to_path_buf(), true)];
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        fs::write(&log_path, format!("{RAT_LOG}1/1/24 2:01:00p You killed a Rat.\n")).unwrap();
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        let id = parser.db().get_character("Testchar").unwrap().unwrap().id.unwrap();
+        assert_eq!(kill_sum(&parser, id, ScanScope::LastScan), 1);
+    }
+
+    #[test]
+    fn multi_source_update_is_one_last_scan() {
+        use crate::db::ScanScope;
+        let (tmp_a, dir_a) = create_test_log_dir();
+        let (tmp_b, dir_b) = create_test_log_dir();
+        fs::write(
+            dir_a.join("CL Log 2024-01-01 13.00.00.txt"),
+            "1/1/24 1:00:00p Welcome to Clan Lord, TestChar!\n1/1/24 1:01:00p You killed a Rat.\n",
+        )
+        .unwrap();
+        fs::write(
+            dir_b.join("CL Log 2024-01-02 13.00.00.txt"),
+            "1/2/24 1:00:00p Welcome to Clan Lord, TestChar!\n1/2/24 1:01:00p You killed a Vermine.\n",
+        )
+        .unwrap();
+
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let sources = vec![(tmp_a.path().to_path_buf(), false), (tmp_b.path().to_path_buf(), true)];
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        let id = parser.db().get_character("Testchar").unwrap().unwrap().id.unwrap();
+        let last = parser.db().get_kills_merged_scoped(id, ScanScope::LastScan).unwrap();
+        let mut names: Vec<_> = last.iter().map(|k| k.creature_name.clone()).collect();
+        names.sort();
+        assert_eq!(names, vec!["Rat".to_string(), "Vermine".to_string()]);
+        assert_eq!(kill_sum(&parser, id, ScanScope::LastScan), 2);
+    }
+
+    #[test]
+    fn rescan_last_scan_equals_all() {
+        use crate::db::ScanScope;
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        fs::write(&log_path, RAT_LOG).unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let sources = vec![(tmp.path().to_path_buf(), true)];
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        fs::write(&log_path, format!("{RAT_LOG}1/1/24 2:01:00p You killed a Rat.\n")).unwrap();
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+
+        parser.rescan_sources(&sources, false, |_, _, _| {}).unwrap();
+        let id = parser.db().get_character("Testchar").unwrap().unwrap().id.unwrap();
+        assert_eq!(kill_sum(&parser, id, ScanScope::All), 3);
+        assert_eq!(kill_sum(&parser, id, ScanScope::LastScan), 3);
+    }
+
+    #[test]
+    fn last_scan_records_trainer_ranks() {
+        use crate::db::ScanScope;
+        let (tmp, char_dir) = create_test_log_dir();
+        let log_path = char_dir.join("CL Log 2024-01-01 13.00.00.txt");
+        let initial = "\
+1/1/24 1:00:00p Welcome to Clan Lord, TestChar!
+1/1/24 1:01:00p \u{a5}Your combat ability improves.
+1/1/24 1:02:00p Aitnos says, \"Congratulations, TestChar. You should now understand much more of Evus's teachings.\"
+1/1/24 1:03:00p Aitnos says, \"Congratulations, TestChar. You should now understand more of Evus's teachings.\"
+";
+        fs::write(&log_path, initial).unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let id = parser.db().get_character("Testchar").unwrap().unwrap().id.unwrap();
+        let all = parser.db().get_trainers_merged_scoped(id, ScanScope::All).unwrap();
+        let last = parser.db().get_trainers_merged_scoped(id, ScanScope::LastScan).unwrap();
+        let sums = |v: &Vec<crate::models::Trainer>| {
+            (
+                v.iter().map(|t| t.ranks).sum::<i64>(),
+                v.iter().map(|t| t.apply_learning_ranks).sum::<i64>(),
+                v.iter().map(|t| t.apply_learning_unknown_count).sum::<i64>(),
+            )
+        };
+        assert_eq!(sums(&all), (1, 10, 1));
+        assert_eq!(sums(&last), sums(&all));
+
+        // Append one more rank: last scan holds just that rank.
+        fs::write(&log_path, format!("{initial}1/1/24 2:00:00p \u{a5}Your combat ability improves.\n")).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let last = parser.db().get_trainers_merged_scoped(id, ScanScope::LastScan).unwrap();
+        assert_eq!(sums(&last), (1, 0, 0));
+    }
+
+    #[test]
+    fn direct_scan_folder_twice_replaces_last_scan() {
+        use crate::db::ScanScope;
+        let (tmp, char_dir) = create_test_log_dir();
+        fs::write(char_dir.join("CL Log 2024-01-01 13.00.00.txt"), RAT_LOG).unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let id = parser.db().get_character("Testchar").unwrap().unwrap().id.unwrap();
+        assert_eq!(kill_sum(&parser, id, ScanScope::LastScan), 2);
+
+        fs::write(
+            char_dir.join("CL Log 2024-01-02 13.00.00.txt"),
+            "1/2/24 1:00:00p Welcome to Clan Lord, TestChar!\n1/2/24 1:01:00p You killed a Vermine.\n",
+        )
+        .unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let last = parser.db().get_kills_merged_scoped(id, ScanScope::LastScan).unwrap();
+        assert_eq!(last.len(), 1);
+        assert_eq!(last[0].creature_name, "Vermine");
+        assert_eq!(kill_sum(&parser, id, ScanScope::All), 3);
     }
 
     #[test]

@@ -190,13 +190,36 @@ impl Database {
         date: &str,
         multiplier: f64,
     ) -> Result<()> {
+        self.upsert_apply_learning_unknown_into("trainers", char_id, trainer_name, date, multiplier)
+    }
+
+    /// Same as `upsert_apply_learning_unknown` but writes only to `scan_trainers`.
+    pub fn upsert_apply_learning_unknown_scan(
+        &self,
+        char_id: i64,
+        trainer_name: &str,
+        date: &str,
+        multiplier: f64,
+    ) -> Result<()> {
+        self.upsert_apply_learning_unknown_into("scan_trainers", char_id, trainer_name, date, multiplier)
+    }
+
+    /// `table` must only ever be an internal string literal.
+    fn upsert_apply_learning_unknown_into(
+        &self,
+        table: &str,
+        char_id: i64,
+        trainer_name: &str,
+        date: &str,
+        multiplier: f64,
+    ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO trainers (character_id, trainer_name, apply_learning_unknown_count, date_of_last_rank, effective_multiplier)
+            &format!("INSERT INTO {table} (character_id, trainer_name, apply_learning_unknown_count, date_of_last_rank, effective_multiplier)
              VALUES (?1, ?2, 1, ?3, ?4)
              ON CONFLICT(character_id, trainer_name) DO UPDATE SET
                 apply_learning_unknown_count = apply_learning_unknown_count + 1,
                 date_of_last_rank = excluded.date_of_last_rank,
-                effective_multiplier = excluded.effective_multiplier",
+                effective_multiplier = excluded.effective_multiplier"),
             params![char_id, trainer_name, date, multiplier],
         )?;
         Ok(())
