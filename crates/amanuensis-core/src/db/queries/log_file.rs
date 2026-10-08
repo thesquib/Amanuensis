@@ -92,6 +92,9 @@ impl Database {
              DELETE FROM known_players;
              DELETE FROM db_meta WHERE key = 'known_players_backfilled';
              DELETE FROM trainer_checkpoints;
+             DELETE FROM scan_kills;
+             DELETE FROM scan_trainers;
+             DELETE FROM db_meta WHERE key = 'last_scan_token';
              UPDATE characters SET
                logins=0, departs=0, deaths=0, esteem=0, coins_picked_up=0,
                casino_won=0, casino_lost=0, chest_coins=0, bounty_coins=0,
@@ -123,6 +126,9 @@ impl Database {
              DELETE FROM log_lines;
              DELETE FROM process_logs;
              DELETE FROM trainer_checkpoints;
+             DELETE FROM scan_kills;
+             DELETE FROM scan_trainers;
+             DELETE FROM db_meta WHERE key = 'last_scan_token';
              DELETE FROM trainers;
              DELETE FROM characters;",
         )?;

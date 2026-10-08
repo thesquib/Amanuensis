@@ -794,4 +794,46 @@ mod tests {
         let results = db.search_log_lines("Dragon", None, 10, true, 0, 0).unwrap();
         assert_eq!(results.len(), 0);
     }
+
+    #[test]
+    fn merged_last_scan_sums_across_sources() {
+        use crate::db::ScanScope;
+        let db = Database::open_in_memory().unwrap();
+        let a = db.get_or_create_character("A").unwrap();
+        let b = db.get_or_create_character("B").unwrap();
+        db.merge_characters(&[b], a).unwrap();
+        let t = db.begin_scan_token().unwrap();
+        db.mark_scan_write(t).unwrap();
+        db.upsert_kill_scan(a, "Rat", "killed_count", 2, "2024-01-01").unwrap();
+        db.upsert_kill_scan(b, "Rat", "killed_count", 2, "2024-01-02").unwrap();
+        db.upsert_trainer_rank_scan(a, "Atkus", "2024-01-01 10:00:00", 1.0).unwrap();
+        db.upsert_trainer_rank_scan(b, "Atkus", "2024-01-02 10:00:00", 1.0).unwrap();
+        let k = db.get_kills_merged_scoped(a, ScanScope::LastScan).unwrap();
+        assert_eq!(k.len(), 1);
+        assert_eq!(k[0].killed_count, 2);
+        let tr = db.get_trainers_merged_scoped(a, ScanScope::LastScan).unwrap();
+        assert_eq!(tr.len(), 1);
+        assert_eq!(tr[0].ranks, 2);
+        // All scope sees none of the shadow rows
+        assert!(db.get_kills_merged_scoped(a, ScanScope::All).unwrap().is_empty());
+    }
+
+    #[test]
+    fn reset_log_data_clears_scan_tables() {
+        for full in [false, true] {
+            let db = Database::open_in_memory().unwrap();
+            let a = db.get_or_create_character("A").unwrap();
+            let t = db.begin_scan_token().unwrap();
+            db.mark_scan_write(t).unwrap();
+            db.upsert_kill_scan(a, "Rat", "killed_count", 2, "2024-01-01").unwrap();
+            db.upsert_trainer_rank_scan(a, "Atkus", "2024-01-01 10:00:00", 1.0).unwrap();
+            if full { db.delete_all_data().unwrap() } else { db.reset_log_data().unwrap() }
+            for tbl in ["scan_kills", "scan_trainers"] {
+                let n: i64 = db.conn.query_row(&format!("SELECT COUNT(*) FROM {tbl}"), [], |r| r.get(0)).unwrap();
+                assert_eq!(n, 0, "{tbl} full={full}");
+            }
+            let n: i64 = db.conn.query_row("SELECT COUNT(*) FROM db_meta WHERE key='last_scan_token'", [], |r| r.get(0)).unwrap();
+            assert_eq!(n, 0);
+        }
+    }
 }

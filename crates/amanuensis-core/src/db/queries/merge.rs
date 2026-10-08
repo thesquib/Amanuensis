@@ -2,7 +2,7 @@ use rusqlite::params;
 
 use crate::error::Result;
 use crate::models::{Character, Kill, Lasty, Pet, Trainer};
-use super::{CHARACTER_COLUMNS, map_character_row, Database};
+use super::{CHARACTER_COLUMNS, map_character_row, Database, ScanScope};
 
 impl Database {
     /// Get all character IDs that have been merged into the given target.
@@ -173,9 +173,19 @@ impl Database {
     /// Get kills aggregated across a character and all its merge sources.
     /// For the same creature, counts are summed; dates take min(first) and max(last).
     pub fn get_kills_merged(&self, char_id: i64) -> Result<Vec<Kill>> {
+        self.get_kills_merged_scoped(char_id, ScanScope::All)
+    }
+
+    /// Merged kills for the given scope (lifetime totals or last scan only).
+    pub fn get_kills_merged_scoped(&self, char_id: i64, scope: ScanScope) -> Result<Vec<Kill>> {
+        // Internal literal only; never user input.
+        let table = match scope {
+            ScanScope::All => "kills",
+            ScanScope::LastScan => "scan_kills",
+        };
         let all_ids = self.char_ids_for_merged(char_id)?;
         if all_ids.len() == 1 {
-            return self.get_kills(char_id);
+            return self.get_kills_scoped(char_id, scope);
         }
         let placeholders = all_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
@@ -186,12 +196,12 @@ impl Database {
                     MIN(date_first_killed), MIN(date_first_slaughtered), MIN(date_first_vanquished), MIN(date_first_dispatched),
                     MAX(date_last_killed), MAX(date_last_slaughtered), MAX(date_last_vanquished), MAX(date_last_dispatched),
                     COALESCE(MAX(best_loot_value), 0),
-                    COALESCE((SELECT best_loot_item FROM kills k2 WHERE k2.character_id IN ({}) AND k2.creature_name = kills.creature_name ORDER BY best_loot_value DESC LIMIT 1), '')
-             FROM kills WHERE character_id IN ({})
+                    COALESCE((SELECT best_loot_item FROM {table} k2 WHERE k2.character_id IN ({placeholders}) AND k2.creature_name = {table}.creature_name ORDER BY best_loot_value DESC LIMIT 1), '')
+             FROM {table} WHERE character_id IN ({placeholders})
              GROUP BY creature_name
              ORDER BY (SUM(killed_count) + SUM(slaughtered_count) + SUM(vanquished_count) + SUM(dispatched_count) +
                        SUM(assisted_kill_count) + SUM(assisted_slaughter_count) + SUM(assisted_vanquish_count) + SUM(assisted_dispatch_count)) DESC",
-            char_id, placeholders, placeholders
+            char_id
         );
         let mut stmt = self.conn.prepare(&sql)?;
         // The SQL has two IN (?) clauses: one for the best_loot_item subquery and one for the
@@ -233,9 +243,19 @@ impl Database {
     /// For the same trainer name: sum ranks, take max date.
     /// rank_mode and override_date come from the primary character's record.
     pub fn get_trainers_merged(&self, char_id: i64) -> Result<Vec<Trainer>> {
+        self.get_trainers_merged_scoped(char_id, ScanScope::All)
+    }
+
+    /// Merged trainers for the given scope (lifetime totals or last scan only).
+    pub fn get_trainers_merged_scoped(&self, char_id: i64, scope: ScanScope) -> Result<Vec<Trainer>> {
+        // Internal literal only; never user input.
+        let table = match scope {
+            ScanScope::All => "trainers",
+            ScanScope::LastScan => "scan_trainers",
+        };
         let all_ids = self.char_ids_for_merged(char_id)?;
         if all_ids.len() == 1 {
-            return self.get_trainers(char_id);
+            return self.get_trainers_scoped(char_id, scope);
         }
         let placeholders = all_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let sql = format!(
@@ -246,10 +266,10 @@ impl Database {
                     MAX(CASE WHEN character_id = {cid} THEN override_date ELSE NULL END),
                     MAX(effective_multiplier),
                     MAX(CASE WHEN character_id = {cid} THEN notes ELSE NULL END)
-             FROM trainers WHERE character_id IN ({placeholders})
+             FROM {table} WHERE character_id IN ({placeholders})
              GROUP BY trainer_name
              ORDER BY SUM(ranks) DESC",
-            cid = char_id, placeholders = placeholders
+            cid = char_id, placeholders = placeholders, table = table
         );
         let mut stmt = self.conn.prepare(&sql)?;
         let trainers = stmt.query_map(rusqlite::params_from_iter(all_ids.iter()), |row| {
