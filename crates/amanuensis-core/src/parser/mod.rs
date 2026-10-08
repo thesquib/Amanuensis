@@ -2038,7 +2038,13 @@ fn discover_log_folders_inner(dir: &Path, results: &mut Vec<PathBuf>) {
 
     if is_log_root {
         results.push(dir.to_path_buf());
-        // Don't recurse further — children are character folders
+        // Children holding logs are character folders. A child without any can still
+        // hold a deeper log root, e.g. an old client install copied in beside them.
+        for sub in &subdirs {
+            if find_log_files(sub).map(|f| f.is_empty()).unwrap_or(false) {
+                discover_log_folders_inner(sub, results);
+            }
+        }
     } else {
         // Recurse into subdirectories
         for sub in &subdirs {
@@ -3482,6 +3488,24 @@ mod tests {
         assert_eq!(found.len(), 2);
         assert!(found.contains(&text_logs));
         assert!(found.contains(&other_logs));
+    }
+
+    #[test]
+    fn test_discover_log_folders_below_a_log_root() {
+        // "Clan Lords" is a log root (its "textlogs_new" child holds logs directly), but a
+        // sibling folder holds an old client install with its own log root deeper down.
+        let tmp = tempfile::tempdir().unwrap();
+        let clan_lords = tmp.path().join("Clan Lords");
+        let flat = clan_lords.join("textlogs_new");
+        fs::create_dir_all(&flat).unwrap();
+        fs::write(flat.join("CL Log 2024-01-01 13.00.00.txt"), "x\n").unwrap();
+        let old_root = clan_lords.join("ClanLord copy").join("Text Logs");
+        fs::create_dir_all(old_root.join("Ruuk")).unwrap();
+        fs::write(old_root.join("Ruuk").join("CL Log 2016-12-29 20.51.22.txt"), "x\n").unwrap();
+
+        let mut found = super::discover_log_folders(tmp.path());
+        found.sort();
+        assert_eq!(found, vec![clan_lords.clone(), old_root]);
     }
 
     #[test]
