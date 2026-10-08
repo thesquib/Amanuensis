@@ -3,7 +3,8 @@ import { createColumnHelper } from "@tanstack/react-table";
 import { useStore } from "../../lib/store";
 import { DataTable } from "../shared/DataTable";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
-import { getTrainerDbInfo, setTrainerNote } from "../../lib/commands";
+import { ScopeToggle, LAST_SCAN_EMPTY } from "../shared/ScopeToggle";
+import { getTrainerDbInfo, setTrainerNote, getTrainers } from "../../lib/commands";
 import { effectiveRanks } from "../../lib/trainerUtils";
 import { PROFESSION_ORDER } from "../../lib/constants";
 import type { Trainer, TrainerInfo } from "../../types";
@@ -18,13 +19,35 @@ type EnrichedTrainer = Trainer & {
 const columnHelper = createColumnHelper<EnrichedTrainer>();
 
 export function TrainersView() {
-  const { trainers, setTrainers, trainersViewState, setTrainersViewState, selectedCharacterId } = useStore();
+  const { trainers: allTrainers, setTrainers, trainersViewState, setTrainersViewState, selectedCharacterId } = useStore();
   const { showZero, showEffective, searchQuery, collapsedGroups: collapsedArr, alphabetical } = trainersViewState;
   const collapsedGroups = useMemo(() => new Set(collapsedArr), [collapsedArr]);
   const setShowZero = useCallback((v: boolean) => setTrainersViewState({ showZero: v }), [setTrainersViewState]);
   const setShowEffective = useCallback((v: boolean) => setTrainersViewState({ showEffective: v }), [setTrainersViewState]);
   const setSearchQuery = useCallback((v: string) => setTrainersViewState({ searchQuery: v }), [setTrainersViewState]);
   const setAlphabetical = useCallback((v: boolean) => setTrainersViewState({ alphabetical: v }), [setTrainersViewState]);
+  const dataScope = useStore((s) => s.dataScope);
+  const scanVersion = useStore((s) => s.scanVersion);
+  const [scopedTrainers, setScopedTrainers] = useState<Trainer[]>([]);
+  const [scopedLoading, setScopedLoading] = useState(false);
+  const scoped = dataScope === "last_scan";
+  useEffect(() => {
+    if (!scoped || selectedCharacterId == null) return;
+    let cancelled = false;
+    setScopedLoading(true);
+    getTrainers(selectedCharacterId, "last_scan")
+      .then((rows) => {
+        if (!cancelled) setScopedTrainers(rows);
+      })
+      .catch((err) => console.error("Failed to load last-scan trainers:", err))
+      .finally(() => {
+        if (!cancelled) setScopedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scoped, selectedCharacterId, scanVersion]);
+  const trainers = scoped ? scopedTrainers : allTrainers;
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
 
   useEffect(() => {
@@ -165,9 +188,10 @@ export function TrainersView() {
                 const note = e.target.value.trim() || null;
                 setTrainerNote(charId, row.trainer_name, note)
                   .then(() => {
-                    setTrainers(trainers.map((t) =>
-                      t.trainer_name === row.trainer_name ? { ...t, notes: note } : t,
-                    ));
+                    const upd = (t: Trainer) =>
+                      t.trainer_name === row.trainer_name ? { ...t, notes: note } : t;
+                    setTrainers(allTrainers.map(upd));
+                    setScopedTrainers((prev) => prev.map(upd));
                   })
                   .catch(console.error);
               }}
@@ -179,7 +203,7 @@ export function TrainersView() {
         },
       }),
     ],
-    [showEffective, selectedCharacterId, trainers, setTrainers],
+    [showEffective, selectedCharacterId, allTrainers, setTrainers],
   );
 
   const enrichedTrainers = useMemo(() => {
@@ -294,6 +318,9 @@ export function TrainersView() {
 
   return (
     <div className="flex h-full flex-col">
+      <div className="mb-2">
+        <ScopeToggle />
+      </div>
       <div className="mb-4 flex items-center justify-between">
         <div className="text-sm text-[var(--color-text-muted)]">
           {trainers.length} trainers, {totalRanks.toLocaleString()} total ranks
@@ -352,7 +379,11 @@ export function TrainersView() {
 
       {filteredTrainers.length === 0 ? (
         <div className="py-12 text-center text-[var(--color-text-muted)]">
-          {searchQuery.trim() ? "No matching trainers" : "No trainer data"}
+          {searchQuery.trim()
+            ? "No matching trainers"
+            : scoped && !showZero && !scopedLoading
+              ? LAST_SCAN_EMPTY
+              : "No trainer data"}
         </div>
       ) : alphabetical ? (
         <div className="min-h-0 flex-1">

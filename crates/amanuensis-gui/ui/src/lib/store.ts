@@ -124,6 +124,11 @@ interface AppStore {
   indexLogLines: boolean;
   setIndexLogLines: (index: boolean) => void;
 
+  dataScope: "all" | "last_scan";
+  setDataScope: (scope: "all" | "last_scan") => void;
+  // Bumped after every scan finishes so scoped views re-fetch.
+  scanVersion: number;
+  bumpScanVersion: () => void;
   showPlayerTrainers: boolean;
   setShowPlayerTrainers: (show: boolean) => void;
 
@@ -256,6 +261,23 @@ export const useStore = create<AppStore>((set) => ({
 
   // Player-run ("ledger") trainers greet exactly like NPC trainers, so they are hidden
   // from checkpoint surfaces by default. Opt in to inspect them.
+  dataScope: (() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.DATA_SCOPE) === "last_scan" ? "last_scan" : "all";
+    } catch {
+      return "all";
+    }
+  })(),
+  setDataScope: (scope) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.DATA_SCOPE, scope);
+    } catch {
+      /* ignore */
+    }
+    set({ dataScope: scope });
+  },
+  scanVersion: 0,
+  bumpScanVersion: () => set((s) => ({ scanVersion: s.scanVersion + 1 })),
   showPlayerTrainers: localStorage.getItem(STORAGE_KEYS.SHOW_PLAYER_TRAINERS) === "true",
   setShowPlayerTrainers: (show) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_PLAYER_TRAINERS, String(show));

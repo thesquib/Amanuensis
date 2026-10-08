@@ -9,14 +9,15 @@ import { KillDetailModal } from "../shared/KillDetailModal";
 import { KillsFilterBar, type KillsFilterState } from "../shared/KillsFilterBar";
 import { formatDate, formatTwoHourWindow } from "../../lib/dateUtils";
 import { computeKillStats } from "../../lib/killStats";
-import { getKillFrequency, exportKills } from "../../lib/commands";
+import { ScopeToggle, LAST_SCAN_EMPTY } from "../shared/ScopeToggle";
+import { getKillFrequency, exportKills, getKills } from "../../lib/commands";
 import { save, message } from "@tauri-apps/plugin-dialog";
 import type { Kill } from "../../types";
 
 const columnHelper = createColumnHelper<Kill>();
 
 export function KillsView() {
-  const { kills, viewStates, setViewSorting, setViewFilter } = useStore();
+  const { kills: allKills, viewStates, setViewSorting, setViewFilter } = useStore();
   const viewState = viewStates["kills"];
   const [selectedKill, setSelectedKill] = useState<Kill | null>(null);
   const [filter, setFilter] = useState<KillsFilterState>({
@@ -24,8 +25,30 @@ export function KillsView() {
     rarities: new Set(),
     seasonal: false,
   });
-  const byName = useStore((s) => s.bestiaryByName);
   const selectedCharacterId = useStore((s) => s.selectedCharacterId);
+  const dataScope = useStore((s) => s.dataScope);
+  const scanVersion = useStore((s) => s.scanVersion);
+  const [scopedKills, setScopedKills] = useState<Kill[]>([]);
+  const [scopedLoading, setScopedLoading] = useState(false);
+  const scoped = dataScope === "last_scan";
+  useEffect(() => {
+    if (!scoped || selectedCharacterId == null) return;
+    let cancelled = false;
+    setScopedLoading(true);
+    getKills(selectedCharacterId, "last_scan")
+      .then((rows) => {
+        if (!cancelled) setScopedKills(rows);
+      })
+      .catch((err) => console.error("Failed to load last-scan kills:", err))
+      .finally(() => {
+        if (!cancelled) setScopedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scoped, selectedCharacterId, scanVersion]);
+  const kills = scoped ? scopedKills : allKills;
+  const byName = useStore((s) => s.bestiaryByName);
   const characters = useStore((s) => s.characters);
   const killFrequency = useStore((s) => s.killFrequency);
   const killFrequencyCharId = useStore((s) => s.killFrequencyCharId);
@@ -150,6 +173,9 @@ export function KillsView() {
         header: "Last Kill",
         cell: (info) => formatDate(info.getValue()),
       }),
+      ...(scoped
+        ? []
+        : [
       columnHelper.accessor(
         (row) => killFrequency[row.creature_name]?.best_day_count ?? 0,
         {
@@ -182,8 +208,9 @@ export function KillsView() {
           },
         },
       ),
+        ]),
     ],
-    [killFrequency, creatureMenu.openFor],
+    [killFrequency, creatureMenu.openFor, scoped],
   );
 
   const sorting = viewState?.sorting ?? [{ id: "date_last", desc: true }];
@@ -245,6 +272,14 @@ export function KillsView() {
 
   return (
     <div className="flex h-full flex-col">
+      <div className="mb-2 flex items-center justify-between">
+        <ScopeToggle />
+        {scoped && (
+          <span className="text-xs text-[var(--color-text-muted)]">
+            Export always covers all data
+          </span>
+        )}
+      </div>
       {selectedCharacterId != null && (
         <div className="mb-2 flex justify-end">
           <details className="relative">
@@ -308,6 +343,9 @@ export function KillsView() {
       </div>
       <div className="min-h-0 flex-1">
         <KillsFilterBar kills={kills} value={filter} onChange={setFilter} />
+        {scoped && !scopedLoading && scopedKills.length === 0 ? (
+          <div className="py-12 text-center text-[var(--color-text-muted)]">{LAST_SCAN_EMPTY}</div>
+        ) : (
         <DataTable
           data={visibleKills}
           columns={columns}
@@ -319,6 +357,7 @@ export function KillsView() {
           onGlobalFilterChange={onGlobalFilterChange}
           onRowClick={(row) => setSelectedKill(row)}
         />
+        )}
       </div>
       {selectedKill && (
         <KillDetailModal kill={selectedKill} onClose={() => setSelectedKill(null)} />

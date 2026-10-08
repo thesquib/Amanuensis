@@ -36,6 +36,7 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     const pending = await getPendingLogCount(sources);
     setPendingLogCount(pending);
     await onScanComplete(chars);
+    useStore.getState().bumpScanVersion();
   }, [setCharacters, setScannedLogCount, setLogLineCount, setProcessLogs, sources, setPendingLogCount, onScanComplete]);
 
   // Listen for scan progress events
