@@ -199,52 +199,6 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             message TEXT NOT NULL
         );
 
-        CREATE TABLE IF NOT EXISTS scan_kills (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            character_id INTEGER NOT NULL,
-            creature_name TEXT NOT NULL,
-            killed_count INTEGER NOT NULL DEFAULT 0,
-            slaughtered_count INTEGER NOT NULL DEFAULT 0,
-            vanquished_count INTEGER NOT NULL DEFAULT 0,
-            dispatched_count INTEGER NOT NULL DEFAULT 0,
-            assisted_kill_count INTEGER NOT NULL DEFAULT 0,
-            assisted_slaughter_count INTEGER NOT NULL DEFAULT 0,
-            assisted_vanquish_count INTEGER NOT NULL DEFAULT 0,
-            assisted_dispatch_count INTEGER NOT NULL DEFAULT 0,
-            killed_by_count INTEGER NOT NULL DEFAULT 0,
-            date_first TEXT,
-            date_first_killed TEXT,
-            date_first_slaughtered TEXT,
-            date_first_vanquished TEXT,
-            date_first_dispatched TEXT,
-            date_last TEXT,
-            date_last_killed TEXT,
-            date_last_slaughtered TEXT,
-            date_last_vanquished TEXT,
-            date_last_dispatched TEXT,
-            creature_value INTEGER NOT NULL DEFAULT 0,
-            best_loot_value INTEGER NOT NULL DEFAULT 0,
-            best_loot_item TEXT NOT NULL DEFAULT '',
-            FOREIGN KEY (character_id) REFERENCES characters(id),
-            UNIQUE(character_id, creature_name)
-        );
-
-        CREATE TABLE IF NOT EXISTS scan_trainers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            character_id INTEGER NOT NULL,
-            trainer_name TEXT NOT NULL,
-            ranks INTEGER NOT NULL DEFAULT 0,
-            modified_ranks INTEGER NOT NULL DEFAULT 0,
-            date_of_last_rank TEXT,
-            effective_multiplier REAL NOT NULL DEFAULT 1.0,
-            apply_learning_ranks INTEGER NOT NULL DEFAULT 0,
-            apply_learning_unknown_count INTEGER NOT NULL DEFAULT 0,
-            rank_mode TEXT NOT NULL DEFAULT 'modifier',
-            override_date TEXT,
-            notes TEXT,
-            FOREIGN KEY (character_id) REFERENCES characters(id),
-            UNIQUE(character_id, trainer_name)
-        );
         CREATE TABLE IF NOT EXISTS trainer_checkpoints (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             character_id INTEGER NOT NULL,
@@ -409,6 +363,53 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
             file_path UNINDEXED,
             tokenize='unicode61'
         );
+        CREATE TABLE IF NOT EXISTS scan_kills (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER NOT NULL,
+            creature_name TEXT NOT NULL,
+            killed_count INTEGER NOT NULL DEFAULT 0,
+            slaughtered_count INTEGER NOT NULL DEFAULT 0,
+            vanquished_count INTEGER NOT NULL DEFAULT 0,
+            dispatched_count INTEGER NOT NULL DEFAULT 0,
+            assisted_kill_count INTEGER NOT NULL DEFAULT 0,
+            assisted_slaughter_count INTEGER NOT NULL DEFAULT 0,
+            assisted_vanquish_count INTEGER NOT NULL DEFAULT 0,
+            assisted_dispatch_count INTEGER NOT NULL DEFAULT 0,
+            killed_by_count INTEGER NOT NULL DEFAULT 0,
+            date_first TEXT,
+            date_first_killed TEXT,
+            date_first_slaughtered TEXT,
+            date_first_vanquished TEXT,
+            date_first_dispatched TEXT,
+            date_last TEXT,
+            date_last_killed TEXT,
+            date_last_slaughtered TEXT,
+            date_last_vanquished TEXT,
+            date_last_dispatched TEXT,
+            creature_value INTEGER NOT NULL DEFAULT 0,
+            best_loot_value INTEGER NOT NULL DEFAULT 0,
+            best_loot_item TEXT NOT NULL DEFAULT '',
+            FOREIGN KEY (character_id) REFERENCES characters(id),
+            UNIQUE(character_id, creature_name)
+        );
+
+        CREATE TABLE IF NOT EXISTS scan_trainers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            character_id INTEGER NOT NULL,
+            trainer_name TEXT NOT NULL,
+            ranks INTEGER NOT NULL DEFAULT 0,
+            modified_ranks INTEGER NOT NULL DEFAULT 0,
+            date_of_last_rank TEXT,
+            effective_multiplier REAL NOT NULL DEFAULT 1.0,
+            apply_learning_ranks INTEGER NOT NULL DEFAULT 0,
+            apply_learning_unknown_count INTEGER NOT NULL DEFAULT 0,
+            rank_mode TEXT NOT NULL DEFAULT 'modifier',
+            override_date TEXT,
+            notes TEXT,
+            FOREIGN KEY (character_id) REFERENCES characters(id),
+            UNIQUE(character_id, trainer_name)
+        );
+
         CREATE TABLE IF NOT EXISTS trainer_checkpoints (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             character_id INTEGER NOT NULL,
