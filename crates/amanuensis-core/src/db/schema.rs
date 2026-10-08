@@ -230,14 +230,26 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
-        -- One row per spirit-departed-N-times line. The game's
-        -- counter can drop, so totals are derived in date order (queries/depart.rs).
+        -- One row per spirit-departed-N-times line. Totals are derived in date
+        -- order (queries/depart.rs).
         CREATE TABLE IF NOT EXISTS depart_observations (
             character_id INTEGER NOT NULL,
             observed_at  TEXT NOT NULL,
             count        INTEGER NOT NULL,
             FOREIGN KEY (character_id) REFERENCES characters(id),
             UNIQUE(character_id, observed_at, count)
+        );
+        -- One row per settled casino blackjack hand (parser/blackjack.rs). bet is 0 when the
+        -- bet line wasn't seen; net is coins won (+) or lost (-), with doubling and insurance.
+        CREATE TABLE IF NOT EXISTS blackjack_hands (
+            character_id INTEGER NOT NULL,
+            played_at    TEXT NOT NULL,
+            bet          INTEGER NOT NULL,
+            outcome      TEXT NOT NULL,
+            net          INTEGER NOT NULL,
+            doubled      INTEGER NOT NULL DEFAULT 0,
+            natural      INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (character_id) REFERENCES characters(id)
         );
         ",
     )?;
@@ -456,14 +468,26 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
-        -- One row per spirit-departed-N-times line. The game's
-        -- counter can drop, so totals are derived in date order (queries/depart.rs).
+        -- One row per spirit-departed-N-times line. Totals are derived in date
+        -- order (queries/depart.rs).
         CREATE TABLE IF NOT EXISTS depart_observations (
             character_id INTEGER NOT NULL,
             observed_at  TEXT NOT NULL,
             count        INTEGER NOT NULL,
             FOREIGN KEY (character_id) REFERENCES characters(id),
             UNIQUE(character_id, observed_at, count)
+        );
+        -- One row per settled casino blackjack hand (parser/blackjack.rs). bet is 0 when the
+        -- bet line wasn't seen; net is coins won (+) or lost (-), with doubling and insurance.
+        CREATE TABLE IF NOT EXISTS blackjack_hands (
+            character_id INTEGER NOT NULL,
+            played_at    TEXT NOT NULL,
+            bet          INTEGER NOT NULL,
+            outcome      TEXT NOT NULL,
+            net          INTEGER NOT NULL,
+            doubled      INTEGER NOT NULL DEFAULT 0,
+            natural      INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (character_id) REFERENCES characters(id)
         );",
     )?;
 

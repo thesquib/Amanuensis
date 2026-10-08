@@ -4,6 +4,7 @@ use serde::Serialize;
 use crate::error::Result;
 use crate::models::*;
 
+mod blackjack;
 mod character;
 mod checkpoint;
 mod depart;
@@ -18,6 +19,7 @@ mod player;
 mod process_log;
 mod scan_scope;
 
+pub use blackjack::BlackjackSummary;
 pub use depart::DepartSummary;
 pub use frequency::CreatureFrequency;
 pub use scan_scope::ScanScope;

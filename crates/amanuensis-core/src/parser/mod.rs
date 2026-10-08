@@ -1,3 +1,4 @@
+pub mod blackjack;
 pub mod events;
 pub mod line_classifier;
 pub mod patterns;
@@ -617,6 +618,9 @@ impl LogParser {
         let mut active: Option<(i64, String)> = initial_char.clone();
         let mut saw_welcome_login = false;
         let mut movie = MovieFilter::default();
+        // Follows the active character's blackjack rounds; restarted when it changes.
+        let mut blackjack = blackjack::BlackjackTracker::default();
+        let mut blackjack_char: Option<i64> = None;
 
         for line in content.lines() {
             file_result.lines_parsed += 1;
@@ -674,6 +678,17 @@ impl LogParser {
                 }
                 None => continue,
             };
+
+            if blackjack_char != Some(char_id) {
+                blackjack = blackjack::BlackjackTracker::default();
+                blackjack_char = Some(char_id);
+            }
+            if let Some(hands) = blackjack.feed(message, char_name) {
+                for hand in &hands {
+                    self.db.record_blackjack_hand(char_id, &date_str, hand)?;
+                    file_result.events_found += 1;
+                }
+            }
 
             if index_lines && !line.trim().is_empty() {
                 log_lines.push((
@@ -4480,6 +4495,29 @@ mod tests {
         let kills = parser.db().get_kills(ch.id.unwrap()).unwrap();
         let names: Vec<&str> = kills.iter().map(|k| k.creature_name.as_str()).collect();
         assert_eq!(names, vec!["Vermine"], "replayed kills are not counted");
+    }
+
+    #[test]
+    fn scan_records_blackjack_hands() {
+        let (tmp, char_dir) = create_test_log_dir();
+        let lines: String = include_str!("../../tests/fixtures/blackjack_djill.txt")
+            .lines()
+            .map(|l| format!("10/8/26 3:34:00p {l}\n"))
+            .collect();
+        fs::write(
+            char_dir.join("CL Log 2026-10-08 15.33.13.txt"),
+            format!("10/8/26 3:33:21p Welcome to Clan Lord, Ruuk!\n{lines}"),
+        )
+        .unwrap();
+
+        let db = Database::open_in_memory().unwrap();
+        let parser = LogParser::new(db).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+
+        let id = parser.db().get_character("Ruuk").unwrap().unwrap().id.unwrap();
+        let s = parser.db().blackjack_summary_merged(id).unwrap().unwrap();
+        assert_eq!((s.hands, s.wins, s.losses, s.pushes), (12, 3, 8, 1));
+        assert_eq!((s.coins_won, s.coins_lost), (250, 500));
     }
 
     #[test]

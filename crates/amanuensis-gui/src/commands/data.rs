@@ -1,6 +1,6 @@
 use tauri::State;
 
-use amanuensis_core::db::queries::{CreatureFrequency, DepartSummary};
+use amanuensis_core::db::queries::{BlackjackSummary, CreatureFrequency, DepartSummary};
 use amanuensis_core::export::ExportFormat;
 use amanuensis_core::models::{Kill, Lasty, Pet, ProcessLog, Trainer};
 use amanuensis_core::data::CreatureDb;
@@ -47,6 +47,12 @@ pub fn get_pets(char_id: i64, state: State<'_, AppState>) -> Result<Vec<Pet>, St
 #[tauri::command]
 pub fn get_depart_summary(char_id: i64, state: State<'_, AppState>) -> Result<Option<DepartSummary>, String> {
     state.with_db(|db| db.depart_summary_merged(char_id).map_err(|e| e.to_string()))
+}
+
+/// Blackjack totals (includes merged sources); None when no hand was ever recorded.
+#[tauri::command]
+pub fn get_blackjack_summary(char_id: i64, state: State<'_, AppState>) -> Result<Option<BlackjackSummary>, String> {
+    state.with_db(|db| db.blackjack_summary_merged(char_id).map_err(|e| e.to_string()))
 }
 
 /// Get lastys for a character (includes merged sources).

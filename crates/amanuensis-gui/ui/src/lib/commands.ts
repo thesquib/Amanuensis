@@ -14,6 +14,7 @@ import type {
   BestiaryPayload,
   CreatureFrequency,
   DepartSummary,
+  BlackjackSummary,
 } from "../types";
 
 export async function openDatabase(path: string): Promise<void> {
@@ -49,6 +50,10 @@ export async function getPets(charId: number): Promise<Pet[]> {
 
 export async function getDepartSummary(charId: number): Promise<DepartSummary | null> {
   return invoke("get_depart_summary", { charId });
+}
+
+export async function getBlackjackSummary(charId: number): Promise<BlackjackSummary | null> {
+  return invoke("get_blackjack_summary", { charId });
 }
 
 export async function getLastys(charId: number): Promise<Lasty[]> {

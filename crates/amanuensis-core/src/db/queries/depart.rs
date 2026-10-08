@@ -5,9 +5,10 @@ use crate::error::Result;
 use super::Database;
 
 /// Depart totals derived from every "Your spirit has departed your body N times."
-/// line seen. The game's counter can go down (Ruuk's went 59 → 40 between 2023 and
-/// 2026), so the latest count is not the lifetime total, and a lifetime total that
-/// predates the logs can't be compared with deaths counted from the logs.
+/// line seen. The counter once appeared to go down (Ruuk's 59 → 40 between 2023 and
+/// 2026, which turned out to be a replayed movie), so drops are tolerated rather than
+/// trusted; and a lifetime total that predates the logs can't be compared with deaths
+/// counted from the logs.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct DepartSummary {
     /// First count seen, plus every later depart: an increase adds its size, a drop

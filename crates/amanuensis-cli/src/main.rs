@@ -1515,6 +1515,25 @@ fn cmd_coins(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
         println!("Casino Won:      {}", char.casino_won);
         println!("Casino Lost:     {}", char.casino_lost);
     }
+    if let Some(bj) = db.blackjack_summary_merged(char_id)? {
+        println!(
+            "Blackjack:       {} hands, {} won / {} lost / {} pushed ({:.1}% won)",
+            bj.hands,
+            bj.wins,
+            bj.losses,
+            bj.pushes,
+            bj.wins as f64 * 100.0 / bj.hands as f64
+        );
+        println!(
+            "Blackjack Net:   {}  (won {}, lost {})",
+            bj.coins_won - bj.coins_lost,
+            bj.coins_won,
+            bj.coins_lost
+        );
+        if bj.bet_count > 0 {
+            println!("Blackjack Bet:   {} average", bj.bet_total / bj.bet_count);
+        }
+    }
     if char.chest_coins > 0 {
         println!("Chest Coins:     {}", char.chest_coins);
     }

@@ -106,12 +106,29 @@ export interface Pet {
 
 /** Mirrors Rust `DepartSummary` struct */
 export interface DepartSummary {
-  /** First depart count seen plus every later depart (the game's counter can drop) */
+  /** First depart count seen plus every later depart */
   lifetime: number;
   /** The game's own counter at the latest depart line */
   current: number;
   /** Departs whose line appears in the logs (same span as counted deaths) */
   in_logs: number;
+}
+
+/** Mirrors Rust `BlackjackSummary` struct */
+export interface BlackjackSummary {
+  hands: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  /** Natural blackjacks dealt to the player */
+  naturals: number;
+  /** Sum of hands that came out ahead (insurance included) */
+  coins_won: number;
+  /** Sum of hands that came out behind, as a positive number */
+  coins_lost: number;
+  /** Total and count of the bets that were seen; their ratio is the average bet */
+  bet_total: number;
+  bet_count: number;
 }
 
 /** Mirrors Rust `Lasty` struct */
