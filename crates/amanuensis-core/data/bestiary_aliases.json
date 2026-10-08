@@ -3,5 +3,11 @@
   { "log_name": "Ramandu", "resolves_to": "the Ramandu" },
   { "log_name": "Mushroom", "resolves_to": "Mushroom (Brown)" },
   { "log_name": "Seasylvan", "resolves_to": "Seasylvan Briar" },
-  { "log_name": "Fumehorn Colossus", "inline": { "exp_taxidermy": 1510 } }
+  { "log_name": "Fumehorn Colossus", "inline": { "exp_taxidermy": 1510 } },
+  { "log_name": "Earthzu", "resolves_to": "Earth-zu" },
+  { "log_name": "Star Flower", "resolves_to": "Starflower" },
+  { "log_name": "Vicious Star Flower", "resolves_to": "Vicious Starflower" },
+  { "log_name": "Samahe Raider", "resolves_to": "Samahee Raider" },
+  { "log_name": "Boggle", "inline": { "exp_taxidermy": 580, "information": "Not in the upstream bestiary; value from Scribius." } },
+  { "log_name": "Seagull", "inline": { "exp_taxidermy": 1, "information": "Not in the upstream bestiary; value from Scribius." } }
 ]

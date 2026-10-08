@@ -374,5 +374,16 @@ mod tests {
         assert_eq!(db.get_value("Seasylvan"), Some(865));
         // Inline alias.
         assert_eq!(db.get_value("Fumehorn Colossus"), Some(1510));
+        // Spelling variants from Scribius's creatures.csv.
+        assert_eq!(db.get_value("Earthzu"), db.get_value("Earth-zu"));
+        assert_eq!(db.get_value("Star Flower"), db.get_value("Starflower"));
+        assert_eq!(
+            db.get_value("Vicious Star Flower"),
+            db.get_value("Vicious Starflower")
+        );
+        assert_eq!(db.get_value("Samahe Raider"), db.get_value("Samahee Raider"));
+        // Creatures absent from the upstream bestiary, valued from Scribius.
+        assert_eq!(db.get_value("Boggle"), Some(580));
+        assert_eq!(db.get_value("Seagull"), Some(1));
     }
 }
