@@ -47,6 +47,7 @@ fn main() {
             commands::get_character_portrait_path,
             commands::check_for_update,
             commands::reveal_database,
+            commands::reveal_log_file,
             commands::get_trainer_checkpoints,
             commands::get_all_trainer_checkpoints,
             commands::set_trainer_note,

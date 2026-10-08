@@ -49,9 +49,39 @@ pub fn delete_all_data(state: State<'_, AppState>) -> Result<(), String> {
 /// Reveal the database file in the OS file manager (Finder/Explorer/Nautilus).
 #[tauri::command]
 pub fn reveal_database(path: String) -> Result<(), String> {
+    reveal_path(&path)
+}
+
+/// Reveal a log file a search result came from. Only files this database has
+/// scanned are revealed, and a missing file (e.g. on an unplugged drive) gets a
+/// real error rather than a file manager that silently opens nowhere.
+#[tauri::command]
+pub fn reveal_log_file(path: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.with_db(|db| check_revealable_log(db, Path::new(&path)))?;
+    reveal_path(&path)
+}
+
+fn check_revealable_log(db: &Database, path: &Path) -> Result<(), String> {
+    let known = db
+        .is_log_scanned(&path.to_string_lossy())
+        .map_err(|e| e.to_string())?;
+    if !known {
+        return Err(format!("Not a scanned log file: {}", path.display()));
+    }
+    if !path.exists() {
+        return Err(format!(
+            "Log file not found at {}. If your logs are on an external drive, make sure it is connected.",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+/// Select `path` in the OS file manager (Linux opens its folder instead).
+fn reveal_path(path: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        super::external::spawn_clean("open", &["-R", &path]).map_err(|e| e.to_string())?;
+        super::external::spawn_clean("open", &["-R", path]).map_err(|e| e.to_string())?;
     }
     #[cfg(target_os = "windows")]
     {
@@ -62,7 +92,7 @@ pub fn reveal_database(path: String) -> Result<(), String> {
     }
     #[cfg(target_os = "linux")]
     {
-        let parent = std::path::Path::new(&path)
+        let parent = std::path::Path::new(path)
             .parent()
             .unwrap_or(std::path::Path::new("/"))
             .to_string_lossy()
@@ -96,4 +126,32 @@ pub fn import_scribius_db(
     *state.db_path.lock().map_err(|e| format!("Lock poisoned: {e}"))? = Some(output_path);
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_scanned_existing_logs_are_revealable() {
+        let dir = std::env::temp_dir().join(format!("amanuensis-reveal-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let present = dir.join("CL Log present.txt");
+        std::fs::write(&present, "x").unwrap();
+        let gone = dir.join("CL Log gone.txt");
+
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        for p in [&present, &gone] {
+            db.mark_log_scanned(id, &p.to_string_lossy(), "h", 1, "2026-10-08").unwrap();
+        }
+
+        assert!(check_revealable_log(&db, &present).is_ok());
+        let err = check_revealable_log(&db, &gone).unwrap_err();
+        assert!(err.contains("not found"), "{err}");
+        let err = check_revealable_log(&db, &dir.join("unscanned.txt")).unwrap_err();
+        assert!(err.contains("Not a scanned log"), "{err}");
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

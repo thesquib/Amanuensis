@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { useStore } from "../../lib/store";
-import { searchLogs } from "../../lib/commands";
+import { revealLogFile, searchLogs } from "../../lib/commands";
 import type { LogSearchResult } from "../../types";
 
 export function LogSearchView() {
@@ -14,6 +14,13 @@ export function LogSearchView() {
   const [results, setResults] = useState<LogSearchResult[]>([]);
   const [resultCount, setResultCount] = useState<number | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  // Reveal failure for one result, keyed by its index in `results`.
+  const [revealError, setRevealError] = useState<{ index: number; message: string } | null>(null);
+
+  const handleReveal = useCallback((index: number, path: string) => {
+    setRevealError(null);
+    revealLogFile(path).catch((e) => setRevealError({ index, message: String(e) }));
+  }, []);
 
   const handleSearch = useCallback(async () => {
     const trimmed = query.trim();
@@ -25,6 +32,7 @@ export function LogSearchView() {
       const res = await searchLogs(trimmed, charId, 200, includeSpeech, linesBefore, linesAfter);
       setResults(res);
       setResultCount(res.length);
+      setRevealError(null);
     } catch (e) {
       console.error("Search failed:", e);
       setResults([]);
@@ -145,9 +153,20 @@ export function LogSearchView() {
               </span>
               {r.timestamp && <span>{r.timestamp}</span>}
               <span className="truncate" title={r.file_path}>
-                {r.file_path.split("/").pop()}
+                {r.file_path.split(/[\\/]/).pop()}
               </span>
+              <button
+                type="button"
+                onClick={() => handleReveal(i, r.file_path)}
+                title={`Show ${r.file_path} in your file manager`}
+                className="ml-auto shrink-0 rounded border border-[var(--color-border)] px-1.5 py-0.5 hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text)]"
+              >
+                Reveal file
+              </button>
             </div>
+            {revealError?.index === i && (
+              <div className="mb-1.5 text-xs text-red-500">{revealError.message}</div>
+            )}
             {r.context_before.length > 0 && (
               <div className="mb-1 border-l-2 border-[var(--color-border)] pl-2">
                 {r.context_before.map((line, j) => (

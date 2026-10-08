@@ -249,6 +249,10 @@ export async function revealDatabase(path: string): Promise<void> {
   return invoke("reveal_database", { path });
 }
 
+export async function revealLogFile(path: string): Promise<void> {
+  return invoke("reveal_log_file", { path });
+}
+
 export async function getProcessLogs(): Promise<ProcessLog[]> {
   return invoke("get_process_logs");
 }
