@@ -259,8 +259,6 @@ export const useStore = create<AppStore>((set) => ({
     set({ indexLogLines: index });
   },
 
-  // Player-run ("ledger") trainers greet exactly like NPC trainers, so they are hidden
-  // from checkpoint surfaces by default. Opt in to inspect them.
   dataScope: (() => {
     try {
       return localStorage.getItem(STORAGE_KEYS.DATA_SCOPE) === "last_scan" ? "last_scan" : "all";
@@ -278,6 +276,8 @@ export const useStore = create<AppStore>((set) => ({
   },
   scanVersion: 0,
   bumpScanVersion: () => set((s) => ({ scanVersion: s.scanVersion + 1 })),
+  // Player-run ("ledger") trainers greet exactly like NPC trainers, so they are hidden
+  // from checkpoint surfaces by default. Opt in to inspect them.
   showPlayerTrainers: localStorage.getItem(STORAGE_KEYS.SHOW_PLAYER_TRAINERS) === "true",
   setShowPlayerTrainers: (show) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_PLAYER_TRAINERS, String(show));
