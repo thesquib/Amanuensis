@@ -3,6 +3,7 @@ use rusqlite::params;
 use crate::data::{canonical_rarity, CreatureDb};
 use crate::error::Result;
 use crate::models::Kill;
+use super::scan_scope::ScanScope;
 use super::Database;
 
 #[derive(Debug, Clone, Default)]
@@ -57,6 +58,31 @@ impl Database {
         creature_value: i32,
         date: &str,
     ) -> Result<()> {
+        self.upsert_kill_into("kills", char_id, creature_name, field, creature_value, date)
+    }
+
+    /// Same as `upsert_kill` but writes only to the `scan_kills` shadow table.
+    pub fn upsert_kill_scan(
+        &self,
+        char_id: i64,
+        creature_name: &str,
+        field: &str,
+        creature_value: i32,
+        date: &str,
+    ) -> Result<()> {
+        self.upsert_kill_into("scan_kills", char_id, creature_name, field, creature_value, date)
+    }
+
+    /// `table` must only ever be an internal string literal ("kills" / "scan_kills").
+    fn upsert_kill_into(
+        &self,
+        table: &str,
+        char_id: i64,
+        creature_name: &str,
+        field: &str,
+        creature_value: i32,
+        date: &str,
+    ) -> Result<()> {
         let allowed = [
             "killed_count", "slaughtered_count", "vanquished_count", "dispatched_count",
             "assisted_kill_count", "assisted_slaughter_count", "assisted_vanquish_count",
@@ -82,7 +108,7 @@ impl Database {
         let date_col_insert = date_col.map(|c| format!(", {c}")).unwrap_or_default();
         let date_col_value = if date_col.is_some() { ", ?4" } else { "" };
         let date_col_update = date_col
-            .map(|c| format!(", {c} = NULLIF(MAX(COALESCE(kills.{c}, ''), COALESCE(excluded.{c}, '')), '')"))
+            .map(|c| format!(", {c} = NULLIF(MAX(COALESCE({table}.{c}, ''), COALESCE(excluded.{c}, '')), '')"))
             .unwrap_or_default();
 
         // Track the first-ever date for this verb (earliest), in its own per-verb column.
@@ -100,8 +126,8 @@ impl Database {
         let date_first_col_update = date_first_col
             .map(|c| format!(
                 ", {c} = NULLIF(MIN(\
-                    COALESCE(NULLIF(kills.{c}, ''), excluded.{c}), \
-                    COALESCE(NULLIF(excluded.{c}, ''), kills.{c})\
+                    COALESCE(NULLIF({table}.{c}, ''), excluded.{c}), \
+                    COALESCE(NULLIF(excluded.{c}, ''), {table}.{c})\
                   ), '')"
             ))
             .unwrap_or_default();
@@ -111,11 +137,11 @@ impl Database {
         if is_death {
             // Death events: insert NULL for date_first/date_last (these track kills only)
             let sql = format!(
-                "INSERT INTO kills (character_id, creature_name, {field}, creature_value)
+                "INSERT INTO {table} (character_id, creature_name, {field}, creature_value)
                  VALUES (?1, ?2, 1, ?3)
                  ON CONFLICT(character_id, creature_name) DO UPDATE SET
                     {field} = {field} + 1,
-                    creature_value = MAX(kills.creature_value, excluded.creature_value)",
+                    creature_value = MAX({table}.creature_value, excluded.creature_value)",
             );
             self.conn.execute(
                 &sql,
@@ -125,16 +151,16 @@ impl Database {
             // Kill events: set dates, backfill date_first if NULL or empty string.
             // date_last uses MAX so that scan order never causes an older date to overwrite a newer one.
             // Dates are stored as "YYYY-MM-DD HH:MM:SS" which is lexicographically sortable.
-            let date_update =
-                ", date_first = COALESCE(NULLIF(kills.date_first, ''), NULLIF(excluded.date_first, '')), \
-                   date_last = NULLIF(MAX(COALESCE(kills.date_last, ''), COALESCE(excluded.date_last, '')), '')";
+            let date_update = format!(
+                ", date_first = COALESCE(NULLIF({table}.date_first, ''), NULLIF(excluded.date_first, '')), \
+                   date_last = NULLIF(MAX(COALESCE({table}.date_last, ''), COALESCE(excluded.date_last, '')), '')");
 
             let sql = format!(
-                "INSERT INTO kills (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert}{date_first_col_insert})
+                "INSERT INTO {table} (character_id, creature_name, {field}, creature_value, date_first, date_last{date_col_insert}{date_first_col_insert})
                  VALUES (?1, ?2, 1, ?3, NULLIF(?4, ''), NULLIF(?4, ''){date_col_value}{date_first_col_value})
                  ON CONFLICT(character_id, creature_name) DO UPDATE SET
                     {field} = {field} + 1,
-                    creature_value = MAX(kills.creature_value, excluded.creature_value){date_update}{date_col_update}{date_first_col_update}",
+                    creature_value = MAX({table}.creature_value, excluded.creature_value){date_update}{date_col_update}{date_first_col_update}",
             );
             self.conn.execute(
                 &sql,
@@ -176,7 +202,20 @@ impl Database {
 
     /// Get kills for a character, ordered by total count descending.
     pub fn get_kills(&self, char_id: i64) -> Result<Vec<Kill>> {
-        let mut stmt = self.conn.prepare(
+        self.get_kills_from("kills", char_id)
+    }
+
+    /// Kills for a character in the given scope.
+    pub fn get_kills_scoped(&self, char_id: i64, scope: ScanScope) -> Result<Vec<Kill>> {
+        match scope {
+            ScanScope::All => self.get_kills_from("kills", char_id),
+            ScanScope::LastScan => self.get_kills_from("scan_kills", char_id),
+        }
+    }
+
+    /// `table` must only ever be an internal string literal.
+    fn get_kills_from(&self, table: &str, char_id: i64) -> Result<Vec<Kill>> {
+        let mut stmt = self.conn.prepare(&format!(
             "SELECT id, character_id, creature_name,
                     killed_count, slaughtered_count, vanquished_count, dispatched_count,
                     assisted_kill_count, assisted_slaughter_count, assisted_vanquish_count, assisted_dispatch_count,
@@ -184,10 +223,10 @@ impl Database {
                     date_first_killed, date_first_slaughtered, date_first_vanquished, date_first_dispatched,
                     date_last_killed, date_last_slaughtered, date_last_vanquished, date_last_dispatched,
                     COALESCE(best_loot_value, 0), COALESCE(best_loot_item, '')
-             FROM kills WHERE character_id = ?1
+             FROM {table} WHERE character_id = ?1
              ORDER BY (killed_count + slaughtered_count + vanquished_count + dispatched_count +
                        assisted_kill_count + assisted_slaughter_count + assisted_vanquish_count + assisted_dispatch_count) DESC",
-        )?;
+        ))?;
 
         let kills = stmt.query_map(params![char_id], |row| {
             Ok(Kill {

@@ -5,6 +5,7 @@ use rusqlite::params;
 use crate::data::TrainerDb;
 use crate::error::Result;
 use crate::models::{RankMode, Trainer};
+use super::scan_scope::ScanScope;
 use super::Database;
 
 /// Compute weighted effective ranks from a trainer slice, skipping combo trainers
@@ -40,13 +41,36 @@ impl Database {
         date: &str,
         multiplier: f64,
     ) -> Result<()> {
+        self.upsert_trainer_rank_into("trainers", char_id, trainer_name, date, multiplier)
+    }
+
+    /// Same as `upsert_trainer_rank` but writes only to `scan_trainers`.
+    pub fn upsert_trainer_rank_scan(
+        &self,
+        char_id: i64,
+        trainer_name: &str,
+        date: &str,
+        multiplier: f64,
+    ) -> Result<()> {
+        self.upsert_trainer_rank_into("scan_trainers", char_id, trainer_name, date, multiplier)
+    }
+
+    /// `table` must only ever be an internal string literal.
+    fn upsert_trainer_rank_into(
+        &self,
+        table: &str,
+        char_id: i64,
+        trainer_name: &str,
+        date: &str,
+        multiplier: f64,
+    ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO trainers (character_id, trainer_name, ranks, date_of_last_rank, effective_multiplier)
+            &format!("INSERT INTO {table} (character_id, trainer_name, ranks, date_of_last_rank, effective_multiplier)
              VALUES (?1, ?2, 1, ?3, ?4)
              ON CONFLICT(character_id, trainer_name) DO UPDATE SET
                 ranks = ranks + 1,
                 date_of_last_rank = excluded.date_of_last_rank,
-                effective_multiplier = excluded.effective_multiplier",
+                effective_multiplier = excluded.effective_multiplier"),
             params![char_id, trainer_name, date, multiplier],
         )?;
         Ok(())
@@ -54,12 +78,26 @@ impl Database {
 
     /// Get trainers for a character, ordered by ranks descending.
     pub fn get_trainers(&self, char_id: i64) -> Result<Vec<Trainer>> {
-        let mut stmt = self.conn.prepare(
+        self.get_trainers_from("trainers", char_id)
+    }
+
+    /// Trainers for a character in the given scope. LastScan rows never carry
+    /// `modified_ranks` (always 0).
+    pub fn get_trainers_scoped(&self, char_id: i64, scope: ScanScope) -> Result<Vec<Trainer>> {
+        match scope {
+            ScanScope::All => self.get_trainers_from("trainers", char_id),
+            ScanScope::LastScan => self.get_trainers_from("scan_trainers", char_id),
+        }
+    }
+
+    /// `table` must only ever be an internal string literal.
+    fn get_trainers_from(&self, table: &str, char_id: i64) -> Result<Vec<Trainer>> {
+        let mut stmt = self.conn.prepare(&format!(
             "SELECT id, character_id, trainer_name, ranks, modified_ranks, date_of_last_rank,
                     apply_learning_ranks, apply_learning_unknown_count, rank_mode, override_date,
                     effective_multiplier, notes
-             FROM trainers WHERE character_id = ?1 ORDER BY ranks DESC",
-        )?;
+             FROM {table} WHERE character_id = ?1 ORDER BY ranks DESC",
+        ))?;
 
         let trainers = stmt.query_map(params![char_id], |row| {
             Ok(Trainer {
@@ -107,13 +145,38 @@ impl Database {
         amount: i64,
         multiplier: f64,
     ) -> Result<()> {
+        self.upsert_apply_learning_into("trainers", char_id, trainer_name, date, amount, multiplier)
+    }
+
+    /// Same as `upsert_apply_learning` but writes only to `scan_trainers`.
+    pub fn upsert_apply_learning_scan(
+        &self,
+        char_id: i64,
+        trainer_name: &str,
+        date: &str,
+        amount: i64,
+        multiplier: f64,
+    ) -> Result<()> {
+        self.upsert_apply_learning_into("scan_trainers", char_id, trainer_name, date, amount, multiplier)
+    }
+
+    /// `table` must only ever be an internal string literal.
+    fn upsert_apply_learning_into(
+        &self,
+        table: &str,
+        char_id: i64,
+        trainer_name: &str,
+        date: &str,
+        amount: i64,
+        multiplier: f64,
+    ) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO trainers (character_id, trainer_name, apply_learning_ranks, date_of_last_rank, effective_multiplier)
+            &format!("INSERT INTO {table} (character_id, trainer_name, apply_learning_ranks, date_of_last_rank, effective_multiplier)
              VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(character_id, trainer_name) DO UPDATE SET
                 apply_learning_ranks = apply_learning_ranks + ?3,
                 date_of_last_rank = excluded.date_of_last_rank,
-                effective_multiplier = excluded.effective_multiplier",
+                effective_multiplier = excluded.effective_multiplier"),
             params![char_id, trainer_name, amount, date, multiplier],
         )?;
         Ok(())

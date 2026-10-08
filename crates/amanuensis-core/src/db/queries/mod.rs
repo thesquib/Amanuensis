@@ -15,8 +15,10 @@ mod log_file;
 mod merge;
 mod player;
 mod process_log;
+mod scan_scope;
 
 pub use frequency::CreatureFrequency;
+pub use scan_scope::ScanScope;
 pub use kill::{KillsFilter, filter_kills};
 
 // ---------------------------------------------------------------------------

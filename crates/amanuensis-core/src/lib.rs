@@ -8,7 +8,7 @@ pub mod models;
 pub mod parser;
 
 pub use data::{CreatureDb, TrainerDb, TrainerMeta};
-pub use db::{Database, LogSearchResult, KillsFilter, filter_kills};
+pub use db::{ScanScope, Database, LogSearchResult, KillsFilter, filter_kills};
 pub use db::import::{import_scribius, ImportResult};
 pub use error::{Result, AmanuensisError};
 pub use export::ExportFormat;

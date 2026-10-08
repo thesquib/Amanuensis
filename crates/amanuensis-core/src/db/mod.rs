@@ -2,4 +2,4 @@ pub mod import;
 pub mod queries;
 pub mod schema;
 
-pub use queries::{Database, LogSearchResult, KillsFilter, filter_kills};
+pub use queries::{ScanScope, Database, LogSearchResult, KillsFilter, filter_kills};
