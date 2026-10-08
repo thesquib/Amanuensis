@@ -117,6 +117,23 @@ enum Commands {
         /// Character name
         name: String,
     },
+    /// Delete a pet (kept hidden, so a rescan does not bring it back)
+    DeletePet {
+        /// Character name
+        name: String,
+        /// Pet name
+        pet: String,
+    },
+    /// Merge pets logged under other names into a target pet
+    MergePets {
+        /// Character name
+        name: String,
+        /// Pet to keep
+        target: String,
+        /// Pets to fold into the target
+        #[arg(required = true)]
+        sources: Vec<String>,
+    },
     /// Show lasty (creature training) progress
     Lastys {
         /// Character name
@@ -444,6 +461,10 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Merge { target, sources } => cmd_merge(&db_path, &target, &sources),
         Commands::Unmerge { name } => cmd_unmerge(&db_path, &name),
         Commands::Import { source, output, force } => cmd_import(&source, &output, force),
+        Commands::DeletePet { name, pet } => cmd_delete_pet(&db_path, &name, &pet),
+        Commands::MergePets { name, target, sources } => {
+            cmd_merge_pets(&db_path, &name, &target, &sources)
+        }
         Commands::SetTrainerNote { name, trainer, note } => {
             cmd_set_trainer_note(&db_path, &name, &trainer, note.as_deref())
         }
@@ -1229,6 +1250,27 @@ fn cmd_pets(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
 
     println!("Pets for {}:", name);
     println!("{table}");
+    Ok(())
+}
+
+fn cmd_delete_pet(db_path: &str, name: &str, pet: &str) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let char = resolve_character(&db, name)?;
+    let char_id = char.id.unwrap();
+    if !db.get_pets_merged(char_id)?.iter().any(|p| p.pet_name == pet) {
+        eprintln!("No pet named '{}' for {}.", pet, name);
+        std::process::exit(1);
+    }
+    db.delete_pet(char_id, pet)?;
+    println!("Deleted pet '{}' for {}.", pet, name);
+    Ok(())
+}
+
+fn cmd_merge_pets(db_path: &str, name: &str, target: &str, sources: &[String]) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let char = resolve_character(&db, name)?;
+    db.merge_pets(char.id.unwrap(), sources, target)?;
+    println!("Merged {} into '{}' for {}.", sources.join(", "), target, name);
     Ok(())
 }
 
@@ -2296,6 +2338,27 @@ mod tests {
     fn update_and_pending_require_a_folder() {
         assert!(Cli::try_parse_from(["amanuensis", "update"]).is_err());
         assert!(Cli::try_parse_from(["amanuensis", "pending"]).is_err());
+    }
+
+    #[test]
+    fn parses_pet_edit_commands() {
+        let del = Cli::try_parse_from(["amanuensis", "delete-pet", "Fen", "Cat"]).unwrap();
+        match del.command {
+            Commands::DeletePet { name, pet } => {
+                assert_eq!(name, "Fen");
+                assert_eq!(pet, "Cat");
+            }
+            _ => panic!("expected DeletePet"),
+        }
+        let merge = Cli::try_parse_from(["amanuensis", "merge-pets", "Fen", "Cat", "Kitty", "Puss"]).unwrap();
+        match merge.command {
+            Commands::MergePets { target, sources, .. } => {
+                assert_eq!(target, "Cat");
+                assert_eq!(sources, vec!["Kitty", "Puss"]);
+            }
+            _ => panic!("expected MergePets"),
+        }
+        assert!(Cli::try_parse_from(["amanuensis", "merge-pets", "Fen", "Cat"]).is_err());
     }
 
     #[test]

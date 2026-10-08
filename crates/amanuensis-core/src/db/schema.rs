@@ -171,6 +171,8 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             character_id INTEGER NOT NULL,
             pet_name TEXT NOT NULL,
             creature_name TEXT NOT NULL,
+            hidden INTEGER NOT NULL DEFAULT 0,
+            merged_into TEXT,
             FOREIGN KEY (character_id) REFERENCES characters(id),
             UNIQUE(character_id, pet_name)
         );
@@ -289,6 +291,10 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         // Upper bound on lasties remaining, from the ranger study milestone wording
         // ("a lot to learn" → <700). NULL = no milestone message seen yet.
         "ALTER TABLE lastys ADD COLUMN kills_left INTEGER",
+        // User pet edits. Rows carrying either override survive reset_log_data, so a
+        // rescan's INSERT OR IGNORE re-detection leaves the override in place.
+        "ALTER TABLE pets ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE pets ADD COLUMN merged_into TEXT",
     ];
 
     for sql in &migrations {

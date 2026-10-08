@@ -408,6 +408,82 @@ mod tests {
         assert_eq!(pets[0].pet_name, "Maha Ruknee");
     }
 
+    fn pet_names(db: &Database, id: i64) -> Vec<String> {
+        db.get_pets_merged(id).unwrap().into_iter().map(|p| p.pet_name).collect()
+    }
+
+    #[test]
+    fn delete_pet_hides_it_and_survives_rescan() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        db.upsert_pet(id, "Cat").unwrap();
+        db.upsert_pet(id, "Dog").unwrap();
+        db.delete_pet(id, "Cat").unwrap();
+        assert_eq!(pet_names(&db, id), vec!["Dog"]);
+
+        // A Rescan Logs resets then re-detects the pet; the delete must stick.
+        db.reset_log_data().unwrap();
+        db.upsert_pet(id, "Cat").unwrap();
+        db.upsert_pet(id, "Dog").unwrap();
+        assert_eq!(pet_names(&db, id), vec!["Dog"]);
+    }
+
+    #[test]
+    fn merge_pets_folds_sources_into_target_and_survives_rescan() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        for p in ["Cat", "Kitty", "Dog"] {
+            db.upsert_pet(id, p).unwrap();
+        }
+        db.merge_pets(id, &["Kitty".to_string()], "Cat").unwrap();
+        assert_eq!(pet_names(&db, id), vec!["Cat", "Dog"]);
+
+        db.reset_log_data().unwrap();
+        for p in ["Cat", "Kitty", "Dog"] {
+            db.upsert_pet(id, p).unwrap();
+        }
+        assert_eq!(pet_names(&db, id), vec!["Cat", "Dog"]);
+    }
+
+    #[test]
+    fn merge_pets_rejects_bad_target() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        db.upsert_pet(id, "Cat").unwrap();
+        db.upsert_pet(id, "Dog").unwrap();
+        assert!(db.merge_pets(id, &["Cat".to_string()], "Nope").is_err());
+        assert!(db.merge_pets(id, &["Cat".to_string()], "Cat").is_err());
+        db.delete_pet(id, "Dog").unwrap();
+        assert!(db.merge_pets(id, &["Cat".to_string()], "Dog").is_err());
+        assert_eq!(pet_names(&db, id), vec!["Cat"]);
+    }
+
+    #[test]
+    fn pet_overrides_apply_across_merged_characters() {
+        let db = Database::open_in_memory().unwrap();
+        let a = db.get_or_create_character("A").unwrap();
+        let b = db.get_or_create_character("B").unwrap();
+        db.upsert_pet(a, "Cat").unwrap();
+        db.upsert_pet(b, "Cat").unwrap();
+        db.upsert_pet(b, "Dog").unwrap();
+        db.merge_characters(&[b], a).unwrap();
+        // Deleting via the merged view hides the pet on every merge source.
+        db.delete_pet(a, "Cat").unwrap();
+        assert_eq!(pet_names(&db, a), vec!["Dog"]);
+    }
+
+    #[test]
+    fn delete_all_data_wipes_pet_overrides() {
+        let db = Database::open_in_memory().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        db.upsert_pet(id, "Cat").unwrap();
+        db.delete_pet(id, "Cat").unwrap();
+        db.delete_all_data().unwrap();
+        let id = db.get_or_create_character("Fen").unwrap();
+        db.upsert_pet(id, "Cat").unwrap();
+        assert_eq!(pet_names(&db, id), vec!["Cat"]);
+    }
+
     #[test]
     fn test_upsert_lasty() {
         let db = Database::open_in_memory().unwrap();

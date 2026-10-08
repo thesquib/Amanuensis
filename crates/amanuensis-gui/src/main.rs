@@ -50,6 +50,8 @@ fn main() {
             commands::get_trainer_checkpoints,
             commands::get_all_trainer_checkpoints,
             commands::set_trainer_note,
+            commands::delete_pet,
+            commands::merge_pets,
             commands::get_bestiary,
             commands::get_encountered_creatures,
             commands::get_kill_frequency,

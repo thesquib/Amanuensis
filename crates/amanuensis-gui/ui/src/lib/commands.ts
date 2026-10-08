@@ -123,6 +123,18 @@ export async function searchLogs(
   });
 }
 
+export async function deletePet(charId: number, petName: string): Promise<void> {
+  return invoke("delete_pet", { charId, petName });
+}
+
+export async function mergePets(
+  charId: number,
+  sourceNames: string[],
+  targetName: string,
+): Promise<void> {
+  return invoke("merge_pets", { charId, sourceNames, targetName });
+}
+
 export async function setTrainerNote(
   charId: number,
   trainerName: string,

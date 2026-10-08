@@ -127,7 +127,7 @@ export function useDatabase() {
   const handleReset = useCallback(async () => {
     if (!dbPath) return;
     const confirmed = await confirm(
-      "This will clear all scanned data (kills, trainers, pets, lastys) and reset all stats. Your rank modifier settings will be preserved.\n\nAre you sure?",
+      "This will clear all scanned data (kills, trainers, pets, lastys) and reset all stats. Your rank modifier settings and pet deletes/merges will be preserved.\n\nAre you sure?",
       { title: "Reset Database", kind: "warning" },
     );
     if (!confirmed) return;

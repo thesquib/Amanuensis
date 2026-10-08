@@ -81,12 +81,13 @@ impl Database {
     /// `trainer_checkpoints` is included because `log_files` is cleared here, so every
     /// file re-scans and would otherwise insert a duplicate copy of every checkpoint.
     /// `known_players` is log-derived too, and is repopulated by the following scan.
+    /// Pets the user deleted or merged are kept so those edits survive the rescan.
     pub fn reset_log_data(&self) -> Result<()> {
         self.conn.execute_batch(
             "DELETE FROM kills;
              DELETE FROM kill_hourly;
              DELETE FROM lastys;
-             DELETE FROM pets;
+             DELETE FROM pets WHERE hidden = 0 AND merged_into IS NULL;
              DELETE FROM log_files;
              DELETE FROM log_lines;
              DELETE FROM known_players;

@@ -143,6 +143,26 @@ pub fn export_kills(
     std::fs::write(&path, contents).map_err(|e| e.to_string())
 }
 
+/// Delete a pet from a character (kept hidden so a rescan doesn't restore it).
+#[tauri::command]
+pub fn delete_pet(char_id: i64, pet_name: String, state: State<'_, AppState>) -> Result<(), String> {
+    state.with_db(|db| db.delete_pet(char_id, &pet_name).map_err(|e| e.to_string()))
+}
+
+/// Merge pets logged under several names into one target pet.
+#[tauri::command]
+pub fn merge_pets(
+    char_id: i64,
+    source_names: Vec<String>,
+    target_name: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.with_db(|db| {
+        db.merge_pets(char_id, &source_names, &target_name)
+            .map_err(|e| e.to_string())
+    })
+}
+
 /// Set or clear a free-text note on a trainer row.
 #[tauri::command]
 pub fn set_trainer_note(

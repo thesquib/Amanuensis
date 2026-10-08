@@ -292,6 +292,7 @@ impl Database {
     }
 
     /// Get pets aggregated across a character and all its merge sources (distinct by pet_name).
+    /// A pet the user deleted or merged away on any source is hidden from the whole group.
     pub fn get_pets_merged(&self, char_id: i64) -> Result<Vec<Pet>> {
         let all_ids = self.char_ids_for_merged(char_id)?;
         if all_ids.len() == 1 {
@@ -302,6 +303,7 @@ impl Database {
             "SELECT MIN(id), {}, pet_name, creature_name
              FROM pets WHERE character_id IN ({})
              GROUP BY pet_name
+             HAVING MAX(hidden) = 0 AND COUNT(merged_into) = 0
              ORDER BY pet_name",
             char_id, placeholders
         );
