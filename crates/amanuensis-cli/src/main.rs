@@ -714,6 +714,13 @@ fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     println!("Total ranks:    {}", total_ranks);
     println!("Effective ranks: {}", effective_ranks);
     println!("Trainers visited: {}", trainers.len());
+    if char.logins > 0 {
+        println!(
+            "Kills / login:  {:.1}",
+            (total_solo + total_assisted) as f64 / char.logins as f64
+        );
+        println!("Ranks / login:  {:.2}", total_ranks as f64 / char.logins as f64);
+    }
     if char.untraining_count > 0 {
         println!("Untrained:      {}x", char.untraining_count);
     }

@@ -290,6 +290,18 @@ export function SummaryView() {
             <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Departs</div>
             <div className="text-sm font-semibold">{char.departs.toLocaleString()}</div>
           </div>
+          {char.logins > 0 && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Kills / Login</div>
+                <div className="text-sm font-semibold">{((totalKills + totalAssisted) / char.logins).toFixed(1)}</div>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Ranks / Login</div>
+                <div className="text-sm font-semibold">{(totalRanks / char.logins).toFixed(2)}</div>
+              </div>
+            </>
+          )}
           <div className="my-0.5 border-t border-[var(--color-border)]" />
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs uppercase tracking-wide text-[var(--color-text-muted)] shrink-0">Good Karma</div>
