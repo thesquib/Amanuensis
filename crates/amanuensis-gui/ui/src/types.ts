@@ -81,6 +81,21 @@ export interface Kill {
 }
 
 /** Mirrors Rust `Trainer` struct */
+/** A user-entered rank override, keyed by character and trainer name. */
+export interface RankOverride {
+  character: string;
+  trainer: string;
+  modified_ranks: number;
+  rank_mode: string;
+  override_date: string | null;
+}
+
+export interface ApplyOverridesResult {
+  applied: number;
+  unknown_characters: string[];
+  needs_rescan: boolean;
+}
+
 export interface Trainer {
   id: number | null;
   character_id: number;

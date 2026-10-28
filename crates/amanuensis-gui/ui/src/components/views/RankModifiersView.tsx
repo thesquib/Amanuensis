@@ -1,18 +1,24 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { confirm } from "@tauri-apps/plugin-dialog";
+import { confirm, message, open, save } from "@tauri-apps/plugin-dialog";
 import { useStore } from "../../lib/store";
 import { ProfessionBadge } from "../shared/ProfessionBadge";
 import {
   clearRankOverrides,
+  discardMissingRankOverrides,
+  exportRankOverrides,
+  getMissingRankOverrides,
   getTrainerCheckpoints,
   getTrainerDbInfo,
   getTrainers,
+  importRankOverrides,
   listCharacters,
+  moveRankOverride,
+  restoreMissingRankOverrides,
   setRankOverride,
 } from "../../lib/commands";
 import { PROFESSION_ORDER, STORAGE_KEYS } from "../../lib/constants";
 import { todayMDYY } from "../../lib/dateUtils";
-import type { Trainer, TrainerCheckpoint, TrainerInfo } from "../../types";
+import type { RankOverride, Trainer, TrainerCheckpoint, TrainerInfo } from "../../types";
 
 type RankMode = "modifier" | "override" | "override_until_date";
 
@@ -27,7 +33,11 @@ interface TrainerRow {
   combo_components: string[];
   rank_mode: RankMode;
   override_date: string | null;
+  /** Saved under a trainer name that's no longer in trainers.json (e.g. renamed). */
+  orphan?: boolean;
 }
+
+const ORPHAN_GROUP = "Renamed or unknown";
 
 const MODE_LABELS: Record<RankMode, string> = {
   modifier: "Modifier",
@@ -142,12 +152,17 @@ function computeEffective(row: TrainerRow): number {
 }
 
 export function RankModifiersView() {
-  const { trainers, setTrainers, setCharacters, selectedCharacterId, rankModifiersViewState, setRankModifiersViewState, showPlayerTrainers } = useStore();
+  const { trainers, characters, setTrainers, setCharacters, selectedCharacterId, rankModifiersViewState, setRankModifiersViewState, showPlayerTrainers } = useStore();
   const { searchQuery, collapsedGroups: collapsedArr } = rankModifiersViewState;
   const collapsedGroups = useMemo(() => new Set(collapsedArr), [collapsedArr]);
   const setSearchQuery = useCallback((v: string) => setRankModifiersViewState({ searchQuery: v }), [setRankModifiersViewState]);
   const [trainerDb, setTrainerDb] = useState<TrainerInfo[]>([]);
   const [rescanBanner, setRescanBanner] = useState(false);
+  const [missing, setMissing] = useState<RankOverride[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Bumped after a failed save to remount the inputs, so they show the stored value again.
+  const [inputRev, setInputRev] = useState(0);
+  const charName = characters.find((c) => c.id === selectedCharacterId)?.name ?? "this character";
   const [checkpointMap, setCheckpointMap] = useState<Map<string, TrainerCheckpoint>>(new Map());
   const hasSavedState = useMemo(() => localStorage.getItem(STORAGE_KEYS.COLLAPSED_RANK_MODIFIERS) !== null, []);
   const [defaultsInitialized, setDefaultsInitialized] = useState(hasSavedState);
@@ -173,6 +188,27 @@ export function RankModifiersView() {
       })
       .catch(() => {});
   }, [selectedCharacterId, trainers, showPlayerTrainers]);
+
+  // Backed-up overrides this character no longer has (cleared, or lost to a wipe or new database).
+  useEffect(() => {
+    if (selectedCharacterId == null) {
+      setMissing([]);
+      return;
+    }
+    getMissingRankOverrides(selectedCharacterId)
+      .then(setMissing)
+      .catch(() => setMissing([]));
+  }, [selectedCharacterId, trainers]);
+
+  const reload = useCallback(async () => {
+    if (selectedCharacterId == null) return;
+    const [updated, chars] = await Promise.all([
+      getTrainers(selectedCharacterId),
+      listCharacters(),
+    ]);
+    setTrainers(updated);
+    setCharacters(chars);
+  }, [selectedCharacterId, setTrainers, setCharacters]);
 
   const toggleGroup = useCallback((profession: string) => {
     const next = new Set(collapsedGroups);
@@ -205,6 +241,24 @@ export function RankModifiersView() {
         combo_components: dbTrainer.combo_components,
         rank_mode: existing?.rank_mode ?? "modifier",
         override_date: existing?.override_date ?? null,
+      });
+    }
+    // Overrides saved under a name trainers.json no longer has would otherwise be invisible.
+    const known = new Set(trainerDb.map((t) => t.name));
+    for (const t of trainers) {
+      if (known.has(t.trainer_name) || (t.modified_ranks === 0 && t.rank_mode === "modifier")) continue;
+      rows.push({
+        name: t.trainer_name,
+        profession: ORPHAN_GROUP,
+        ranks: t.ranks,
+        modified_ranks: t.modified_ranks,
+        apply_learning_ranks: t.apply_learning_ranks,
+        multiplier: t.effective_multiplier,
+        is_combo: false,
+        combo_components: [],
+        rank_mode: t.rank_mode as RankMode,
+        override_date: t.override_date,
+        orphan: true,
       });
     }
     return rows;
@@ -265,21 +319,99 @@ export function RankModifiersView() {
       if (selectedCharacterId == null) return;
       try {
         await setRankOverride(selectedCharacterId, trainerName, mode, value, date);
-        const [updated, chars] = await Promise.all([
-          getTrainers(selectedCharacterId),
-          listCharacters(),
-        ]);
-        setTrainers(updated);
-        setCharacters(chars);
+        await reload();
+        setNotice(null);
         if (mode !== "modifier") {
           setRescanBanner(true);
         }
       } catch (e) {
-        console.error("Failed to save rank override:", e);
+        setNotice(`Couldn't save ${trainerName}: ${e}. The value was not saved.`);
+        setInputRev((r) => r + 1);
       }
     },
-    [selectedCharacterId, setTrainers, setCharacters],
+    [selectedCharacterId, reload],
   );
+
+  const handleMove = useCallback(
+    async (from: string, to: string) => {
+      if (selectedCharacterId == null || !to) return;
+      const ok = await confirm(`Move the rank override on "${from}" to "${to}"?`, { title: "Move Override" });
+      if (!ok) return;
+      try {
+        await moveRankOverride(selectedCharacterId, from, to);
+        await reload();
+        setNotice(null);
+      } catch (e) {
+        setNotice(`Couldn't move ${from}: ${e}`);
+      }
+    },
+    [selectedCharacterId, reload],
+  );
+
+  const handleRestoreMissing = useCallback(async () => {
+    if (selectedCharacterId == null) return;
+    try {
+      const r = await restoreMissingRankOverrides(selectedCharacterId);
+      await reload();
+      if (r.needs_rescan) setRescanBanner(true);
+    } catch (e) {
+      setNotice(`Couldn't restore rank modifiers: ${e}`);
+    }
+  }, [selectedCharacterId, reload]);
+
+  const handleDiscardMissing = useCallback(async () => {
+    if (selectedCharacterId == null) return;
+    const ok = await confirm(
+      `Permanently forget the ${missing.length} saved rank modifier(s) for ${charName}? This cannot be undone.`,
+      { title: "Discard Saved Modifiers", kind: "warning" },
+    );
+    if (!ok) return;
+    try {
+      await discardMissingRankOverrides(selectedCharacterId);
+      setMissing([]);
+    } catch (e) {
+      setNotice(`Couldn't discard saved rank modifiers: ${e}`);
+    }
+  }, [selectedCharacterId, missing.length, charName]);
+
+  const handleExport = useCallback(async () => {
+    const path = await save({
+      title: "Export Rank Modifiers",
+      defaultPath: "rank-modifiers.json",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!path) return;
+    try {
+      const n = await exportRankOverrides(path);
+      await message(`Exported ${n} rank modifier(s) for all characters to ${path}.`, { title: "Export Complete" });
+    } catch (e) {
+      await message(String(e), { title: "Export Failed", kind: "error" });
+    }
+  }, []);
+
+  const handleImport = useCallback(async () => {
+    const path = await open({
+      title: "Import Rank Modifiers",
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (!path) return;
+    const ok = await confirm(
+      "Importing replaces the current value of every trainer in the file, for each character it names. Continue?",
+      { title: "Import Rank Modifiers", kind: "warning" },
+    );
+    if (!ok) return;
+    try {
+      const r = await importRankOverrides(path);
+      await reload();
+      if (r.needs_rescan) setRescanBanner(true);
+      const skipped = r.unknown_characters.length
+        ? `\n\nSkipped characters not in this database: ${r.unknown_characters.join(", ")}`
+        : "";
+      await message(`Imported ${r.applied} rank modifier(s).${skipped}`, { title: "Import Complete" });
+    } catch (e) {
+      await message(String(e), { title: "Import Failed", kind: "error" });
+    }
+  }, [reload]);
 
   // Summary stats (use unfiltered rows for totals)
   const totalTrainers = trainerRows.length;
@@ -323,23 +455,18 @@ export function RankModifiersView() {
   const handleClearAllOverrides = useCallback(async () => {
     if (selectedCharacterId == null) return;
     const confirmed = await confirm(
-      "This will reset all rank modifiers, override modes, and override dates back to defaults. Are you sure?",
-      { title: "Clear All Overrides", kind: "warning" },
+      `Reset ${charName}'s rank modifiers, override modes, and override dates to defaults? Other characters are not affected, and you can restore them afterwards.`,
+      { title: "Clear Overrides", kind: "warning" },
     );
     if (!confirmed) return;
     try {
-      await clearRankOverrides();
-      const [updated, chars] = await Promise.all([
-        getTrainers(selectedCharacterId),
-        listCharacters(),
-      ]);
-      setTrainers(updated);
-      setCharacters(chars);
+      await clearRankOverrides(selectedCharacterId);
+      await reload();
       setRescanBanner(false);
     } catch (e) {
-      console.error("Failed to clear rank overrides:", e);
+      setNotice(`Couldn't clear rank overrides: ${e}`);
     }
-  }, [selectedCharacterId, setTrainers, setCharacters]);
+  }, [selectedCharacterId, charName, reload]);
 
   return (
     <div className="flex h-full flex-col">
@@ -353,6 +480,31 @@ export function RankModifiersView() {
       <div className="mb-3 text-xs text-[var(--color-text-muted)]">
         Add ranks that don't appear in logs. Use Override modes for characters with incomplete log history.
       </div>
+
+      {notice && (
+        <div className="mb-3 flex items-center justify-between rounded border border-[var(--color-danger)] bg-[var(--color-danger-bg)] px-3 py-2 text-sm text-[var(--color-danger)]">
+          <span>{notice}</span>
+          <button type="button" onClick={() => setNotice(null)} className="ml-2 text-xs hover:opacity-70">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {missing.length > 0 && (
+        <div className="mb-3 flex items-center justify-between rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+          <span title={missing.map((m) => `${m.trainer}: ${m.modified_ranks} (${m.rank_mode})`).join("\n")}>
+            {missing.length} saved rank modifier(s) for {charName} aren't in this database.
+          </span>
+          <div className="ml-2 flex shrink-0 gap-3 text-xs">
+            <button type="button" onClick={handleRestoreMissing} className="text-amber-200 hover:text-white">
+              Restore
+            </button>
+            <button type="button" onClick={handleDiscardMissing} className="text-amber-400 hover:text-amber-200">
+              Discard
+            </button>
+          </div>
+        </div>
+      )}
 
       {rescanBanner && (
         <div className="mb-3 flex items-center justify-between rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
@@ -390,14 +542,20 @@ export function RankModifiersView() {
           <button type="button" onClick={openAllSet} className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)]" title="Open groups that have any modifiers set">
             Open All Set
           </button>
+          <button type="button" onClick={handleExport} className="ml-2 rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)]" title="Save every character's rank modifiers to a file">
+            Export
+          </button>
+          <button type="button" onClick={handleImport} className="rounded px-2 py-1 text-xs text-[var(--color-text-muted)] hover:bg-[var(--color-card)] hover:text-[var(--color-text)]" title="Load rank modifiers from an exported file">
+            Import
+          </button>
           <button
             type="button"
             onClick={handleClearAllOverrides}
             disabled={selectedCharacterId == null}
             className="ml-2 rounded border border-[var(--color-danger)] px-2 py-1 text-xs text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)] disabled:opacity-40"
-            title="Reset all rank modifiers, override modes, and override dates to defaults"
+            title="Reset this character's rank modifiers, override modes, and override dates to defaults"
           >
-            Clear All Overrides
+            Clear Overrides
           </button>
         </div>
       </div>
@@ -469,6 +627,19 @@ export function RankModifiersView() {
                             >
                               <td className="px-3 py-1.5">
                                 {t.name}
+                                {t.orphan && (
+                                  <select
+                                    value=""
+                                    onChange={(e) => handleMove(t.name, e.target.value)}
+                                    className="ml-2 rounded border border-[var(--color-border)] bg-[var(--color-card)] px-1 py-0.5 text-xs"
+                                    title="This trainer name isn't in the trainer list any more. Move the override to the current name."
+                                  >
+                                    <option value="">Move to…</option>
+                                    {trainerDb.map((d) => (
+                                      <option key={d.name} value={d.name}>{d.name}</option>
+                                    ))}
+                                  </select>
+                                )}
                                 {t.is_combo && (
                                   <span
                                     className="ml-1 cursor-help text-[var(--color-accent)]"
@@ -486,6 +657,7 @@ export function RankModifiersView() {
                               </td>
                               <td className="px-3 py-1.5">
                                 <RankModeInput
+                                  key={inputRev}
                                   row={t}
                                   onSave={(mode, val, date) => handleSave(t.name, mode, val, date)}
                                 />

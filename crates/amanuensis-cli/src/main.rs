@@ -184,11 +184,24 @@ enum Commands {
         /// Note text; omit to clear the existing note
         note: Option<String>,
     },
-    /// Clear ALL rank overrides/modifiers across every character (mirrors the GUI's bulk clear)
+    /// Clear rank overrides/modifiers for one character, or for every character if none is given
     ClearRankOverrides {
+        /// Only clear this character (and its merge sources)
+        #[arg(long)]
+        character: Option<String>,
         /// Skip confirmation prompt
         #[arg(long)]
         yes: bool,
+    },
+    /// Write every rank override/modifier to a JSON file (same format as the GUI's Export)
+    ExportOverrides {
+        /// Output file
+        file: String,
+    },
+    /// Apply a rank override file written by export-overrides, matching characters by name
+    ImportOverrides {
+        /// Input file
+        file: String,
     },
     /// Reset derived log data (kills, trainers, coins, ...) while PRESERVING rank overrides and
     /// trainer notes. Unlike `reset`, this keeps the database file and your manual configuration
@@ -471,7 +484,11 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::SetTrainerNote { name, trainer, note } => {
             cmd_set_trainer_note(&db_path, &name, &trainer, note.as_deref())
         }
-        Commands::ClearRankOverrides { yes } => cmd_clear_rank_overrides(&db_path, yes),
+        Commands::ClearRankOverrides { character, yes } => {
+            cmd_clear_rank_overrides(&db_path, character.as_deref(), yes)
+        }
+        Commands::ExportOverrides { file } => cmd_export_overrides(&db_path, &file),
+        Commands::ImportOverrides { file } => cmd_import_overrides(&db_path, &file),
         Commands::ResetLogs { yes } => cmd_reset_logs(&db_path, yes),
         Commands::SetRanks { name, trainer, ranks } => {
             cmd_set_ranks(&db_path, &name, &trainer, ranks)
@@ -1326,9 +1343,12 @@ fn cmd_set_trainer_note(db_path: &str, name: &str, trainer: &str, note: Option<&
     Ok(())
 }
 
-fn cmd_clear_rank_overrides(db_path: &str, yes: bool) -> amanuensis_core::Result<()> {
+fn cmd_clear_rank_overrides(db_path: &str, character: Option<&str>, yes: bool) -> amanuensis_core::Result<()> {
     if !yes {
-        eprint!("This will clear ALL rank overrides/modifiers for every character. Continue? [y/N] ");
+        match character {
+            Some(name) => eprint!("This will clear all rank overrides/modifiers for {}. Continue? [y/N] ", name),
+            None => eprint!("This will clear ALL rank overrides/modifiers for every character. Continue? [y/N] "),
+        }
         let _ = io::stderr().flush();
         let mut input = String::new();
         io::stdin().read_line(&mut input).map_err(|e| {
@@ -1340,8 +1360,39 @@ fn cmd_clear_rank_overrides(db_path: &str, yes: bool) -> amanuensis_core::Result
         }
     }
     let db = Database::open(db_path)?;
-    db.clear_rank_overrides()?;
-    println!("All rank overrides cleared.");
+    match character {
+        Some(name) => {
+            let char = resolve_character(&db, name)?;
+            db.clear_rank_overrides(char.id)?;
+            println!("Rank overrides cleared for {}.", name);
+        }
+        None => {
+            db.clear_rank_overrides(None)?;
+            println!("All rank overrides cleared.");
+        }
+    }
+    Ok(())
+}
+
+fn cmd_export_overrides(db_path: &str, file: &str) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let all = db.rank_overrides(None)?;
+    amanuensis_core::write_overrides_file(Path::new(file), &all)?;
+    println!("Exported {} rank override(s) to {}.", all.len(), file);
+    Ok(())
+}
+
+fn cmd_import_overrides(db_path: &str, file: &str) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let entries = amanuensis_core::read_overrides_file(Path::new(file))?;
+    let r = db.apply_rank_overrides(None, &entries)?;
+    println!("Imported {} rank override(s).", r.applied);
+    if !r.unknown_characters.is_empty() {
+        println!("Skipped characters not in this database: {}", r.unknown_characters.join(", "));
+    }
+    if r.needs_rescan {
+        println!("Some trainers use an override mode: run `amanuensis rescan` to recount their log ranks.");
+    }
     Ok(())
 }
 
@@ -2437,7 +2488,7 @@ mod tests {
     #[test]
     fn parses_clear_and_reset_logs_flags() {
         match Cli::try_parse_from(["amanuensis", "clear-rank-overrides", "--yes"]).unwrap().command {
-            Commands::ClearRankOverrides { yes } => assert!(yes),
+            Commands::ClearRankOverrides { character, yes } => assert!(yes && character.is_none()),
             _ => panic!("expected ClearRankOverrides"),
         }
         match Cli::try_parse_from(["amanuensis", "reset-logs"]).unwrap().command {

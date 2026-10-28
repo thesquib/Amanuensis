@@ -17,12 +17,14 @@ mod log_file;
 mod merge;
 mod player;
 mod process_log;
+mod rank_override;
 mod scan_scope;
 
 pub use blackjack::BlackjackSummary;
 pub use depart::DepartSummary;
 pub use frequency::CreatureFrequency;
 pub use scan_scope::ScanScope;
+pub use rank_override::{RankOverride, ApplyOverridesResult, read_overrides_file, write_overrides_file};
 pub use kill::{KillsFilter, filter_kills, group_kills};
 
 // ---------------------------------------------------------------------------

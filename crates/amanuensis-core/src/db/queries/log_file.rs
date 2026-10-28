@@ -140,22 +140,28 @@ impl Database {
         Ok(())
     }
 
-    /// Clear all user-controlled rank override data, resetting trainers back to
-    /// modifier mode with zero modified ranks.  Recomputes coin_level for all
-    /// characters afterwards.
-    pub fn clear_rank_overrides(&self) -> Result<()> {
-        self.conn.execute_batch(
-            "UPDATE trainers SET modified_ranks=0, rank_mode='modifier', override_date=NULL;",
-        )?;
-        // Recompute coin_level for every character
-        let char_ids: Vec<i64> = {
-            let mut stmt = self.conn.prepare("SELECT id FROM characters")?;
-            let ids = stmt
-                .query_map([], |row| row.get(0))?
-                .filter_map(|r| r.ok())
-                .collect();
-            ids
+    /// Clear user-controlled rank override data, resetting trainers back to modifier
+    /// mode with zero modified ranks: for one character (and its merge sources) or,
+    /// with `None`, every character. Recomputes coin_level for those characters.
+    pub fn clear_rank_overrides(&self, char_id: Option<i64>) -> Result<()> {
+        let char_ids: Vec<i64> = match char_id {
+            Some(id) => self.char_ids_for_merged(id)?,
+            None => {
+                let mut stmt = self.conn.prepare("SELECT id FROM characters")?;
+                let ids = stmt
+                    .query_map([], |row| row.get(0))?
+                    .filter_map(|r| r.ok())
+                    .collect();
+                ids
+            }
         };
+        for &id in &char_ids {
+            self.conn.execute(
+                "UPDATE trainers SET modified_ranks=0, rank_mode='modifier', override_date=NULL
+                 WHERE character_id = ?1",
+                params![id],
+            )?;
+        }
         for char_id in char_ids {
             let coin_level = self.compute_coin_level_from_kills(char_id)?;
             self.update_coin_level(char_id, coin_level)?;

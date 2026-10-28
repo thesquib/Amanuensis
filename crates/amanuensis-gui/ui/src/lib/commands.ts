@@ -15,6 +15,8 @@ import type {
   CreatureFrequency,
   DepartSummary,
   BlackjackSummary,
+  RankOverride,
+  ApplyOverridesResult,
 } from "../types";
 
 export async function openDatabase(path: string): Promise<void> {
@@ -194,8 +196,32 @@ export async function updateLogs(
   return invoke("update_logs", { sources, indexLines });
 }
 
-export async function clearRankOverrides(): Promise<void> {
-  return invoke("clear_rank_overrides");
+export async function clearRankOverrides(charId: number): Promise<void> {
+  return invoke("clear_rank_overrides", { charId });
+}
+
+export async function moveRankOverride(charId: number, from: string, to: string): Promise<void> {
+  return invoke("move_rank_override", { charId, from, to });
+}
+
+export async function exportRankOverrides(path: string): Promise<number> {
+  return invoke("export_rank_overrides", { path });
+}
+
+export async function importRankOverrides(path: string): Promise<ApplyOverridesResult> {
+  return invoke("import_rank_overrides", { path });
+}
+
+export async function getMissingRankOverrides(charId: number): Promise<RankOverride[]> {
+  return invoke("get_missing_rank_overrides", { charId });
+}
+
+export async function restoreMissingRankOverrides(charId: number): Promise<ApplyOverridesResult> {
+  return invoke("restore_missing_rank_overrides", { charId });
+}
+
+export async function discardMissingRankOverrides(charId: number): Promise<void> {
+  return invoke("discard_missing_rank_overrides", { charId });
 }
 
 export async function importScribiusDb(
