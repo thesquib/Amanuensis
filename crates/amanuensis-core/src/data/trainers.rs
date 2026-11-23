@@ -26,7 +26,12 @@ pub struct TrainerDb {
     multipliers: HashMap<String, f64>,
     /// Map from trainer name to combo component trainer names
     combo_components: HashMap<String, Vec<String>>,
+    /// Map from a default trainer name to the other trainers sharing its message
+    alternates: HashMap<String, Vec<String>>,
 }
+
+/// Bump when trainer data or attribution changes.
+pub const TRAINER_REVISION: u32 = 1;
 
 impl TrainerDb {
     /// Load from JSON bytes. The JSON has ¥-prefixed keys mapping to {"trainer": "Name", "profession": "...", ...}.
@@ -37,6 +42,7 @@ impl TrainerDb {
         let mut professions = HashMap::new();
         let mut multipliers = HashMap::new();
         let mut combo_components = HashMap::new();
+        let mut alternates: HashMap<String, Vec<String>> = HashMap::new();
 
         for (key, value) in raw {
             if let Some(trainer_name) = value.get("trainer").and_then(|v| v.as_str()) {
@@ -55,6 +61,23 @@ impl TrainerDb {
                     .and_then(|v| v.as_f64())
                 {
                     multipliers.insert(trainer_name.to_string(), mult);
+                }
+
+                // Alternates share this message but are registered like primaries
+                for alt in value.get("alternates").and_then(|v| v.as_array()).into_iter().flatten() {
+                    let Some(alt_name) = alt.get("trainer").and_then(|v| v.as_str()) else {
+                        continue;
+                    };
+                    alternates
+                        .entry(trainer_name.to_string())
+                        .or_default()
+                        .push(alt_name.to_string());
+                    if let Some(p) = alt.get("profession").and_then(|v| v.as_str()) {
+                        professions.insert(alt_name.to_string(), p.to_string());
+                    }
+                    if let Some(m) = alt.get("effective_rank_multiplier").and_then(|v| v.as_f64()) {
+                        multipliers.insert(alt_name.to_string(), m);
+                    }
                 }
 
                 // Store combo components if present
@@ -83,6 +106,7 @@ impl TrainerDb {
             professions,
             multipliers,
             combo_components,
+            alternates,
         })
     }
 
@@ -135,6 +159,14 @@ impl TrainerDb {
             .unwrap_or(&[])
     }
 
+    /// Trainers that share `default_trainer`'s message (empty if none).
+    pub fn alternates_of(&self, default_trainer: &str) -> &[String] {
+        self.alternates
+            .get(default_trainer)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
+    }
+
     pub fn len(&self) -> usize {
         self.trainers.len()
     }
@@ -148,7 +180,8 @@ impl TrainerDb {
     pub fn all_trainer_metadata(&self) -> Vec<TrainerMeta> {
         let mut seen = std::collections::HashSet::new();
         let mut result = Vec::new();
-        for trainer_name in self.trainers.values() {
+        let names = self.trainers.values().chain(self.alternates.values().flatten());
+        for trainer_name in names {
             if seen.insert(trainer_name.clone()) {
                 let components = self
                     .combo_components
@@ -172,6 +205,39 @@ impl TrainerDb {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Changing trainer data or attribution? Bump TRAINER_REVISION.
+    #[test]
+    fn community_confirmed_trainer_facts() {
+        let db = TrainerDb::bundled().unwrap();
+        // clump.clanlord.net Fighter_Trainers: Rodnus is a Fighter trainer.
+        assert_eq!(db.get_profession("Rodnus"), Some("Fighter"));
+        // clump Fighter_Trainers / Healer_Trainers / Trainer_Rank_Messages rev 2702: alternates sharing a message.
+        assert_eq!(db.get_trainer("You seem to be able to take more damage now."), Some("Histia"));
+        assert_eq!(db.get_profession("Histia"), Some("Fighter"));
+        assert_eq!(db.alternates_of("Histia"), &["Higgrus".to_string()]);
+        assert_eq!(db.get_profession("Higgrus"), Some("Healer"));
+        assert_eq!(db.get_trainer("Your body feels stronger."), Some("Master Bodrus"));
+        assert_eq!(db.alternates_of("Master Bodrus"), &["Hardia".to_string()]);
+        assert_eq!(db.get_profession("Hardia"), Some("Healer"));
+        for universal in ["Master Bodrus", "Master Spirtus", "Master Mentus", "Heen Slostid"] {
+            assert_eq!(db.get_profession(universal), None, "{universal}");
+        }
+    }
+
+    #[test]
+    fn alternates_parsed_and_registered() {
+        let json = r#"{"¥You seem to be able to take more damage now.": {"trainer": "Histia", "profession": "Fighter",
+            "alternates": [{"trainer": "Higgrus", "profession": "Healer", "effective_rank_multiplier": 1.5}]}}"#;
+        let db = TrainerDb::from_json_bytes(json.as_bytes()).unwrap();
+        assert_eq!(db.get_trainer("You seem to be able to take more damage now"), Some("Histia")); // no period
+        assert_eq!(db.alternates_of("Histia"), &["Higgrus".to_string()]);
+        assert!(db.alternates_of("Higgrus").is_empty());
+        assert_eq!(db.get_profession("Higgrus"), Some("Healer"));
+        assert_eq!(db.get_multiplier("Higgrus"), 1.5);
+        let names: Vec<_> = db.all_trainer_metadata().into_iter().map(|m| m.name).collect();
+        assert!(names.contains(&"Higgrus".to_string()) && names.contains(&"Histia".to_string()));
+    }
 
     #[test]
     fn test_load_bundled_trainers() {
@@ -285,7 +351,7 @@ mod tests {
         assert_eq!(db.get_profession("Angilsa"), Some("Fighter"));
         assert_eq!(db.get_profession("Atkia"), Some("Fighter"));
         assert_eq!(db.get_profession("Master Bodrus"), None);
-        assert_eq!(db.get_profession("Rodnus"), Some("Healer"));
+        assert_eq!(db.get_profession("Rodnus"), Some("Fighter"));
         assert_eq!(db.get_profession("Master Spirtus"), None);
         assert_eq!(db.get_profession("Master Mentus"), None);
         assert_eq!(db.get_profession("Champion Blade"), Some("Champion"));

@@ -330,6 +330,14 @@ enum Commands {
         #[arg(long)]
         list: bool,
     },
+    /// Show whether trainer ranks were scanned before the current trainer data (the GUI's
+    /// rescan banner), and with --ack dismiss it
+    #[command(name = "trainer-status")]
+    TrainerStatus {
+        /// Dismiss the notice, like the banner's Dismiss button
+        #[arg(long)]
+        ack: bool,
+    },
     /// Print the path to the GUI's default database file
     GuiDbPath,
     /// Scan log files and extract item usage command help blocks (no DB needed)
@@ -457,6 +465,7 @@ fn run(cli: Cli) -> amanuensis_core::Result<()> {
         Commands::Pending { folders, recursive, list } => {
             cmd_pending(&db_path, &folders, recursive, list)
         }
+        Commands::TrainerStatus { ack } => cmd_trainer_status(&db_path, ack),
         Commands::Rescan { folders, recursive, no_index } => {
             cmd_rescan(&db_path, &folders, recursive, no_index)
         }
@@ -625,6 +634,36 @@ fn cmd_update(db_path: &str, folders: &[PathBuf], recursive: bool, no_index: boo
     Ok(())
 }
 
+/// The GUI banner's copy, when it would show.
+fn stale_notice(db: &Database) -> Option<String> {
+    let s = db.trainer_data_status().ok()?;
+    s.show.then(|| {
+        let mut out = format!("{}\n{}", s.title, s.body);
+        for i in &s.modifiers_to_review { out.push_str(&format!("\n  {}", i.reason)); }
+        out.push_str(&format!("\n{}", amanuensis_core::TRAINER_DATA_DISMISS_HINT));
+        out
+    })
+}
+
+fn cmd_trainer_status(db_path: &str, ack: bool) -> amanuensis_core::Result<()> {
+    let db = Database::open(db_path)?;
+    let s = db.trainer_data_status()?;
+    if !s.stale && !s.show {
+        println!("Trainer data is up to date.");
+        return Ok(());
+    }
+    println!("Stale: {}. Acknowledged: {}.", if s.stale { "yes" } else { "no" }, if s.acknowledged { "yes" } else { "no" });
+    println!("{}\n{}", s.title, s.body);
+    for i in &s.modifiers_to_review {
+        println!("  {}", i.reason);
+    }
+    if ack {
+        db.acknowledge_trainer_data()?;
+        println!("Notice dismissed.");
+    }
+    Ok(())
+}
+
 fn cmd_pending(db_path: &str, folders: &[PathBuf], recursive: bool, list: bool) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
     let sources: Vec<(PathBuf, bool)> = folders.iter().map(|f| (f.clone(), recursive)).collect();
@@ -691,6 +730,7 @@ fn cmd_characters(db_path: &str) -> amanuensis_core::Result<()> {
 
 fn cmd_summary(db_path: &str, name: &str) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
+    if let Some(n) = stale_notice(&db) { eprintln!("{n}"); }
     let base_char = resolve_character(&db, name)?;
 
     let char_id = base_char.id.unwrap();
@@ -1060,6 +1100,7 @@ fn scan_scope(last_scan: bool) -> amanuensis_core::ScanScope {
 
 fn cmd_trainers(db_path: &str, name: &str, last_scan: bool) -> amanuensis_core::Result<()> {
     let db = Database::open(db_path)?;
+    if let Some(n) = stale_notice(&db) { eprintln!("{n}"); }
     let char = resolve_character(&db, name)?;
 
     let char_id = char.id.unwrap();
@@ -2438,6 +2479,29 @@ mod tests {
             }
             _ => panic!("expected Pending"),
         }
+    }
+
+    #[test]
+    fn parses_trainer_status_with_and_without_ack() {
+        let cli = Cli::try_parse_from(["amanuensis", "trainer-status"]).unwrap();
+        assert!(matches!(cli.command, Commands::TrainerStatus { ack: false }));
+        let cli = Cli::try_parse_from(["amanuensis", "trainer-status", "--ack"]).unwrap();
+        assert!(matches!(cli.command, Commands::TrainerStatus { ack: true }));
+    }
+
+    #[test]
+    fn stale_notice_shows_until_acknowledged() {
+        let db = Database::open_in_memory().unwrap();
+        assert!(stale_notice(&db).is_none());
+        let id = db.get_or_create_character("Ruuk").unwrap();
+        db.conn().execute(
+            "INSERT INTO log_files (character_id, file_path, content_hash, date_read) VALUES (?1, 'a.txt', 'h', '2026-01-01')",
+            [id],
+        ).unwrap();
+        assert!(stale_notice(&db).unwrap().contains("Trainer ranks can now be read more accurately"));
+        assert!(stale_notice(&db).unwrap().ends_with("Run \"amanuensis trainer-status --ack\" to dismiss."));
+        db.acknowledge_trainer_data().unwrap();
+        assert!(stale_notice(&db).is_none());
     }
 
     #[test]

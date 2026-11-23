@@ -3,6 +3,8 @@ pub mod events;
 pub mod line_classifier;
 pub mod patterns;
 pub mod player_signals;
+mod shared_ranks;
+pub mod signup;
 pub mod timestamp;
 
 use std::cell::{Cell, RefCell};
@@ -75,6 +77,21 @@ pub struct LogParser {
     /// starts a new scan operation; nested public calls (e.g. `scan_sources` →
     /// `scan_recursive_with_progress` → `scan_folder_with_progress`) share its token.
     scan_depth: Cell<u32>,
+    /// `(file_path, line_no)` keys of shared-rank observations newly inserted during the
+    /// current scan operation. Cleared when an outermost scan op begins.
+    new_shared_obs: RefCell<Vec<(String, i64)>>,
+    /// Test-only failure injection point inside `derive_shared_ranks`.
+    #[cfg(test)]
+    fail_after: Cell<Option<&'static str>>,
+}
+
+/// State carried into `scan_bytes` when it starts mid-file (a tail scan).
+#[derive(Default)]
+pub(crate) struct ScanSeed {
+    movie: MovieFilter,
+    signup: signup::SignupTracker,
+    line_offset: i64,
+    last_ts: Option<String>,
 }
 
 /// RAII marker for one public scan entry point; see `LogParser::begin_scan_op`.
@@ -94,6 +111,7 @@ impl LogParser {
     fn begin_scan_op(&self) -> ScanOpGuard<'_> {
         if self.scan_depth.get() == 0 {
             self.scan_token.set(None);
+            self.new_shared_obs.borrow_mut().clear();
         }
         self.scan_depth.set(self.scan_depth.get() + 1);
         ScanOpGuard { depth: &self.scan_depth }
@@ -125,6 +143,9 @@ impl LogParser {
             checkpoint_speakers: RefCell::new(HashSet::new()),
             scan_token: Cell::new(None),
             scan_depth: Cell::new(0),
+            new_shared_obs: RefCell::new(Vec::new()),
+            #[cfg(test)]
+            fail_after: Cell::new(None),
         })
     }
 
@@ -378,13 +399,8 @@ impl LogParser {
                     }
                 };
 
-                let initial = if offset > 0 {
-                    self.active_char_at_offset(&bytes, offset)?
-                        .or_else(|| Some((char_id, char_name.clone())))
-                } else {
-                    Some((char_id, char_name.clone()))
-                };
-                match self.scan_bytes(&bytes[offset..], initial, &path_str, true, is_full_scan) {
+                let (initial, seed) = self.prefix_state(&bytes, offset, Some((char_id, char_name.clone())))?;
+                match self.scan_bytes(&bytes[offset..], initial, &path_str, true, is_full_scan, seed) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -472,8 +488,8 @@ impl LogParser {
             ScanPlan::Scan { bytes, offset, full_hash, count_login } => (bytes, offset, full_hash, count_login),
         };
 
-        let initial = self.active_char_at_offset(&bytes, offset)?;
-        let file_result = self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan)?;
+        let (initial, seed) = self.prefix_state(&bytes, offset, None)?;
+        let file_result = self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan, seed)?;
         if !file_result.attributed {
             // No determinable character anywhere in the file — skip and log; do NOT mark
             // scanned, and never create an "Unknown" character.
@@ -578,6 +594,7 @@ impl LogParser {
         file_path: &str,
         index_lines: bool,
         is_full_scan: bool,
+        seed: ScanSeed,
     ) -> Result<FileResult> {
         let content = decode_log_bytes(bytes);
         // Logins are counted per `Welcome to Clan Lord` (credited to that welcome's character);
@@ -596,7 +613,7 @@ impl LogParser {
             .and_then(|n| n.to_str())
             .unwrap_or("");
         let filename_date = parse_filename_date(filename_only);
-        let mut current_date: String = filename_date.clone().unwrap_or_default();
+        let mut current_date: String = seed.last_ts.clone().or_else(|| filename_date.clone()).unwrap_or_default();
         let mut had_real_timestamp = false;
 
         // State for parsing Ranger reflect creature lists (multi-line).
@@ -617,13 +634,15 @@ impl LogParser {
         // line. Starts as the caller-provided fallback (folder name) or None for loose files.
         let mut active: Option<(i64, String)> = initial_char.clone();
         let mut saw_welcome_login = false;
-        let mut movie = MovieFilter::default();
+        let mut movie = seed.movie.clone();
+        let mut signup = seed.signup.clone();
         // Follows the active character's blackjack rounds; restarted when it changes.
         let mut blackjack = blackjack::BlackjackTracker::default();
         let mut blackjack_char: Option<i64> = None;
 
-        for line in content.lines() {
+        for (line_idx, line) in content.lines().enumerate() {
             file_result.lines_parsed += 1;
+            let line_no = seed.line_offset + line_idx as i64;
 
             let (ts, message) = match parse_timestamp(line) {
                 Some((dt, msg)) => (Some(dt), msg),
@@ -659,11 +678,13 @@ impl LogParser {
                 self.db.increment_character_field(id, "logins", 1)?;
                 saw_welcome_login = true;
                 active = Some((id, name));
+                signup.reset();
             } else if let Some(caps) = patterns::WELCOME_BACK.captures(message) {
                 let name = titlecase_name(&caps[1]);
                 let id = self.db.get_or_create_character(&name)?;
                 self.load_override_config(id)?;
                 active = Some((id, name));
+                signup.reset();
             }
 
             // Everything below this point attributes to the active character. If none is
@@ -678,6 +699,14 @@ impl LogParser {
                 }
                 None => continue,
             };
+
+            if let Some(ev) = signup.feed(message, Some(char_name)) {
+                let trainer = match &ev {
+                    signup::SignupEvent::Npc(t) => Some(t.as_str()),
+                    signup::SignupEvent::PlayerTeacher => None,
+                };
+                self.db.insert_trainer_signup(file_path, line_no, char_id, &date_str, trainer)?;
+            }
 
             if blackjack_char != Some(char_id) {
                 blackjack = blackjack::BlackjackTracker::default();
@@ -845,7 +874,14 @@ impl LogParser {
                 }
 
                 LogEvent::TrainerRank { trainer_name, .. } => {
-                    if self.should_count_rank(char_id, &trainer_name, &date_str) {
+                    if !self.trainer_db.alternates_of(&trainer_name).is_empty() {
+                        // Shared message (Histia/Higgrus etc.): can't attribute at scan time;
+                        // finalize resolves it from the sign-up record.
+                        if self.db.insert_shared_rank_observation(file_path, line_no, char_id, &date_str, &trainer_name)? {
+                            self.new_shared_obs.borrow_mut().push((file_path.to_string(), line_no));
+                            file_result.events_found += 1;
+                        }
+                    } else if self.should_count_rank(char_id, &trainer_name, &date_str) {
                         let multiplier = self.trainer_db.get_multiplier(&trainer_name);
                         self.db
                             .upsert_trainer_rank(char_id, &trainer_name, &date_str, multiplier)?;
@@ -1534,13 +1570,8 @@ impl LogParser {
                     }
                 };
 
-                let initial = if offset > 0 {
-                    self.active_char_at_offset(&bytes, offset)?
-                        .or_else(|| Some((char_id, char_name.clone())))
-                } else {
-                    Some((char_id, char_name.clone()))
-                };
-                match self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan) {
+                let (initial, seed) = self.prefix_state(&bytes, offset, Some((char_id, char_name.clone())))?;
+                match self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan, seed) {
                     Ok(file_result) => {
                         result.files_scanned += 1;
                         result.lines_parsed += file_result.lines_parsed;
@@ -1727,13 +1758,8 @@ impl LogParser {
                 self.load_override_config(char_id)?;
             }
 
-            let initial = if offset > 0 {
-                self.active_char_at_offset(&bytes, offset)?
-                    .or_else(|| Some((char_id, char_name.clone())))
-            } else {
-                Some((char_id, char_name.clone()))
-            };
-            match self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan) {
+            let (initial, seed) = self.prefix_state(&bytes, offset, Some((char_id, char_name.clone())))?;
+            match self.scan_bytes(&bytes[offset..], initial, &path_str, index_lines, is_full_scan, seed) {
                 Ok(file_result) => {
                     result.files_scanned += 1;
                     result.lines_parsed += file_result.lines_parsed;
@@ -1889,36 +1915,49 @@ impl LogParser {
         Ok(combined)
     }
 
-    /// The character active at byte `offset` of `bytes` — the last `Welcome …` before it.
-    /// Used to seed a tail (append) scan so events after the offset attribute correctly.
-    fn active_char_at_offset(&self, bytes: &[u8], offset: usize) -> Result<Option<(i64, String)>> {
-        if offset == 0 { return Ok(None); }
+    /// Replays the prefix `bytes[..offset]` of a tail (append) scan: returns the active character
+    /// (last `Welcome …`, else `fallback`) and the `ScanSeed` (movie/sign-up state, line count,
+    /// last timestamp) so the tail resumes exactly where the prefix ended.
+    // shortcut: a prefix ending mid-line leaves the tail's first line as a fragment; unchanged offset behaviour.
+    fn prefix_state(
+        &self,
+        bytes: &[u8],
+        offset: usize,
+        fallback: Option<(i64, String)>,
+    ) -> Result<(Option<(i64, String)>, ScanSeed)> {
+        if offset == 0 { return Ok((fallback, ScanSeed::default())); }
         let prefix = decode_log_bytes(&bytes[..offset.min(bytes.len())]);
-        let mut name: Option<String> = None;
-        let mut movie = MovieFilter::default();
+        let mut seed = ScanSeed::default();
+        let mut welcomed: Option<String> = None;
+        let mut active_name: Option<String> = fallback.as_ref().map(|(_, n)| n.clone());
         for line in prefix.lines() {
-            let message = match parse_timestamp(line) { Some((_dt, msg)) => msg, None => line };
-            if movie.is_replay(message) {
+            seed.line_offset += 1;
+            let (ts, message) = match parse_timestamp(line) { Some((dt, msg)) => (Some(dt), msg), None => (None, line) };
+            if seed.movie.is_replay(message) {
                 continue;
             }
-            if let Some(caps) = patterns::WELCOME_LOGIN.captures(message) {
-                name = Some(titlecase_name(&caps[1]));
-            } else if let Some(caps) = patterns::WELCOME_BACK.captures(message) {
-                name = Some(titlecase_name(&caps[1]));
+            if let Some(dt) = ts {
+                seed.last_ts = Some(dt.format("%Y-%m-%d %H:%M:%S").to_string());
+            }
+            if let Some(caps) = patterns::WELCOME_LOGIN.captures(message).or_else(|| patterns::WELCOME_BACK.captures(message)) {
+                let n = titlecase_name(&caps[1]);
+                welcomed = Some(n.clone());
+                active_name = Some(n);
+                seed.signup.reset();
+            }
+            if let Some(n) = &active_name {
+                let _ = seed.signup.feed(message, Some(n));
             }
         }
-        match name {
+        match welcomed {
             Some(n) => {
                 let id = self.db.get_or_create_character(&n)?;
-                // Seed override config for the prefix-resolved active character. On a tail
-                // (append) scan whose appended bytes contain NO welcome line, the welcome
-                // block in `scan_bytes` never runs, so without this `should_count_rank`
-                // would default to true and wrongly count an override-skip trainer's ranks.
-                // Idempotent; mirrors what the welcome block does.
+                // A tail with no welcome never runs the welcome block in `scan_bytes`, so seed the
+                // override config here or an override-skip trainer's ranks would be counted.
                 self.load_override_config(id)?;
-                Ok(Some((id, n)))
+                Ok((Some((id, n)), seed))
             }
-            None => Ok(None),
+            None => Ok((fallback, seed)),
         }
     }
 
@@ -1926,6 +1965,8 @@ impl LogParser {
     /// If a character already has a profession set from a direct announcement (circle test
     /// or "become a" message), keep it. Otherwise, fall back to majority-vote from trainers.
     pub fn finalize_characters(&self) -> Result<()> {
+        // First, so profession detection below sees the corrected shared-trainer ranks.
+        self.derive_shared_ranks()?;
         // Deferred to here — the universal end-of-scan hook — so that a name identified as
         // a player late in the scan is not falsely reported as unrecognised.
         self.flush_unrecognised_checkpoint_speakers()?;
@@ -2026,7 +2067,7 @@ fn extract_character_name(bytes: &[u8]) -> Option<String> {
 
 /// Tracks whether a line falls inside a movie playback, which replays a recorded session
 /// into the log stamped with the time it was watched. Replayed lines are not play.
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct MovieFilter {
     in_movie: bool,
 }
@@ -2385,6 +2426,79 @@ mod tests {
         (tmp, char_dir)
     }
 
+    const SHARED_LOG: &str = "\
+11/22/17 10:00:00p Welcome to Clan Lord, Squib!
+11/22/17 10:01:00p Higgrus asks, \"Are you sure you would like to train with me?\"
+11/22/17 10:01:01p Squib says, \"yes\"
+11/22/17 10:01:02p Higgrus says, \"Welcome aboard. Go into the world and learn what you may, while practicing our craft.\"
+11/22/17 10:02:00p ¥You seem to be able to take more damage now.
+";
+
+    fn scan_text(body: &str) -> (tempfile::TempDir, LogParser, ScanResult) {
+        let (tmp, char_dir) = create_test_log_dir();
+        fs::write(char_dir.join("CL Log 2017-11-22 22.00.00.txt"), body).unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let r = parser.scan_folder(tmp.path(), false).unwrap();
+        (tmp, parser, r)
+    }
+
+    fn rank_of(parser: &LogParser, name: &str, trainer: &str) -> i64 {
+        let id = parser.db().get_character(name).unwrap().unwrap().id.unwrap();
+        parser.db().get_trainers(id).unwrap().iter()
+            .find(|t| t.trainer_name == trainer).map(|t| t.ranks).unwrap_or(0)
+    }
+
+    #[test]
+    fn signup_and_observation_recorded() {
+        let (_t, parser, _) = scan_text(SHARED_LOG);
+        let id = parser.db().get_character("Squib").unwrap().unwrap().id.unwrap();
+        let s = parser.db().signups_for(id).unwrap();
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].trainer.as_deref(), Some("Higgrus"));
+        assert_eq!(s[0].line_no, 3);
+        let o = parser.db().all_shared_rank_observations().unwrap();
+        assert_eq!(o.len(), 1);
+        assert_eq!(o[0].default_trainer, "Histia");
+        assert_eq!(rank_of(&parser, "Squib", "Histia"), 0);
+    }
+
+    #[test]
+    fn non_shared_rank_still_counted_at_scan() {
+        let (_t, parser, _) = scan_text(
+            "11/22/17 10:00:00p Welcome to Clan Lord, Squib!\n11/22/17 10:02:00p ¥You seem to attack more precisely now.\n",
+        );
+        assert_eq!(rank_of(&parser, "Squib", "Atkus"), 1);
+    }
+
+    #[test]
+    fn bullet_and_periodless_rank_lines_observed() {
+        let (_t, parser, _) = scan_text(
+            "11/22/17 10:00:00p Welcome to Clan Lord, Squib!\n11/22/17 10:02:00p •You seem to be able to take more damage now\n",
+        );
+        assert_eq!(parser.db().all_shared_rank_observations().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn force_rescan_does_not_requeue() {
+        let (tmp, parser, first) = scan_text(SHARED_LOG);
+        assert_eq!(parser.new_shared_obs.borrow().len(), 1);
+        let second = parser.scan_folder(tmp.path(), true).unwrap();
+        assert_eq!(second.files_scanned, 1);
+        assert_eq!(parser.db().all_shared_rank_observations().unwrap().len(), 1);
+        assert!(parser.new_shared_obs.borrow().is_empty());
+        // the observation is an event the first time only
+        assert_eq!(first.events_found, second.events_found + 1);
+    }
+
+    #[test]
+    fn bystander_welcome_keeps_no_session_file_skipped() {
+        let (_t, parser, r) = scan_text(
+            "11/22/17 10:01:02p Garr says, \"Welcome aboard. Go into the world and learn what you may.\"\n",
+        );
+        assert_eq!(r.files_scanned, 0);
+        assert!(parser.db().get_character("TestChar").unwrap().is_none());
+    }
+
     #[test]
     fn scan_detects_player_trainers_and_spares_npcs() {
         // Fenwick greets exactly like an NPC trainer, but also clans — which no NPC can do.
@@ -2517,7 +2631,7 @@ mod tests {
     #[test]
     fn tail_scan_seeds_override_config_from_prefix_welcome() {
         // Regression: a tail (append) scan that seeds the active character from the prefix's
-        // last welcome (via active_char_at_offset) must also load that character's override
+        // last welcome (via prefix_state) must also load that character's override
         // config. Otherwise an override-skip trainer's rank messages appended in the tail
         // (which contains NO welcome line) are wrongly counted instead of skipped.
         let (tmp, _char_dir) = create_test_log_dir(); // tmp is the log root
@@ -2546,7 +2660,7 @@ mod tests {
         fs::write(&loose, grown).unwrap();
 
         // Incremental (force=false) re-scan: only the appended tail is parsed, and the active
-        // character is seeded from the prefix welcome via active_char_at_offset.
+        // character is seeded from the prefix welcome via prefix_state.
         parser.scan_folder(tmp.path(), false).unwrap();
 
         let trainers = parser.db().get_trainers(alpha).unwrap();
@@ -4859,5 +4973,71 @@ mod tests {
             parser.db().get_kills(ruuk.id.unwrap()).unwrap().iter().any(|k| k.creature_name == "Large Vermine"),
             "appended Large Vermine must attribute to Ruuk via prefix re-derivation"
         );
+    }
+
+    /// Scan `first`, append `more`, scan again (a tail scan). The file is under a `Squib` folder
+    /// with no welcome, so the folder character is the fallback. Returns the second scan result.
+    fn tail_scan(first: &str, more: &str) -> (LogParser, ScanResult) {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("Squib");
+        fs::create_dir(&dir).unwrap();
+        let f = dir.join("CL Log 2017-11-22 10.00.00.txt");
+        fs::write(&f, first).unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        parser.scan_folder(tmp.path(), false).unwrap();
+        let rec = parser.db().get_log_scan_state(&f.to_string_lossy()).unwrap();
+        assert_eq!(rec.map(|r| r.0), Some(first.len() as i64), "first pass must record byte_len");
+        fs::write(&f, format!("{first}{more}")).unwrap();
+        let r = parser.scan_folder(tmp.path(), false).unwrap();
+        (parser, r)
+    }
+
+    const KILL: &str = "11/22/17 10:00:00a You slaughtered a Rat.\n";
+    const Q: &str = "11/22/17 10:01:00a Higgrus asks, \"Are you sure you would like to train with me?\"\n";
+    const Y: &str = "11/22/17 10:01:01a Squib says, \"yes\"\n";
+    const W: &str = "11/22/17 10:01:02a Higgrus says, \"Welcome aboard. Go into the world and learn what you may, while practicing our craft.\"\n";
+    const RANK: &str = "11/22/17 10:02:00a ¥You seem to be able to take more damage now.\n";
+
+    #[test]
+    fn tail_completes_signup_split_across_offset() {
+        let (p, _) = tail_scan(&format!("{KILL}{Q}{Y}"), &format!("{W}{RANK}"));
+        let id = p.db().get_character("Squib").unwrap().unwrap().id.unwrap();
+        let s = p.db().signups_for(id).unwrap();
+        assert_eq!(s.len(), 1);
+        assert_eq!(s[0].trainer.as_deref(), Some("Higgrus"));
+    }
+
+    #[test]
+    fn tail_starting_in_movie_ignores_replay() {
+        let (p, _) = tail_scan(
+            &format!("{KILL}11/22/17 10:00:30a * Starting movie '2021.03.01_06.58.50.clMov'...\n"),
+            &format!("{Q}{Y}{W}{RANK}11/22/17 10:03:00a *** End of movie file. ***\n"),
+        );
+        let id = p.db().get_character("Squib").unwrap().unwrap().id.unwrap();
+        assert!(p.db().signups_for(id).unwrap().is_empty());
+        assert!(p.db().all_shared_rank_observations().unwrap().is_empty());
+    }
+
+    #[test]
+    fn tail_untimestamped_line_inherits_prefix_time() {
+        let noon = "11/22/17 12:00:00p You slaughtered a Rat.\n";
+        let (p, _) = tail_scan(noon, "¥You seem to be able to take more damage now.\n");
+        let o = p.db().all_shared_rank_observations().unwrap();
+        assert_eq!(o.len(), 1);
+        assert_eq!(o[0].at, "2017-11-22 12:00:00");
+    }
+
+    #[test]
+    fn tail_line_numbers_are_absolute() {
+        let (p, _) = tail_scan(&format!("{KILL}{Q}"), &format!("{Y}{W}{RANK}"));
+        let o = p.db().all_shared_rank_observations().unwrap();
+        assert_eq!(o[0].line_no, 4); // KILL, Q, Y, W, RANK -> index 4
+    }
+
+    #[test]
+    fn shared_rank_counts_as_event() {
+        let (p, r) = tail_scan(KILL, "¥You seem to be able to take more damage now.\n");
+        assert_eq!(r.events_found, 1);
+        assert_eq!(p.db().all_shared_rank_observations().unwrap()[0].line_no, 1);
     }
 }

@@ -83,8 +83,22 @@ impl Database {
     /// `known_players` is log-derived too, and is repopulated by the following scan.
     /// Pets the user deleted or merged are kept so those edits survive the rescan.
     pub fn reset_log_data(&self) -> Result<()> {
+        self.conn.execute_batch("SAVEPOINT reset_log_data")?;
+        match self.reset_log_data_inner() {
+            Ok(()) => Ok(self.conn.execute_batch("RELEASE reset_log_data")?),
+            Err(e) => {
+                let _ = self.conn.execute_batch("ROLLBACK TO reset_log_data; RELEASE reset_log_data");
+                Err(e)
+            }
+        }
+    }
+
+    fn reset_log_data_inner(&self) -> Result<()> {
+        let was_stale = self.trainer_data_status()?.stale;
         self.conn.execute_batch(
-            "DELETE FROM kills;
+            "DELETE FROM trainer_signups;
+             DELETE FROM shared_rank_observations;
+             DELETE FROM kills;
              DELETE FROM kill_hourly;
              DELETE FROM lastys;
              DELETE FROM pets WHERE hidden = 0 AND merged_into IS NULL;
@@ -111,9 +125,11 @@ impl Database {
                fur_worth=0, mandible_worth=0, blood_worth=0,
                eps_broken=0, untraining_count=0, profession='Unknown';
              UPDATE trainers SET
-               ranks=0, apply_learning_ranks=0, apply_learning_unknown_count=0,
+               ranks=0, shared_ranks=0, apply_learning_ranks=0, apply_learning_unknown_count=0,
                date_of_last_rank=NULL;",
         )?;
+        if was_stale { self.set_db_meta("trainer_review_pending", "1")?; }
+        self.set_trainer_revision_current()?;
         Ok(())
     }
 
@@ -131,12 +147,15 @@ impl Database {
              DELETE FROM log_lines;
              DELETE FROM process_logs;
              DELETE FROM trainer_checkpoints;
+             DELETE FROM trainer_signups;
+             DELETE FROM shared_rank_observations;
              DELETE FROM scan_kills;
              DELETE FROM scan_trainers;
-             DELETE FROM db_meta WHERE key = 'last_scan_token';
+             DELETE FROM db_meta WHERE key IN ('last_scan_token', 'trainer_revision_ack', 'trainer_review_pending');
              DELETE FROM trainers;
              DELETE FROM characters;",
         )?;
+        self.set_trainer_revision_current()?;
         Ok(())
     }
 

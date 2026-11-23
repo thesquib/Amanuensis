@@ -12,4 +12,4 @@ pub use creatures::{CreatureDb, CreatureGroup};
 pub use npc_trainers::is_known_npc_trainer;
 pub use rarity::{canonical_rarity, Rarity};
 pub use trainer_checkpoints::lookup_checkpoint_message;
-pub use trainers::{TrainerDb, TrainerMeta};
+pub use trainers::{TRAINER_REVISION, TrainerDb, TrainerMeta};

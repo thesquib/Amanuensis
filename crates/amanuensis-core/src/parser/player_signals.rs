@@ -84,7 +84,7 @@ static LEDGER_SHOWS: Lazy<Regex> = Lazy::new(|| {
 });
 
 // "¥ You begin training with Bramwell Gorse." — only the player-teacher flow emits this.
-static BEGIN_TRAINING_WITH: Lazy<Regex> = Lazy::new(|| {
+pub(crate) static BEGIN_TRAINING_WITH: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^[¥•]?\s*You begin training with (.+?)\.$").expect("regex compile error")
 });
 

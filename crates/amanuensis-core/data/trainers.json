@@ -32,7 +32,10 @@
   },
   "¥You seem to be able to take more damage now.": {
     "trainer": "Histia",
-    "profession": "Fighter"
+    "profession": "Fighter",
+    "alternates": [
+      {"trainer": "Higgrus", "profession": "Healer"}
+    ]
   },
   "¥You seem to be defending yourself better.": {
     "trainer": "Detha",
@@ -66,7 +69,7 @@
   },
   "¥You feel more receptive to healing.": {
     "trainer": "Rodnus",
-    "profession": "Healer"
+    "profession": "Fighter"
   },
   "¥You seem to heal more effectively.": {
     "trainer": "Eva",
@@ -135,7 +138,10 @@
   },
   "¥Your body feels stronger.": {
     "trainer": "Master Bodrus",
-    "effective_rank_multiplier": 0.9004
+    "effective_rank_multiplier": 0.9004,
+    "alternates": [
+      {"trainer": "Hardia", "profession": "Healer"}
+    ]
   },
   "¥Your spirit improves.": {
     "trainer": "Master Spirtus"

@@ -230,6 +230,21 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+        -- Trainer sign-ups and shared-rank-message sightings (queries/shared_rank.rs).
+        -- line_no is absolute within the file, so it is stable across tail scans.
+        CREATE TABLE IF NOT EXISTS trainer_signups (
+            file_path TEXT NOT NULL, line_no INTEGER NOT NULL,
+            character_id INTEGER NOT NULL, at TEXT NOT NULL,
+            trainer_name TEXT,
+            PRIMARY KEY (file_path, line_no)
+        );
+        CREATE TABLE IF NOT EXISTS shared_rank_observations (
+            file_path TEXT NOT NULL, line_no INTEGER NOT NULL,
+            character_id INTEGER NOT NULL, at TEXT NOT NULL,
+            default_trainer TEXT NOT NULL,
+            PRIMARY KEY (file_path, line_no)
+        );
+        CREATE INDEX IF NOT EXISTS trainer_signups_char_at ON trainer_signups(character_id, at);
         -- One row per spirit-departed-N-times line. Totals are derived in date
         -- order (queries/depart.rs).
         CREATE TABLE IF NOT EXISTS depart_observations (
@@ -319,6 +334,8 @@ pub fn migrate_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE pets ADD COLUMN merged_into TEXT",
         // Kills of the studied creature since the latest study message (Scribius parity).
         "ALTER TABLE lastys ADD COLUMN kills_since_message INTEGER NOT NULL DEFAULT 0",
+        // Part of trainers.ranks that came from shared rank message observations.
+        "ALTER TABLE trainers ADD COLUMN shared_ranks INTEGER NOT NULL DEFAULT 0",
     ];
 
     for sql in &migrations {

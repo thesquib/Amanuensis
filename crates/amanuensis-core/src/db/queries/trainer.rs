@@ -283,7 +283,7 @@ impl Database {
         // so the next scan rebuilds only post-cutoff counts correctly
         if switching_to_override {
             self.conn.execute(
-                "UPDATE trainers SET ranks = 0, apply_learning_ranks = 0
+                "UPDATE trainers SET ranks = 0, shared_ranks = 0, apply_learning_ranks = 0
                  WHERE character_id = ?1 AND trainer_name = ?2",
                 params![char_id, trainer_name],
             )?;

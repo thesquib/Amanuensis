@@ -330,3 +330,29 @@ export async function exportKills(
 ): Promise<void> {
   return invoke("export_kills", { charId, format, path });
 }
+
+export interface TrainerReviewItem {
+  character: string;
+  trainer: string;
+  rank_mode: string;
+  modified_ranks: number;
+  reason: string;
+}
+
+export interface TrainerDataStatus {
+  stale: boolean;
+  acknowledged: boolean;
+  review_pending: boolean;
+  show: boolean;
+  title: string;
+  body: string;
+  modifiers_to_review: TrainerReviewItem[];
+}
+
+export async function getTrainerDataStatus(): Promise<TrainerDataStatus> {
+  return invoke("get_trainer_data_status");
+}
+
+export async function acknowledgeTrainerData(): Promise<void> {
+  return invoke("acknowledge_trainer_data");
+}

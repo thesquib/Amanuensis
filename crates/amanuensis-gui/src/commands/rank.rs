@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use tauri::{Manager, State};
 
-use amanuensis_core::{read_overrides_file, write_overrides_file, ApplyOverridesResult, Database, RankOverride};
+use amanuensis_core::{read_overrides_file, write_overrides_file, ApplyOverridesResult, Database, RankOverride, TrainerDataStatus};
 
 use crate::state::AppState;
 
@@ -197,4 +197,16 @@ pub fn get_trainer_checkpoints(
         db.get_latest_trainer_checkpoints(char_id, include_players)
             .map_err(|e| e.to_string())
     })
+}
+
+/// Whether scanned ranks predate the current trainer data (drives the rescan banner).
+#[tauri::command]
+pub fn get_trainer_data_status(state: State<'_, AppState>) -> Result<TrainerDataStatus, String> {
+    state.with_db(|db| db.trainer_data_status().map_err(|e| e.to_string()))
+}
+
+/// Dismiss the trainer data banner.
+#[tauri::command]
+pub fn acknowledge_trainer_data(state: State<'_, AppState>) -> Result<(), String> {
+    state.with_db(|db| db.acknowledge_trainer_data().map_err(|e| e.to_string()))
 }

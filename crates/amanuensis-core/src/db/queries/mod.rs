@@ -19,11 +19,15 @@ mod player;
 mod process_log;
 mod rank_override;
 mod scan_scope;
+mod shared_rank;
+mod trainer_revision;
+pub use trainer_revision::{ReviewItem, TrainerDataStatus, TRAINER_DATA_DISMISS_HINT};
 
 pub use blackjack::BlackjackSummary;
 pub use depart::DepartSummary;
 pub use frequency::CreatureFrequency;
 pub use scan_scope::ScanScope;
+pub use shared_rank::{Signup, SharedRankObservation};
 pub use rank_override::{RankOverride, ApplyOverridesResult, read_overrides_file, write_overrides_file};
 pub use kill::{KillsFilter, filter_kills, group_kills};
 
@@ -132,6 +136,7 @@ impl Database {
         // no-op after the first open. Errors are swallowed deliberately: a failed backfill
         // must never stop the database opening, and the next scan repopulates the table.
         let _ = db.backfill_known_players();
+        let _ = db.mark_trainer_revision_if_unscanned();
         Ok(db)
     }
 

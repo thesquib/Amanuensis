@@ -37,6 +37,8 @@ fn main() {
             commands::export_rank_overrides,
             commands::import_rank_overrides,
             commands::get_missing_rank_overrides,
+            commands::get_trainer_data_status,
+            commands::acknowledge_trainer_data,
             commands::restore_missing_rank_overrides,
             commands::discard_missing_rank_overrides,
             commands::set_profession_override,

@@ -5,6 +5,7 @@ import { checkForUpdate, getBestiary, type UpdateInfo } from "../../lib/commands
 import { usePendingLogCount } from "../../lib/hooks/usePendingLogCount";
 import { Sidebar } from "./Sidebar";
 import { UpdateBanner } from "../shared/UpdateBanner";
+import { TrainerDataBanner } from "../shared/TrainerDataBanner";
 import { SummaryView } from "../views/SummaryView";
 import { KillsView } from "../views/KillsView";
 import { TrainersView } from "../views/TrainersView";
@@ -145,6 +146,7 @@ export function AppShell() {
         {updateInfo && !updateDismissed && (
           <UpdateBanner update={updateInfo} onDismiss={() => setUpdateDismissed(true)} />
         )}
+        <TrainerDataBanner />
         {selectedCharacter ? (
           <>
             {/* Tab bar */}

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use once_cell::sync::Lazy;
 
-/// In-game display names of NPC trainers. Fourteen of these are absent from
+/// In-game display names of NPC trainers. Twelve of these are absent from
 /// `trainers.json`, because that file is keyed on rank-*message* short names rather than
 /// display names; `Duvin Beastlore` is listed redundantly for documentation value. Every
 /// entry here was observed producing real checkpoints in live logs.
@@ -19,8 +19,6 @@ static EXTRA_NPC_DISPLAY_NAMES: &[&str] = &[
     "Chronos",
     "Diggin",
     "Duvin Beastlore",
-    "Hardia",
-    "Higgrus",
     "Metta Sylpha",
     "Par Troon",
     "Respin Verminbane",
@@ -77,7 +75,9 @@ static NPC_TRAINER_NAMES: Lazy<HashSet<String>> = Lazy::new(|| {
     {
         if let Some(map) = raw.as_object() {
             for value in map.values() {
-                if let Some(name) = value.get("trainer").and_then(|v| v.as_str()) {
+                let alternates = value.get("alternates").and_then(|v| v.as_array());
+                let entries = std::iter::once(value).chain(alternates.into_iter().flatten());
+                for name in entries.filter_map(|e| e.get("trainer").and_then(|v| v.as_str())) {
                     let key = name.to_lowercase();
                     if !excluded.contains(&key) {
                         set.insert(key);
@@ -112,12 +112,18 @@ mod tests {
         // Display names observed in real logs. All but "Duvin Beastlore" are absent from
         // trainers.json, which stores only rank-message short names.
         for name in [
-            "Higgrus", "Chronos", "Hardia", "Splash O'Sul", "Diggin",
+            "Chronos", "Splash O'Sul", "Diggin",
             "Anan Faure", "AnDeux Faure", "AnQuart Faure", "AnSept Faure", "AnTrix Faure",
             "Tra'Kning", "Par Troon", "Metta Sylpha", "Respin Verminbane", "Duvin Beastlore",
         ] {
             assert!(is_known_npc_trainer(name), "{name} should be guarded");
         }
+    }
+
+    #[test]
+    fn alternate_names_are_guarded() {
+        assert!(is_known_npc_trainer("Higgrus"));
+        assert!(is_known_npc_trainer("Hardia"));
     }
 
     #[test]
