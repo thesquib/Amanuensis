@@ -172,6 +172,8 @@ export interface ScanResult {
   lines_parsed: number;
   events_found: number;
   errors: number;
+  /** How to fix some of the errors (macOS access), from core `ACCESS_HINT`. */
+  hint: string | null;
 }
 
 /** Per-character activity delta produced by an Update Logs run. */

@@ -4,6 +4,19 @@ use crate::error::Result;
 use super::{Database, LogSearchResult};
 
 impl Database {
+    /// The folders under `root` that hold already-scanned log files.
+    pub fn scanned_log_dirs_under(&self, root: &std::path::Path) -> Result<Vec<std::path::PathBuf>> {
+        let mut stmt = self.conn.prepare("SELECT file_path FROM log_files")?;
+        let paths = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        let mut dirs = std::collections::BTreeSet::new();
+        for p in paths {
+            if let Some(dir) = std::path::Path::new(&p?).parent() {
+                if dir.starts_with(root) { dirs.insert(dir.to_path_buf()); }
+            }
+        }
+        Ok(dirs.into_iter().collect())
+    }
+
     /// Check if a log file has already been scanned (by path or content hash).
     pub fn is_log_scanned(&self, file_path: &str) -> Result<bool> {
         let count: i64 = self.conn.query_row(

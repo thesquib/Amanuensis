@@ -559,6 +559,9 @@ fn print_scan_result(result: &amanuensis_core::parser::ScanResult) {
     if result.errors > 0 {
         println!("  Errors:            {}", result.errors);
     }
+    if let Some(hint) = result.hint {
+        println!("\n{hint}");
+    }
 }
 
 fn cmd_scan(db_path: &str, folder: &Path, force: bool, recursive: bool, no_index: bool) -> amanuensis_core::Result<()> {

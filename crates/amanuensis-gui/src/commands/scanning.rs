@@ -55,15 +55,16 @@ pub async fn rescan_logs(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<ScanResult, String> {
-    let db = state.take_db()?;
-    let state_db = state.db.clone();
     let folders: Vec<(std::path::PathBuf, bool)> = sources
         .into_iter()
         .map(|s| (std::path::PathBuf::from(s.path), s.recursive))
         .collect();
 
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        let parser = LogParser::new(db).map_err(|e| e.to_string())?;
+    state.run_blocking(move |db| {
+        let parser = match LogParser::new(db) {
+            Ok(p) => p,
+            Err(e) => return (None, Err(e.to_string())),
+        };
         let app_handle = app.clone();
         let progress_cb = |current: usize, total: usize, filename: &str| {
             let _ = app_handle.emit(
@@ -77,14 +78,10 @@ pub async fn rescan_logs(
         };
         let result = parser
             .rescan_sources(&folders, index_lines, progress_cb)
-            .map_err(|e| e.to_string())?;
-        *state_db.lock().map_err(|e| format!("Lock poisoned: {e}"))? = Some(parser.into_db());
-        Ok(result)
+            .map_err(|e| e.to_string());
+        (Some(parser.into_db()), result)
     })
     .await
-    .map_err(|e| e.to_string())?;
-
-    result
 }
 
 /// Count the log files an incremental Update would touch right now (new + grown), without
@@ -114,15 +111,16 @@ pub async fn update_logs(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<ScanResult, String> {
-    let db = state.take_db()?;
-    let state_db = state.db.clone();
     let folders: Vec<(PathBuf, bool)> = sources
         .into_iter()
         .map(|s| (PathBuf::from(s.path), s.recursive))
         .collect();
 
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        let parser = LogParser::new(db).map_err(|e| e.to_string())?;
+    state.run_blocking(move |db| {
+        let parser = match LogParser::new(db) {
+            Ok(p) => p,
+            Err(e) => return (None, Err(e.to_string())),
+        };
         let app_handle = app.clone();
         let progress_cb = |current: usize, total: usize, filename: &str| {
             let _ = app_handle.emit(
@@ -136,12 +134,8 @@ pub async fn update_logs(
         };
         let result = parser
             .update_sources(&folders, index_lines, progress_cb)
-            .map_err(|e| e.to_string())?;
-        *state_db.lock().map_err(|e| format!("Lock poisoned: {e}"))? = Some(parser.into_db());
-        Ok(result)
+            .map_err(|e| e.to_string());
+        (Some(parser.into_db()), result)
     })
     .await
-    .map_err(|e| e.to_string())?;
-
-    result
 }

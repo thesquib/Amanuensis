@@ -110,11 +110,33 @@ impl LogParser {
     /// (clearing the token so the first write allocates a fresh one); nested entries reuse it.
     fn begin_scan_op(&self) -> ScanOpGuard<'_> {
         if self.scan_depth.get() == 0 {
+            // Once per top-level operation, so a multi-source run keeps every source's messages.
+            let _ = self.db.clear_process_logs();
             self.scan_token.set(None);
             self.new_shared_obs.borrow_mut().clear();
         }
         self.scan_depth.set(self.scan_depth.get() + 1);
         ScanOpGuard { depth: &self.scan_depth }
+    }
+
+    /// Commit a scan's transaction, or roll it back if the scan or the commit failed, so the
+    /// connection is never left inside a transaction (the GUI reuses it after an error).
+    fn finish_tx(&self, scan: Result<()>) -> Result<()> {
+        let r = scan.and_then(|()| self.db.commit_transaction());
+        if r.is_err() {
+            let _ = self.db.rollback_transaction();
+        }
+        let pragmas = self.db.reset_pragmas();
+        r.and(pragmas)
+    }
+
+    /// A folder that can't be listed (permission denied, cloud drive offline) is skipped and
+    /// reported instead of aborting the whole scan.
+    fn note_unreadable_folder(&self, dir: &Path, e: &std::io::Error, result: &mut ScanResult) {
+        log::warn!("Could not read folder {}: {}", dir.display(), e);
+        let _ = self.db.add_process_log("error", &format!("Could not read folder: {} — {}", dir.display(), e));
+        result.errors += 1;
+        result.note_access(e);
     }
 
     /// Call before every write to the `scan_*` shadow tables. On the operation's first write
@@ -276,24 +298,14 @@ impl LogParser {
 
         let scan_result = self.scan_folder_inner(folder, force, &mut result);
 
-        match scan_result {
-            Ok(()) => {
-                self.db.commit_transaction()?;
-                self.db.reset_pragmas()?;
-            }
-            Err(e) => {
-                let _ = self.db.rollback_transaction();
-                let _ = self.db.reset_pragmas();
-                return Err(e);
-            }
-        }
+        self.finish_tx(scan_result)?;
 
         Ok(result)
     }
 
     fn scan_folder_inner(&self, folder: &Path, force: bool, result: &mut ScanResult) -> Result<()> {
         // Find character subdirectories
-        let mut entries: Vec<_> = std::fs::read_dir(folder)?
+        let mut entries: Vec<_> = read_log_root(folder)?
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
             .collect();
@@ -308,7 +320,10 @@ impl LogParser {
 
             // Find log files BEFORE creating a character record
             let char_dir = entry.path();
-            let mut log_files = find_log_files(&char_dir)?;
+            let mut log_files = match find_log_files(&char_dir) {
+                Ok(f) => f,
+                Err(e) => { self.note_unreadable_folder(&char_dir, &e, result); continue; }
+            };
             if log_files.is_empty() {
                 log::debug!("Skipping directory with no CL Log files: {}", dir_name);
                 continue;
@@ -375,6 +390,7 @@ impl LogParser {
                                 &format!("Could not read file: {} — {}", path_str, e),
                             );
                             result.errors += 1;
+                            result.note_access(&e);
                             char_files_skipped += 1;
                             continue;
                         }
@@ -449,7 +465,11 @@ impl LogParser {
         }
 
         // Also scan loose CL Log files sitting directly in this log root.
-        for log_path in find_log_files(folder)? {
+        let loose = find_log_files(folder).unwrap_or_else(|e| {
+            self.note_unreadable_folder(folder, &e, result);
+            Vec::new()
+        });
+        for log_path in loose {
             self.scan_loose_file(&log_path, force, true, result)?;
         }
 
@@ -483,6 +503,7 @@ impl LogParser {
             ScanPlan::ReadError(e) => {
                 log::warn!("Error reading {}: {}", path_str, e);
                 result.errors += 1;
+                result.note_access(&e);
                 return Ok(false);
             }
             ScanPlan::Scan { bytes, offset, full_hash, count_login } => (bytes, offset, full_hash, count_login),
@@ -1415,23 +1436,12 @@ impl LogParser {
             )));
         }
 
-        let _ = self.db.clear_process_logs();
         self.db.set_scan_pragmas()?;
         self.db.begin_transaction()?;
 
         let scan_result = self.scan_folder_with_progress_inner(folder, force, index_lines, &progress, &mut result);
 
-        match scan_result {
-            Ok(()) => {
-                self.db.commit_transaction()?;
-                self.db.reset_pragmas()?;
-            }
-            Err(e) => {
-                let _ = self.db.rollback_transaction();
-                let _ = self.db.reset_pragmas();
-                return Err(e);
-            }
-        }
+        self.finish_tx(scan_result)?;
 
         Ok(result)
     }
@@ -1451,7 +1461,7 @@ impl LogParser {
         let mut all_work: Vec<(PathBuf, String, Vec<PathBuf>)> = Vec::new();
         let mut total_files: usize = 0;
 
-        let mut entries: Vec<_> = std::fs::read_dir(folder)?
+        let mut entries: Vec<_> = read_log_root(folder)?
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
             .collect();
@@ -1464,7 +1474,10 @@ impl LogParser {
             }
 
             let char_dir = entry.path();
-            let mut log_files = find_log_files(&char_dir)?;
+            let mut log_files = match find_log_files(&char_dir) {
+                Ok(f) => f,
+                Err(e) => { self.note_unreadable_folder(&char_dir, &e, result); continue; }
+            };
             if log_files.is_empty() {
                 continue;
             }
@@ -1485,7 +1498,10 @@ impl LogParser {
 
         // Loose CL Log files sitting directly in the log root also get scanned.
         // Collect once: reuse the same vec for the file count and the loose-file loop below.
-        let loose_files = find_log_files(folder)?;
+        let loose_files = find_log_files(folder).unwrap_or_else(|e| {
+            self.note_unreadable_folder(folder, &e, result);
+            Vec::new()
+        });
         total_files += loose_files.len();
 
         let mut current_file: usize = 0;
@@ -1546,6 +1562,7 @@ impl LogParser {
                                 &format!("Could not read file: {} — {}", path_str, e),
                             );
                             result.errors += 1;
+                            result.note_access(&e);
                             char_files_skipped += 1;
                             continue;
                         }
@@ -1647,23 +1664,12 @@ impl LogParser {
         let _scan_op = self.begin_scan_op();
         let mut result = ScanResult::default();
 
-        let _ = self.db.clear_process_logs();
         self.db.set_scan_pragmas()?;
         self.db.begin_transaction()?;
 
         let scan_result = self.scan_files_with_progress_inner(files, force, index_lines, &progress, &mut result);
 
-        match scan_result {
-            Ok(()) => {
-                self.db.commit_transaction()?;
-                self.db.reset_pragmas()?;
-            }
-            Err(e) => {
-                let _ = self.db.rollback_transaction();
-                let _ = self.db.reset_pragmas();
-                return Err(e);
-            }
-        }
+        self.finish_tx(scan_result)?;
 
         Ok(result)
     }
@@ -1724,6 +1730,7 @@ impl LogParser {
                             &format!("Could not read file: {} — {}", path_str, e),
                         );
                         result.errors += 1;
+                        result.note_access(&e);
                         continue;
                     }
                     ScanPlan::Scan { bytes, offset, full_hash, count_login: is_full_scan } => {
@@ -1809,15 +1816,28 @@ impl LogParser {
         F: Fn(usize, usize, &str),
     {
         let _scan_op = self.begin_scan_op();
-        let folders = discover_log_folders(root);
+        let (folders, unreadable) = discover_log_folders_reporting(root);
         if folders.is_empty() {
             // Fall back to treating root as a direct log root
-            return self.scan_folder_with_progress(root, force, index_lines, progress);
+            let mut r = self.scan_folder_with_progress(root, force, index_lines, progress)?;
+            for (dir, e) in &unreadable {
+                if !scanned_by_folder_scan(dir, &[root.to_path_buf()]) {
+                    self.note_unreadable_folder(dir, e, &mut r);
+                }
+            }
+            return Ok(r);
         }
 
         let mut combined = ScanResult::default();
+        // Logs were found, so other unreadable folders are likely unrelated (a home folder's
+        // Desktop): note them without counting errors or raising the skip dialog every Update.
+        for (dir, e) in &unreadable {
+            if !scanned_by_folder_scan(dir, &folders) {
+                log::warn!("Could not read folder {}: {}", dir.display(), e);
+                let _ = self.db.add_process_log("warn", &format!("Could not read folder: {} — {}", dir.display(), e));
+            }
+        }
 
-        let _ = self.db.clear_process_logs();
         self.db.set_scan_pragmas()?;
         self.db.begin_transaction()?;
 
@@ -1829,17 +1849,7 @@ impl LogParser {
             Ok(())
         })();
 
-        match scan_result {
-            Ok(()) => {
-                self.db.commit_transaction()?;
-                self.db.reset_pragmas()?;
-            }
-            Err(e) => {
-                let _ = self.db.rollback_transaction();
-                let _ = self.db.reset_pragmas();
-                return Err(e);
-            }
-        }
+        self.finish_tx(scan_result)?;
 
         Ok(combined)
     }
@@ -1858,11 +1868,43 @@ impl LogParser {
     where
         F: Fn(usize, usize, &str),
     {
-        let _scan_op = self.begin_scan_op();
         // An empty source list is a no-op: do not reset (which would wipe the DB).
         if sources.is_empty() {
             return Ok(ScanResult::default());
         }
+        // Reset wipes every source's data, so refuse before it if a folder can't be listed.
+        // Checked before the scan op starts, so a refusal also keeps the last Process Logs.
+        let mut unreadable: Vec<(PathBuf, std::io::Error)> = Vec::new();
+        for (p, recursive) in sources {
+            if !*recursive {
+                unreadable.extend(unreadable_folders(p));
+                continue;
+            }
+            // A recursive source can span folders with no logs (a home folder's Desktop), so check
+            // its root and every folder it scanned logs from before. A deleted one doesn't block.
+            if let Err(e) = std::fs::read_dir(p) {
+                unreadable.push((p.clone(), e));
+                continue;
+            }
+            for dir in self.db.scanned_log_dirs_under(p)? {
+                match std::fs::read_dir(&dir) {
+                    Err(e) if e.kind() != std::io::ErrorKind::NotFound => unreadable.push((dir, e)),
+                    _ => {}
+                }
+            }
+        }
+        if !unreadable.is_empty() {
+            let list: Vec<String> = unreadable.iter().map(|(p, e)| format!("{}: {e}", p.display())).collect();
+            let hint = match unreadable.iter().any(|(_, e)| access_hint(e).is_some()) {
+                true => format!("\n\n{ACCESS_HINT}"),
+                false => String::new(),
+            };
+            return Err(crate::error::AmanuensisError::Message(format!(
+                "Rescan cancelled and nothing was changed, because these log folders can't be read:\n{}{hint}",
+                list.join("\n")
+            )));
+        }
+        let _scan_op = self.begin_scan_op();
         self.db.reset_log_data()?;
         self.scan_sources(sources, index_lines, progress)
     }
@@ -1899,6 +1941,12 @@ impl LogParser {
     {
         let mut combined = ScanResult::default();
         for (path, recursive) in sources {
+            // An unreachable source (unplugged drive, cloud folder without access) must not stop
+            // the others; it keeps its existing data and is reported in Process Logs.
+            if let Err(e) = std::fs::read_dir(path) {
+                self.note_unreadable_folder(path, &e, &mut combined);
+                continue;
+            }
             let r = if *recursive {
                 self.scan_recursive_with_progress(path, false, index_lines, &progress)?
             } else {
@@ -1909,6 +1957,7 @@ impl LogParser {
             combined.lines_parsed += r.lines_parsed;
             combined.events_found += r.events_found;
             combined.errors += r.errors;
+            combined.hint = combined.hint.or(r.hint);
         }
         self.finalize_characters()?;
         combined.characters = self.db.list_characters()?.len();
@@ -2168,19 +2217,35 @@ fn kill_verb_to_field(verb: &KillVerb, assisted: bool) -> &'static str {
 /// A "log root" is a directory that contains subdirectories with CL Log files.
 /// Skips hidden directories and `CL_Movies`.
 pub fn discover_log_folders(root: &Path) -> Vec<PathBuf> {
-    let mut results = Vec::new();
-    discover_log_folders_inner(root, &mut results);
-    results
+    discover_log_folders_reporting(root).0
 }
 
-fn discover_log_folders_inner(dir: &Path, results: &mut Vec<PathBuf>) {
+/// A log root and its character folders are listed again by the folder scan, which reports
+/// its own read errors; discovery reports only the rest, so nothing is counted twice.
+fn scanned_by_folder_scan(dir: &Path, roots: &[PathBuf]) -> bool {
+    roots.iter().any(|r| dir == r || dir.parent() == Some(r.as_path()))
+}
+
+/// `discover_log_folders` plus the folders it couldn't read (path, error), so a scan can report
+/// them instead of a log root silently dropping out.
+fn discover_log_folders_reporting(root: &Path) -> (Vec<PathBuf>, Vec<(PathBuf, std::io::Error)>) {
+    let (mut results, mut errors) = (Vec::new(), Vec::new());
+    discover_log_folders_inner(root, &mut results, &mut errors);
+    (results, errors)
+}
+
+fn discover_log_folders_inner(dir: &Path, results: &mut Vec<PathBuf>, errors: &mut Vec<(PathBuf, std::io::Error)>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(rd) => rd,
-        Err(_) => return,
+        Err(e) => { errors.push((dir.to_path_buf(), e)); return; }
     };
 
     let mut subdirs: Vec<PathBuf> = Vec::new();
-    for entry in entries.filter_map(|e| e.ok()) {
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => { errors.push((dir.to_path_buf(), e)); continue; }
+        };
         if !entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
             continue;
         }
@@ -2202,13 +2267,13 @@ fn discover_log_folders_inner(dir: &Path, results: &mut Vec<PathBuf>) {
         // hold a deeper log root, e.g. an old client install copied in beside them.
         for sub in &subdirs {
             if find_log_files(sub).map(|f| f.is_empty()).unwrap_or(false) {
-                discover_log_folders_inner(sub, results);
+                discover_log_folders_inner(sub, results, errors);
             }
         }
     } else {
         // Recurse into subdirectories
         for sub in &subdirs {
-            discover_log_folders_inner(sub, results);
+            discover_log_folders_inner(sub, results, errors);
         }
     }
 }
@@ -2353,10 +2418,45 @@ fn char_log_files(log_root: &Path) -> Vec<PathBuf> {
     files
 }
 
+/// `root` and its immediate subfolders (the character folders) that can't be listed, each as
+/// (path, error). Rescan's pre-flight check.
+// shortcut: unreadable files aren't checked (picked up by the next Update); recursive sources check their root and the folders they scanned logs from.
+fn unreadable_folders(root: &Path) -> Vec<(PathBuf, std::io::Error)> {
+    let entries = match std::fs::read_dir(root) {
+        Ok(rd) => rd,
+        Err(e) => return vec![(root.to_path_buf(), e)],
+    };
+    let mut bad = Vec::new();
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(err) => { bad.push((root.to_path_buf(), err)); continue; }
+        };
+        let name = entry.file_name().to_string_lossy().to_string();
+        // Same exclusions as the scanner: folders it never reads can't block a Rescan.
+        if name.starts_with('.') || name == "CL_Movies" || !entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        if let Err(err) = find_log_files(&entry.path()) {
+            bad.push((entry.path(), err));
+        }
+    }
+    bad
+}
+
+/// `read_dir` of a folder the user asked to scan, with an error that names it (and says how to
+/// fix a macOS access block) instead of a bare OS error.
+fn read_log_root(folder: &Path) -> Result<std::fs::ReadDir> {
+    std::fs::read_dir(folder).map_err(|e| {
+        let hint = access_hint(&e).map(|h| format!("\n\n{h}")).unwrap_or_default();
+        crate::error::AmanuensisError::Message(format!("Couldn't read the log folder {}: {e}{hint}", folder.display()))
+    })
+}
+
 /// Find CL Log files in a directory.
 /// Matches files starting with "CL Log " regardless of extension — newer clients produce
 /// ".txt" files, but older Mac clients (pre-2007 era) produce extensionless files.
-fn find_log_files(dir: &Path) -> Result<Vec<PathBuf>> {
+fn find_log_files(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
@@ -2372,6 +2472,14 @@ fn find_log_files(dir: &Path) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+/// Shown when macOS refused access to a log folder or file (cloud drives such as ProtonDrive or
+/// iCloud, other volumes): the system error alone doesn't say how to fix it.
+pub const ACCESS_HINT: &str = "macOS may be blocking access to your logs. Allow Amanuensis under System Settings → Privacy & Security → Files and Folders (or Full Disk Access), then try again.";
+
+fn access_hint(e: &std::io::Error) -> Option<&'static str> {
+    (cfg!(target_os = "macos") && e.kind() == std::io::ErrorKind::PermissionDenied).then_some(ACCESS_HINT)
+}
+
 #[derive(Debug, Default, serde::Serialize)]
 pub struct ScanResult {
     pub characters: usize,
@@ -2380,6 +2488,14 @@ pub struct ScanResult {
     pub lines_parsed: usize,
     pub events_found: usize,
     pub errors: usize,
+    /// How to fix what made some of `errors` (macOS access), if known.
+    pub hint: Option<&'static str>,
+}
+
+impl ScanResult {
+    fn note_access(&mut self, e: &std::io::Error) {
+        self.hint = self.hint.or(access_hint(e));
+    }
 }
 
 #[derive(Debug, Default)]
@@ -4762,6 +4878,241 @@ mod tests {
             parser.db().get_kills(char_id).unwrap().iter().map(|k| k.slaughtered_count).sum::<i64>(),
             2
         );
+    }
+
+    /// A log root holding one character folder with one log that slaughters `n` rats.
+    fn rat_root(char_name: &str, n: usize) -> tempfile::TempDir {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join(char_name);
+        fs::create_dir(&dir).unwrap();
+        let mut log = format!("1/1/24 1:00:00p Welcome to Clan Lord, {char_name}!\n");
+        for _ in 0..n {
+            log.push_str("1/1/24 1:01:00p You slaughtered a Rat.\n");
+        }
+        fs::write(dir.join("CL Log 2024-01-01 13.00.00.txt"), log).unwrap();
+        tmp
+    }
+
+    fn rats(parser: &LogParser, name: &str) -> i64 {
+        let Some(c) = parser.db().get_character(name).unwrap() else { return 0 };
+        parser.db().get_kills(c.id.unwrap()).unwrap().iter().map(|k| k.slaughtered_count).sum()
+    }
+
+    fn process_log_has(parser: &LogParser, needle: &str) -> bool {
+        parser.db().get_process_logs().unwrap().iter().any(|l| l.message.contains(needle))
+    }
+
+    #[test]
+    fn update_skips_unreachable_source_and_picks_it_up_later() {
+        let good = rat_root("Alpha", 1);
+        let later = tempfile::tempdir().unwrap();
+        let missing = later.path().join("Text Logs");
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let sources = vec![(good.path().to_path_buf(), false), (missing.clone(), false)];
+
+        let r = parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        assert_eq!(r.errors, 1);
+        assert_eq!(rats(&parser, "Alpha"), 1);
+        assert!(process_log_has(&parser, "Could not read folder"));
+        assert!(process_log_has(&parser, "Scanned Alpha"));
+        assert_eq!(r.hint, None, "a missing folder is not a permission problem");
+
+        // The folder comes back (drive reconnected): the next Update scans it, nothing doubles.
+        fs::create_dir(&missing).unwrap();
+        let beta = missing.join("Beta");
+        fs::create_dir(&beta).unwrap();
+        fs::write(beta.join("CL Log 2024-01-02 13.00.00.txt"),
+            "1/2/24 1:00:00p Welcome to Clan Lord, Beta!\n1/2/24 1:01:00p You slaughtered a Rat.\n").unwrap();
+        for _ in 0..2 {
+            let r = parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+            assert_eq!(r.errors, 0);
+            assert_eq!((rats(&parser, "Alpha"), rats(&parser, "Beta")), (1, 1));
+        }
+    }
+
+    #[test]
+    fn multi_source_update_keeps_every_sources_process_logs() {
+        let a = rat_root("Alpha", 1);
+        let b = rat_root("Beta", 1);
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let sources = vec![(a.path().to_path_buf(), false), (b.path().to_path_buf(), true)];
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        assert!(process_log_has(&parser, "Scanned Alpha"));
+        assert!(process_log_has(&parser, "Scanned Beta"));
+    }
+
+    #[test]
+    fn rescan_refuses_unreadable_source_without_resetting() {
+        let good = rat_root("Alpha", 2);
+        let gone = tempfile::tempdir().unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        parser.update_sources(&[(good.path().to_path_buf(), false)], false, |_, _, _| {}).unwrap();
+        let sources = vec![(good.path().to_path_buf(), false), (gone.path().join("nope"), false)];
+        let err = parser.rescan_sources(&sources, false, |_, _, _| {}).unwrap_err().to_string();
+        assert!(err.contains("nope"), "{err}");
+        assert_eq!(rats(&parser, "Alpha"), 2, "nothing reset");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_character_folder_is_skipped_on_update_and_blocks_rescan() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = rat_root("Alpha", 1);
+        let locked = root.path().join("Locked");
+        fs::create_dir(&locked).unwrap();
+        fs::write(locked.join("CL Log 2024-01-03 13.00.00.txt"), "1/3/24 1:00:00p Welcome to Clan Lord, Locked!\n").unwrap();
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read_dir(&locked).is_ok() {
+            fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).unwrap();
+            return; // running as root: permissions aren't enforced
+        }
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let sources = vec![(root.path().to_path_buf(), false)];
+        let r = parser.update_sources(&sources, false, |_, _, _| {});
+        let rescan = parser.rescan_sources(&sources, false, |_, _, _| {});
+        fs::set_permissions(&locked, fs::Permissions::from_mode(0o755)).unwrap();
+        let r = r.unwrap();
+        assert_eq!(r.errors, 1);
+        assert_eq!(rats(&parser, "Alpha"), 1);
+        let msg = rescan.unwrap_err().to_string();
+        assert!(msg.contains("Locked"));
+        assert_eq!(rats(&parser, "Alpha"), 1, "nothing reset");
+        // Permission denied gets the macOS fix-it hint, on both paths.
+        let mac = cfg!(target_os = "macos");
+        assert_eq!(r.hint, mac.then_some(ACCESS_HINT));
+        assert_eq!(msg.contains(ACCESS_HINT), mac);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unreadable_movies_folder_does_not_block_rescan() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = rat_root("Alpha", 1);
+        let movies = root.path().join("CL_Movies");
+        fs::create_dir(&movies).unwrap();
+        fs::set_permissions(&movies, fs::Permissions::from_mode(0o000)).unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let r = parser.rescan_sources(&[(root.path().to_path_buf(), false)], false, |_, _, _| {});
+        fs::set_permissions(&movies, fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(r.unwrap().errors, 0);
+        assert_eq!(rats(&parser, "Alpha"), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn recursive_source_reports_a_log_root_it_cannot_read() {
+        use std::os::unix::fs::PermissionsExt;
+        let top = tempfile::tempdir().unwrap();
+        let a = rat_root("Alpha", 1);
+        fs::rename(a.path(), top.path().join("ClanLord")).unwrap();
+        // A second client folder whose only character folder can't be listed.
+        let beta = top.path().join("ClanLord 2").join("Beta");
+        fs::create_dir_all(&beta).unwrap();
+        fs::write(beta.join("CL Log 2024-01-02 13.00.00.txt"), "1/2/24 1:00:00p Welcome to Clan Lord, Beta!\n").unwrap();
+        fs::set_permissions(&beta, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read_dir(&beta).is_ok() {
+            fs::set_permissions(&beta, fs::Permissions::from_mode(0o755)).unwrap();
+            return; // running as root
+        }
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let r = parser.update_sources(&[(top.path().to_path_buf(), true)], false, |_, _, _| {});
+        fs::set_permissions(&beta, fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(r.unwrap().errors, 0, "logs were found: other unreadable folders only warn");
+        assert_eq!(rats(&parser, "Alpha"), 1);
+        assert!(process_log_has(&parser, "Beta"));
+        // And they don't block a Rescan: only a recursive source's root must be readable.
+        fs::set_permissions(&beta, fs::Permissions::from_mode(0o000)).unwrap();
+        let rescan = parser.rescan_sources(&[(top.path().to_path_buf(), true)], false, |_, _, _| {});
+        fs::set_permissions(&beta, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(rescan.is_ok());
+        assert_eq!(rats(&parser, "Alpha"), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn recursive_rescan_refuses_when_a_scanned_folder_is_locked() {
+        use std::os::unix::fs::PermissionsExt;
+        let top = tempfile::tempdir().unwrap();
+        let a = rat_root("Alpha", 1);
+        let root = top.path().join("ClanLord");
+        fs::rename(a.path(), &root).unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let sources = vec![(top.path().to_path_buf(), true)];
+        parser.update_sources(&sources, false, |_, _, _| {}).unwrap();
+        assert_eq!(rats(&parser, "Alpha"), 1);
+        let alpha = root.join("Alpha");
+        fs::set_permissions(&alpha, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read_dir(&alpha).is_ok() {
+            fs::set_permissions(&alpha, fs::Permissions::from_mode(0o755)).unwrap();
+            return; // running as root
+        }
+        let rescan = parser.rescan_sources(&sources, false, |_, _, _| {});
+        fs::set_permissions(&alpha, fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(rescan.unwrap_err().to_string().contains("Alpha"));
+        assert_eq!(rats(&parser, "Alpha"), 1, "nothing reset");
+        // A scanned folder that was deleted doesn't block a Rescan.
+        fs::remove_dir_all(&alpha).unwrap();
+        assert!(parser.rescan_sources(&sources, false, |_, _, _| {}).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn scan_of_unreadable_folder_names_it() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = rat_root("Alpha", 1);
+        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o100)).unwrap(); // look up, not list
+        if fs::read_dir(root.path()).is_ok() {
+            fs::set_permissions(root.path(), fs::Permissions::from_mode(0o755)).unwrap();
+            return; // running as root
+        }
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let r = parser.scan_folder_with_progress(root.path(), false, false, |_, _, _| {});
+        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o755)).unwrap();
+        let msg = r.unwrap_err().to_string();
+        assert!(msg.starts_with("Couldn't read the log folder"), "{msg}");
+        assert!(msg.contains(&root.path().display().to_string()));
+        assert_eq!(msg.contains(ACCESS_HINT), cfg!(target_os = "macos"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn recursive_source_with_no_readable_log_root_reports_why() {
+        use std::os::unix::fs::PermissionsExt;
+        let top = tempfile::tempdir().unwrap();
+        let beta = top.path().join("ClanLord").join("Text Logs").join("Beta");
+        fs::create_dir_all(&beta).unwrap();
+        fs::write(beta.join("CL Log 2024-01-02 13.00.00.txt"), "1/2/24 1:00:00p Welcome to Clan Lord, Beta!\n").unwrap();
+        fs::set_permissions(&beta, fs::Permissions::from_mode(0o000)).unwrap();
+        if fs::read_dir(&beta).is_ok() {
+            fs::set_permissions(&beta, fs::Permissions::from_mode(0o755)).unwrap();
+            return; // running as root
+        }
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        let r = parser.update_sources(&[(top.path().to_path_buf(), true)], false, |_, _, _| {});
+        fs::set_permissions(&beta, fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(r.unwrap().errors, 1);
+        assert!(process_log_has(&parser, "Beta"));
+    }
+
+    #[test]
+    fn discovery_errors_are_not_reported_twice() {
+        let roots = vec![PathBuf::from("/a/Text Logs")];
+        assert!(scanned_by_folder_scan(Path::new("/a/Text Logs"), &roots));
+        assert!(scanned_by_folder_scan(Path::new("/a/Text Logs/Beta"), &roots));
+        assert!(!scanned_by_folder_scan(Path::new("/a/Other/Beta"), &roots));
+        assert!(!scanned_by_folder_scan(Path::new("/a/Text Logs/Beta/deeper"), &roots));
+    }
+
+    #[test]
+    fn refused_rescan_keeps_the_last_process_logs() {
+        let good = rat_root("Alpha", 1);
+        let gone = tempfile::tempdir().unwrap();
+        let parser = LogParser::new(Database::open_in_memory().unwrap()).unwrap();
+        parser.update_sources(&[(good.path().to_path_buf(), false)], false, |_, _, _| {}).unwrap();
+        assert!(process_log_has(&parser, "Scanned Alpha"));
+        let sources = vec![(good.path().to_path_buf(), false), (gone.path().join("nope"), false)];
+        assert!(parser.rescan_sources(&sources, false, |_, _, _| {}).is_err());
+        assert!(process_log_has(&parser, "Scanned Alpha"));
     }
 
     fn kill_sum(parser: &LogParser, char_id: i64, scope: crate::db::ScanScope) -> i64 {

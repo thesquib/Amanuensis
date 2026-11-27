@@ -67,54 +67,52 @@ pub(super) async fn run_scan(
     index_lines: bool,
     reset_first: bool,
 ) -> Result<ScanResult, String> {
-    let db = state.take_db()?;
-    let state_db = state.db.clone();
-
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        if reset_first {
-            db.reset_log_data().map_err(|e| e.to_string())?;
-        }
-
-        let parser = LogParser::new(db).map_err(|e| e.to_string())?;
-
-        let app_handle = app.clone();
-        let progress_cb = |current: usize, total: usize, filename: &str| {
-            let _ = app_handle.emit(
-                "scan-progress",
-                ScanProgress {
-                    current_file: current,
-                    total_files: total,
-                    filename: filename.to_string(),
-                },
-            );
+    state.run_blocking(move |db| {
+        let parser = match LogParser::new(db) {
+            Ok(p) => p,
+            Err(e) => return (None, Err(e.to_string())),
         };
+        let result = (|| -> Result<ScanResult, String> {
+            if reset_first {
+                parser.db().reset_log_data().map_err(|e| e.to_string())?;
+            }
 
-        let result = match op {
-            ScanOp::Folder { path, force, recursive } => {
-                if recursive {
+            let app_handle = app.clone();
+            let progress_cb = |current: usize, total: usize, filename: &str| {
+                let _ = app_handle.emit(
+                    "scan-progress",
+                    ScanProgress {
+                        current_file: current,
+                        total_files: total,
+                        filename: filename.to_string(),
+                    },
+                );
+            };
+
+            let result = match op {
+                ScanOp::Folder { path, force, recursive } => {
+                    if recursive {
+                        parser
+                            .scan_recursive_with_progress(Path::new(&path), force, index_lines, progress_cb)
+                            .map_err(|e| e.to_string())?
+                    } else {
+                        parser
+                            .scan_folder_with_progress(Path::new(&path), force, index_lines, progress_cb)
+                            .map_err(|e| e.to_string())?
+                    }
+                }
+                ScanOp::Files { files, force } => {
+                    let paths: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
                     parser
-                        .scan_recursive_with_progress(Path::new(&path), force, index_lines, progress_cb)
-                        .map_err(|e| e.to_string())?
-                } else {
-                    parser
-                        .scan_folder_with_progress(Path::new(&path), force, index_lines, progress_cb)
+                        .scan_files_with_progress(&paths, force, index_lines, progress_cb)
                         .map_err(|e| e.to_string())?
                 }
-            }
-            ScanOp::Files { files, force } => {
-                let paths: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
-                parser
-                    .scan_files_with_progress(&paths, force, index_lines, progress_cb)
-                    .map_err(|e| e.to_string())?
-            }
-        };
+            };
 
-        parser.finalize_characters().map_err(|e| e.to_string())?;
-        *state_db.lock().map_err(|e| format!("Lock poisoned: {e}"))? = Some(parser.into_db());
-        Ok(result)
+            parser.finalize_characters().map_err(|e| e.to_string())?;
+            Ok(result)
+        })();
+        (Some(parser.into_db()), result)
     })
     .await
-    .map_err(|e| e.to_string())?;
-
-    result
 }

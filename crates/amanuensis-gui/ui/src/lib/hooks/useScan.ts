@@ -1,9 +1,24 @@
-import { open, confirm } from "@tauri-apps/plugin-dialog";
+import { open, confirm, message } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useCallback } from "react";
 import { useStore } from "../store";
 import { scanLogs, rescanLogs, scanFiles, updateLogs, getPendingLogCount, listCharacters, getScannedLogCount, getLogLineCount, getProcessLogs } from "../commands";
-import type { ScanProgress } from "../../types";
+import type { ScanProgress, ScanResult } from "../../types";
+
+/** Show a scan failure (or a scan that skipped unreadable files or folders) instead of only logging it. */
+async function reportScanError(title: string, e: unknown) {
+  console.error(`${title}:`, e);
+  await message(String(e), { title, kind: "error" });
+}
+
+async function reportSkipped(scan: ScanResult) {
+  if (scan.errors === 0) return;
+  await message(
+    `${scan.errors} file(s) or folder(s) couldn't be read and were skipped. See Process Logs for details.` +
+      (scan.hint ? `\n\n${scan.hint}` : ""),
+    { title: "Some logs were skipped", kind: "warning" },
+  );
+}
 
 export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCharacters>>) => Promise<void>) {
   const {
@@ -60,11 +75,12 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     setScanProgress(null);
 
     try {
-      await scanLogs(folderPath, false, recursiveScan, indexLogLines);
+      const scan = await scanLogs(folderPath, false, recursiveScan, indexLogLines);
       addSource(folderPath, recursiveScan);
       await finishScan();
+      await reportSkipped(scan);
     } catch (e) {
-      console.error("Scan failed:", e);
+      await reportScanError("Scan failed", e);
     } finally {
       setIsScanning(false);
       setScanProgress(null);
@@ -86,10 +102,11 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     setScanProgress(null);
 
     try {
-      await scanFiles(files, false, indexLogLines);
+      const scan = await scanFiles(files, false, indexLogLines);
       await finishScan();
+      await reportSkipped(scan);
     } catch (e) {
-      console.error("Scan failed:", e);
+      await reportScanError("Scan failed", e);
     } finally {
       setIsScanning(false);
       setScanProgress(null);
@@ -106,10 +123,11 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
     setIsScanning(true);
     setScanProgress(null);
     try {
-      await rescanLogs(sources, indexLogLines);
+      const scan = await rescanLogs(sources, indexLogLines);
       await finishScan();
+      await reportSkipped(scan);
     } catch (e) {
-      console.error("Rescan failed:", e);
+      await reportScanError("Rescan failed", e);
     } finally {
       setIsScanning(false);
       setScanProgress(null);
@@ -136,7 +154,7 @@ export function useScan(onScanComplete: (chars: Awaited<ReturnType<typeof listCh
         .sort((a, b) => b.loginsDelta - a.loginsDelta);
       setUpdateResult({ scan, perCharacter });
     } catch (e) {
-      console.error("Update logs failed:", e);
+      await reportScanError("Update Logs failed", e);
     } finally {
       setIsScanning(false);
       setScanProgress(null);

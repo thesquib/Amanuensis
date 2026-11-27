@@ -9,7 +9,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export function UpdateResultDialog({ result, onClose }: UpdateResultDialogProps) {
   const { scan, perCharacter } = result;
-  const nothing = scan.files_scanned === 0;
+  const nothing = scan.files_scanned === 0 && scan.errors === 0;
 
   return (
     <div
@@ -34,6 +34,13 @@ export function UpdateResultDialog({ result, onClose }: UpdateResultDialogProps)
               {plural(scan.events_found, "event")} found
               {scan.errors > 0 ? ` · ${plural(scan.errors, "error")}` : ""}.
             </p>
+            {scan.errors > 0 && (
+              <p className="mb-3 text-sm text-red-400">
+                {scan.errors === 1 ? "A file or folder" : `${scan.errors} files or folders`} couldn't be read
+                and {scan.errors === 1 ? "was" : "were"} skipped. See Process Logs for details.
+                {scan.hint && <span className="mt-2 block">{scan.hint}</span>}
+              </p>
+            )}
 
             {perCharacter.length > 0 ? (
               <div className="mb-4 max-h-64 overflow-y-auto rounded border border-[var(--color-border)]">
@@ -54,7 +61,7 @@ export function UpdateResultDialog({ result, onClose }: UpdateResultDialogProps)
                   );
                 })}
               </div>
-            ) : (
+            ) : scan.files_scanned === 0 ? null : (
               <p className="mb-4 text-xs text-[var(--color-text-muted)]">
                 Files were read, but no per-character login or death changes were detected.
               </p>

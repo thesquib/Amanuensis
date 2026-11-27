@@ -16,6 +16,10 @@ pub enum AmanuensisError {
 
     #[error("Data error: {0}")]
     Data(String),
+
+    /// A complete message for the user, shown as is.
+    #[error("{0}")]
+    Message(String),
 }
 
 pub type Result<T> = std::result::Result<T, AmanuensisError>;
